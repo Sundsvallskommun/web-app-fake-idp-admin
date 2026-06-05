@@ -12,6 +12,11 @@ export class UsersService {
     return prisma.user.findUnique({ where: { id }, ...withAttributes });
   }
 
+  // username is not unique in the schema; callers match the password themselves.
+  public getUsersByUsername(username: string) {
+    return prisma.user.findMany({ where: { username }, ...withAttributes });
+  }
+
   public createUser(data: CreateUserDto) {
     return prisma.user.create({
       data: {

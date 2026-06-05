@@ -13,5 +13,8 @@ declare module 'express-session' {
     passport?: any;
     representingChoices?: Engagement[];
     messages: string[];
+    // IdP role: the user logged in at this IdP, and the AuthnRequest in flight.
+    idpUser?: { id: string };
+    idpRequest?: { destination: string; inResponseTo: string; relayState?: string };
   }
 }

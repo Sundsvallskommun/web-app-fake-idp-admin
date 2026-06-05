@@ -48,6 +48,7 @@ import { User } from './interfaces/users.interface';
 import { additionalConverters } from './utils/custom-validation-classes';
 import { isValidOrigin } from './utils/isValidOrigin';
 import { isValidUrl } from './utils/util';
+import { registerIdpRoutes } from './saml-idp/idp.routes';
 
 const corsWhitelist = ORIGIN.split(',');
 
@@ -349,6 +350,10 @@ class App {
         }
       })(req, res, next);
     });
+
+    // IdP role: expose the SAML IdP endpoints (this backend acting as a fake
+    // Identity Provider), mounted alongside the SP saml routes above.
+    registerIdpRoutes(this.app);
   }
 
   private initializeRoutes(controllers: Function[]) {

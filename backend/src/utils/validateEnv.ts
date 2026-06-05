@@ -18,6 +18,10 @@ const validateEnv = () => {
     SAML_IDP_PUBLIC_CERT: str(),
     SAML_PRIVATE_KEY: str(),
     SAML_PUBLIC_KEY: str(),
+    // IdP role (this backend acting as a fake SAML Identity Provider).
+    SAML_IDP_PRIVATE_KEY: str(),
+    SAML_IDP_ENTITY_ID: str(),
+    SAML_SP_AUDIENCE: str({ default: '' }),
   });
 };
 
