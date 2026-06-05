@@ -25,7 +25,7 @@ export const EditAssistant: React.FC = () => {
   const router = useRouter();
 
   const { resource: _resource, id: _id } = useParams();
-  const resource = stringToResourceName(typeof _resource === 'object' ? _resource[0] : _resource);
+  const resource = stringToResourceName((typeof _resource === 'object' ? _resource[0] : _resource) ?? '');
   if (!resource) {
     router.push('/');
   }

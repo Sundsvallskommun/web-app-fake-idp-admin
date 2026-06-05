@@ -21,7 +21,7 @@ export const Exempelsida: React.FC = () => {
   const router = useRouter();
 
   const { resource: _resource } = useParams();
-  const resource = stringToResourceName(typeof _resource === 'object' ? _resource[0] : _resource);
+  const resource = stringToResourceName((typeof _resource === 'object' ? _resource[0] : _resource) ?? '');
 
   const { data, refresh, loaded, loading } = useResource(resource as ResourceName);
 

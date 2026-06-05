@@ -4,10 +4,16 @@
   "description": "TypeScript + Express + Routing Controllers API Server",
   "author": "",
   "license": "ISC",
+  "prisma": {
+    "seed": "cross-env NODE_ENV=development ts-node --transpile-only prisma/seed.ts"
+  },
   "scripts": {
     "start": "cross-env NODE_ENV=production node dist/server.js",
     "dev": "cross-env NODE_ENV=development nodemon",
     "generate:contracts": "cross-env NODE_ENV=development ts-node ./src/swagger-typescript-api.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "cross-env NODE_ENV=development prisma migrate dev",
+    "prisma:seed": "cross-env NODE_ENV=development ts-node --transpile-only prisma/seed.ts",
     "build": "tsc && tsc-alias",
     "build:swc": "swc src -d dist --source-maps --copy-files",
     "test": "jest --forceExit --detectOpenHandles",
@@ -19,6 +25,7 @@
   },
   "dependencies": {
     "@node-saml/passport-saml": "^5.1.0",
+    "@prisma/client": "6.19.3",
     "axios": "^1.13.5",
     "body-parser": "^1.20.3",
     "class-transformer": "^0.5.1",
@@ -73,6 +80,7 @@
     "lint-staged": "^15.3.0",
     "nodemon": "^3.1.9",
     "prettier": "^3.4.2",
+    "prisma": "6.19.3",
     "supertest": "^7.0.0",
     "swagger-typescript-api": "^13.0.23",
     "ts-jest": "^29.2.5",

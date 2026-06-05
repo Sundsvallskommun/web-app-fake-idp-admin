@@ -1,27 +1,24 @@
-import { Api } from '@data-contracts/backend/Api';
-import { User } from '@data-contracts/backend/data-contracts';
+import { AdminUser, CreateUserDto, UpdateUserDto } from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
+import { apiClient as apiService } from '@services/api-client';
 
-const apiService = new Api({ baseURL: process.env.NEXT_PUBLIC_API_URL, withCredentials: true });
-
-const users: Resource<User> = {
+const users: Resource<AdminUser> = {
   name: 'users',
-  // endpoints
-  /** @ts-expect-error New endpoint must be created and handle the call */
-  getOne: apiService.userControllerGetUser,
-  /** @ts-expect-error New endpoint must be created and handle the call */
+  // endpoints — the generated client types `id` as string; the Resource contract
+  // allows string | number, so we bridge with String(id).
+  getOne: (id, params) => apiService.userControllerGetUser(String(id), params),
   getMany: apiService.userControllerGetUsers,
-  /** @ts-expect-error New endpoint must be created and handle the call */
-  create: apiService.userControllerCreateUser,
-  /** @ts-expect-error New endpoint must be created and handle the call */
-  update: apiService.userControllerUpdateUser,
-  /** @ts-expect-error New endpoint must be created and handle the call */
-  remove: apiService.userControllerRemoveUser,
+  create: (data, params) => apiService.userControllerCreateUser(data as CreateUserDto, params),
+  update: (id, data, params) => apiService.userControllerUpdateUser(String(id), data as UpdateUserDto, params),
+  remove: (id, params) => apiService.userControllerRemoveUser(String(id), params),
 
   defaultValues: {
     name: '',
+    username: '',
+    password: '',
+    attributes: [],
   },
-  requiredFields: ['name'],
+  requiredFields: ['name', 'username', 'password'],
 };
 
 const resources = { users };

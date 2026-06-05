@@ -6,9 +6,17 @@
   "properties": {
     "id": "Id",
     "name": "Namn",
-    "givenName": "Förnmn",
-    "surname": "Efternamn",
     "username": "Användarnamn",
-    "userId": "Användar-id"
-  }
+    "password": "Lösenord",
+    "attributes": "Attribut"
+  },
+  "attribute": {
+    "key": "Nyckel",
+    "value": "Värde",
+    "format": "Format",
+    "type": "Typ"
+  },
+  "add_attribute": "Lägg till attribut",
+  "remove_attribute": "Ta bort attribut",
+  "no_attributes": "Inga attribut än"
 }

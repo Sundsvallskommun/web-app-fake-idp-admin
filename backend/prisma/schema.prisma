@@ -7,6 +7,31 @@ datasource db {
   url      = "file:../data/database/database.db"
 }
 
+/// A fake-IdP user. NOTE: this is a test/simulator IdP, so `password` is stored
+/// in plain text on purpose — the IdP must be able to replay credentials.
+model User {
+  id         String      @id @default(cuid())
+  name       String
+  username   String
+  password   String
+  attributes Attribute[]
+}
+
+/// A single SAML attribute belonging to a user. Keys are free-form (e.g.
+/// `givenName`, `email`, `groups`, `urn:oid:0.9.2342.19200300.100.1.1`) and may
+/// repeat across users with different casing, so no uniqueness is enforced here.
+model Attribute {
+  id     Int    @id @default(autoincrement())
+  userId String
+  key    String
+  format String
+  value  String
+  type   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model UserSettings {
   id     Int    @id @default(autoincrement())
   userId String @unique
