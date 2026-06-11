@@ -1,3 +1,8 @@
 users*.js
+TODO.md
 
 .env
+
+# AGENTS
+.playwright-mcp
+.claude
