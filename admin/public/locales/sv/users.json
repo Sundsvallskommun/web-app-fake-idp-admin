@@ -18,5 +18,10 @@
   },
   "add_attribute": "Lägg till attribut",
   "remove_attribute": "Ta bort attribut",
-  "no_attributes": "Inga attribut än"
+  "no_attributes": "Inga attribut än",
+  "import": {
+    "button": "Importera användare",
+    "success": "{{count}} användare importerade",
+    "error": "Kunde inte importera användarfilen"
+  }
 }

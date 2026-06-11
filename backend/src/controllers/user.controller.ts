@@ -1,10 +1,11 @@
 import { HttpException } from '@/exceptions/HttpException';
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import { ClientUser } from '@/interfaces/users.interface';
-import { AdminUserListResponse, AdminUserResponse, UserApiResponse } from '@/responses/user.response';
-import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
+import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
+import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
 import { UsersService } from '@services/users.service';
+import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 
@@ -56,6 +57,20 @@ export class UserController {
   async createUser(@Body() body: CreateUserDto, @Res() response: any) {
     const data = await this.users.createUser(body);
     return response.send({ data, message: 'success' });
+  }
+
+  @Post('/users/import')
+  @OpenAPI({ summary: 'Replace all users with the contents of an uploaded users.js file' })
+  @ResponseSchema(ImportUsersResponse)
+  async importUsers(@Body() body: ImportUsersDto, @Res() response: any) {
+    let users: ImportUser[];
+    try {
+      users = parseUsersModule(body.content);
+    } catch (err) {
+      throw new HttpException(400, (err as Error).message);
+    }
+    const imported = await this.users.replaceAllUsers(users);
+    return response.send({ data: { imported }, message: 'success' });
   }
 
   @Put('/users/:id')

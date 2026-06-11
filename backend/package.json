@@ -14,6 +14,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "cross-env NODE_ENV=development prisma migrate dev",
     "prisma:seed": "cross-env NODE_ENV=development ts-node --transpile-only prisma/seed.ts",
+    "create-admin": "cross-env NODE_ENV=development ts-node --transpile-only prisma/create-admin.ts",
     "build": "tsc && tsc-alias",
     "build:swc": "swc src -d dist --source-maps --copy-files",
     "test": "jest --forceExit --detectOpenHandles",

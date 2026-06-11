@@ -5,3 +5,7 @@ npm-debug.log
 README.md
 .next
 .git
+
+# build writes its own .env from build ARGs; don't copy local env files
+.env
+.env.*

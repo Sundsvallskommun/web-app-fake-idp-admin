@@ -1,26 +1,104 @@
-version: '3'
+# Self-contained local stack for the fake-IdP web app.
+#
+#   cp .env.example .env   # then paste your signing keypair into .env
+#   docker compose up --build
+#
+# Host ports:  backend -> 7000, admin -> 7001, frontend -> 7002
+#
+# ENV: this file is the single source of truth for the Docker stack's config.
+# Every runtime value is set inline below; the per-package .env.*.local files are
+# ONLY used by `yarn dev` (dotenv), never by Docker. The one thing Docker reads
+# from outside is the root .env, used purely for ${VAR} interpolation here.
+#
+# Only ONE self-signed keypair must be supplied via .env (SAML_IDP_PRIVATE_KEY +
+# SAML_IDP_PUBLIC_CERT); the SP role reuses it. Everything else has dev defaults
+# so the stack boots out of the box. The browser talks to the backend at
+# http://localhost:7000, so the NEXT_PUBLIC_* build args and the SP/IdP URLs all
+# point at localhost:7000.
+
 services:
   backend:
     build:
       context: ./backend
+    image: fake-idp-backend
     ports:
-      - "${BACKEND_PORT-3001}:3000"
-    container_name: ${COMPOSE_PROJECT_NAME}-backend-${NODE_ENV}
+      - "7000:3000"
     volumes:
-      - data:/app/data
-      #- database:/app/database
-      #- sessions:/app/sessions
-      #- logs:/app/src/logs
-    network_mode: bridge
-  frontend:
+      - backend-data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      BASE_URL_PREFIX: /api
+      API_BASE_URL: https://api-test.sundsvall.se
+      # Browser-facing origins allowed by CORS (admin + frontend host ports).
+      ORIGIN: ${ORIGIN:?set ORIGIN in .env}
+      CREDENTIALS: "true"
+      SWAGGER_ENABLED: "true"
+      LOG_FORMAT: dev
+      LOG_DIR: ../../data/logs
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      # WSO2 proxy creds — dummies are fine unless you exercise the upstream APIs.
+      CLIENT_KEY: ${CLIENT_KEY:-dummy}
+      CLIENT_SECRET: ${CLIENT_SECRET:-dummy}
+      # SAML Service Provider role (consume). The SP points at our OWN IdP below,
+      # so SAML_ENTRY_SSO + SAML_IDP_PUBLIC_CERT are the self-referential link.
+      SAML_CALLBACK_URL: http://localhost:7000/api/saml/login/callback
+      SAML_LOGOUT_CALLBACK_URL: http://localhost:7000/api/saml/logout/callback
+      SAML_FAILURE_REDIRECT: http://localhost:7000/api/saml/login
+      SAML_SUCCESS_REDIRECT: http://localhost:7002
+      SAML_LOGOUT_REDIRECT: http://localhost:7002
+      SAML_ISSUER: passport-saml
+      # The SP signs its AuthnRequest with this keypair. Since the IdP below never
+      # verifies the SP's request signature, the SP simply REUSES the single IdP
+      # keypair from .env — so .env only ever holds one keypair, not two.
+      SAML_PRIVATE_KEY: ${SAML_IDP_PRIVATE_KEY:?set SAML_IDP_PRIVATE_KEY in .env}
+      SAML_PUBLIC_KEY: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
+      # SAML Identity Provider role (issue). Self-referential: the SP above trusts
+      # this IdP, signed with the one keypair you provide in .env.
+      SAML_ENTRY_SSO: http://localhost:7000/api/saml/idp/sso
+      SAML_IDP_ENTITY_ID: http://localhost:7000/api/saml/idp/metadata
+      SAML_SP_AUDIENCE: passport-saml
+      SAML_IDP_ENUMERATE_USERS: "true"
+      # The ONLY required secret — the self-signed signing keypair (see .env.example).
+      SAML_IDP_PRIVATE_KEY: ${SAML_IDP_PRIVATE_KEY:?set SAML_IDP_PRIVATE_KEY in .env}
+      SAML_IDP_PUBLIC_CERT: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
+
+  admin:
     build:
-      context: ./frontend
+      context: ./admin
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+        NEXT_PUBLIC_API_PATH: /api
+        NEXT_PUBLIC_APP_NAME: Fake IdP Admin
+        DOMAIN_NAME: localhost
+        NEXT_PUBLIC_FEATURE_SHOW_USER_PASSWORDS: "false"
+        HEALTH_AUTH: "false"
+    image: fake-idp-admin
     ports:
-      - "${FRONTEND_PORT-3000}:3000"
-    container_name: ${COMPOSE_PROJECT_NAME}-frontend-${NODE_ENV}
-    network_mode: bridge
+      - "7001:3000"
+    depends_on:
+      - backend
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     args:
+  #       NEXT_PUBLIC_API_URL: http://localhost:7000/api
+  #       NEXT_PUBLIC_APP_NAME: Fake IdP
+  #       ADMIN_URL: http://localhost:7001/
+  #       DOMAIN_NAME: localhost
+  #       HEALTH_AUTH: "false"
+  #   image: fake-idp-frontend
+  #   ports:
+  #     - "7002:3000"
+  #   depends_on:
+  #     - backend
+
 volumes:
-  data:
-  #database:
-  #sessions:
-  #logs:
+  backend-data:
+
+# NOTE: the database lives on the named volume `backend-data` and PERSISTS across
+# `up --build` / `down` (only `down -v` wipes it). It starts empty (migrations run
+# at startup, but seeding is not wired into Docker) — populate it via the admin UI
+# at http://localhost:7001, either by adding users by hand or with the "Import
+# users" button on /users, which replaces all users from an uploaded users.js.

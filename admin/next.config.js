@@ -23,6 +23,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 module.exports = withBundleAnalyzer({
+  allowedDevOrigin: ['http://dev.test'],
   turbopack: {},
   output: 'standalone',
   i18n,

@@ -32,6 +32,12 @@ export class CreateUserDto {
   attributes?: AttributeDto[];
 }
 
+export class ImportUsersDto {
+  // Raw text of an uploaded `users.js` (a CommonJS module exporting `{ users }`).
+  @IsString()
+  content: string;
+}
+
 export class UpdateUserDto {
   @IsOptional()
   @IsString()

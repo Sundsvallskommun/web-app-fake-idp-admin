@@ -5,3 +5,7 @@ npm-debug.log
 README.md
 .next
 .git
+
+# build uses Docker build ARGs, not a stray local env file
+.env
+.env.*

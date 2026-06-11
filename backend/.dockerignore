@@ -1,6 +1,14 @@
 # compiled output
 .vscode
 /node_modules
+dist
+
+# local runtime data (SQLite DB, sessions, logs) — must not be baked into the image
+data
+
+# secrets / local env
+.env
+.env.*
 
 # code formatter
 .eslintrc

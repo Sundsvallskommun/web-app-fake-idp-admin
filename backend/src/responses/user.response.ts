@@ -74,3 +74,17 @@ export class AdminUserListResponse implements ApiResponse<AdminUser[]> {
   @IsString()
   message: string;
 }
+
+export class ImportUsersResult {
+  // Number of users created from the uploaded file.
+  @IsNumber()
+  imported: number;
+}
+
+export class ImportUsersResponse implements ApiResponse<ImportUsersResult> {
+  @ValidateNested()
+  @Type(() => ImportUsersResult)
+  data: ImportUsersResult;
+  @IsString()
+  message: string;
+}

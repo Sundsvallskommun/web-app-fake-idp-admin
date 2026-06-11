@@ -183,8 +183,10 @@ class App {
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    // Raised from the 100kb default so the users.js import (sent as a JSON body)
+    // isn't rejected with 413 for larger seed files.
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use(cookieParser());
 
     this.app.use(
