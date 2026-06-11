@@ -3,18 +3,22 @@
 #   cp .env.example .env   # then paste your signing keypair into .env
 #   docker compose up --build
 #
-# Host ports:  backend -> 7000, admin -> 7001, frontend -> 7002
+# Host ports (defaults):  backend -> 7000, admin -> 7001, frontend -> 7002
 #
 # ENV: this file is the single source of truth for the Docker stack's config.
 # Every runtime value is set inline below; the per-package .env.*.local files are
 # ONLY used by `yarn dev` (dotenv), never by Docker. The one thing Docker reads
 # from outside is the root .env, used purely for ${VAR} interpolation here.
 #
+# Domain + ports are configurable from .env and switch INDEPENDENTLY:
+#   BASE_URL      protocol+host, no port, no trailing slash (default http://localhost)
+#   BACKEND_PORT / ADMIN_PORT / FRONTEND_PORT   published host ports (7000/7001/7002)
+# The browser-facing SP/IdP URLs and NEXT_PUBLIC_* build args are composed from
+# BASE_URL + the relevant *_PORT below; containers always listen on 3000 internally.
+#
 # Only ONE self-signed keypair must be supplied via .env (SAML_IDP_PRIVATE_KEY +
 # SAML_IDP_PUBLIC_CERT); the SP role reuses it. Everything else has dev defaults
-# so the stack boots out of the box. The browser talks to the backend at
-# http://localhost:7000, so the NEXT_PUBLIC_* build args and the SP/IdP URLs all
-# point at localhost:7000.
+# so the stack boots out of the box.
 
 services:
   backend:
@@ -22,7 +26,7 @@ services:
       context: ./backend
     image: fake-idp-backend
     ports:
-      - "7000:3000"
+      - "${BACKEND_PORT:-7000}:3000"
     volumes:
       - backend-data:/app/data
     environment:
@@ -31,7 +35,8 @@ services:
       BASE_URL_PREFIX: /api
       API_BASE_URL: https://api-test.sundsvall.se
       # Browser-facing origins allowed by CORS (admin + frontend host ports).
-      ORIGIN: ${ORIGIN:?set ORIGIN in .env}
+      # Derived from BASE_URL + ADMIN_PORT/FRONTEND_PORT; override by setting ORIGIN in .env.
+      ORIGIN: ${ORIGIN:-${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001},${BASE_URL:-http://localhost}:${FRONTEND_PORT:-7002}}
       CREDENTIALS: "true"
       SWAGGER_ENABLED: "true"
       LOG_FORMAT: dev
@@ -42,11 +47,11 @@ services:
       CLIENT_SECRET: ${CLIENT_SECRET:-dummy}
       # SAML Service Provider role (consume). The SP points at our OWN IdP below,
       # so SAML_ENTRY_SSO + SAML_IDP_PUBLIC_CERT are the self-referential link.
-      SAML_CALLBACK_URL: http://localhost:7000/api/saml/login/callback
-      SAML_LOGOUT_CALLBACK_URL: http://localhost:7000/api/saml/logout/callback
-      SAML_FAILURE_REDIRECT: http://localhost:7000/api/saml/login
-      SAML_SUCCESS_REDIRECT: http://localhost:7002
-      SAML_LOGOUT_REDIRECT: http://localhost:7002
+      SAML_CALLBACK_URL: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api/saml/login/callback
+      SAML_LOGOUT_CALLBACK_URL: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api/saml/logout/callback
+      SAML_FAILURE_REDIRECT: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api/saml/login
+      SAML_SUCCESS_REDIRECT: ${BASE_URL:-http://localhost}:${FRONTEND_PORT:-7002}
+      SAML_LOGOUT_REDIRECT: ${BASE_URL:-http://localhost}:${FRONTEND_PORT:-7002}
       SAML_ISSUER: passport-saml
       # The SP signs its AuthnRequest with this keypair. Since the IdP below never
       # verifies the SP's request signature, the SP simply REUSES the single IdP
@@ -55,8 +60,8 @@ services:
       SAML_PUBLIC_KEY: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
       # SAML Identity Provider role (issue). Self-referential: the SP above trusts
       # this IdP, signed with the one keypair you provide in .env.
-      SAML_ENTRY_SSO: http://localhost:7000/api/saml/idp/sso
-      SAML_IDP_ENTITY_ID: http://localhost:7000/api/saml/idp/metadata
+      SAML_ENTRY_SSO: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api/saml/idp/sso
+      SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
       # The ONLY required secret — the self-signed signing keypair (see .env.example).
@@ -67,7 +72,7 @@ services:
     build:
       context: ./admin
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+        NEXT_PUBLIC_API_URL: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}
         NEXT_PUBLIC_API_PATH: /api
         NEXT_PUBLIC_APP_NAME: Fake IdP Admin
         DOMAIN_NAME: localhost
@@ -75,7 +80,7 @@ services:
         HEALTH_AUTH: "false"
     image: fake-idp-admin
     ports:
-      - "7001:3000"
+      - "${ADMIN_PORT:-7001}:3000"
     depends_on:
       - backend
 
@@ -83,14 +88,14 @@ services:
   #   build:
   #     context: ./frontend
   #     args:
-  #       NEXT_PUBLIC_API_URL: http://localhost:7000/api
+  #       NEXT_PUBLIC_API_URL: ${BASE_URL:-http://localhost}:${BACKEND_PORT:-7000}/api
   #       NEXT_PUBLIC_APP_NAME: Fake IdP
-  #       ADMIN_URL: http://localhost:7001/
+  #       ADMIN_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/
   #       DOMAIN_NAME: localhost
   #       HEALTH_AUTH: "false"
   #   image: fake-idp-frontend
   #   ports:
-  #     - "7002:3000"
+  #     - "${FRONTEND_PORT:-7002}:3000"
   #   depends_on:
   #     - backend
 

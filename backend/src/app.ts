@@ -50,7 +50,9 @@ import { isValidOrigin } from './utils/isValidOrigin';
 import { isValidUrl } from './utils/util';
 import { registerIdpRoutes } from './saml-idp/idp.routes';
 
-const corsWhitelist = ORIGIN.split(',');
+const corsWhitelist = ORIGIN.split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 const SessionStoreCreate = SESSION_MEMORY ? createMemoryStore(session) : createFileStore(session);
 const sessionTTL = 4 * 24 * 60 * 60;
@@ -202,22 +204,32 @@ class App {
     this.app.use(passport.session());
     passport.use('saml', samlStrategy);
 
-    this.app.use(
-      cors({
-        credentials: CREDENTIALS,
-        origin: function (origin, callback) {
-          if (origin === undefined || corsWhitelist.indexOf(origin) !== -1 || corsWhitelist.indexOf('*') !== -1) {
+    const corsMiddleware = cors({
+      credentials: CREDENTIALS,
+      origin: function (origin, callback) {
+        if (origin === undefined || corsWhitelist.indexOf(origin) !== -1 || corsWhitelist.indexOf('*') !== -1) {
+          callback(null, true);
+        } else {
+          if (NODE_ENV == 'development') {
             callback(null, true);
           } else {
-            if (NODE_ENV == 'development') {
-              callback(null, true);
-            } else {
-              callback(new Error('Not allowed by CORS'));
-            }
+            callback(new Error('Not allowed by CORS'));
           }
-        },
-      }),
-    );
+        }
+      },
+    });
+    const samlPath = `${BASE_URL_PREFIX}/saml`;
+    this.app.use((req, res, next) => {
+      // The SAML SP + IdP routes are browser-driven form/redirect flows: HTTP-POST
+      // binding and the IdP login form arrive as top-level navigations reached via a
+      // cross-origin redirect, so they legitimately carry a cross-origin or `Origin: null`
+      // header. CORS isn't enforced on top-level navigations anyway — only this
+      // server-side middleware would reject them — so skip the API whitelist here.
+      if (req.path === samlPath || req.path.startsWith(`${samlPath}/`)) {
+        return next();
+      }
+      return corsMiddleware(req, res, next);
+    });
 
     this.app.get(
       `${BASE_URL_PREFIX}/saml/login`,

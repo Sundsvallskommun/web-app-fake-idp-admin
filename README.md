@@ -86,7 +86,7 @@ Det finns två separata sätt att köra appen, med varsin uppsättning miljöfil
 | Sätt att köra | Läser miljövariabler från | Innehåll |
 |---|---|---|
 | `yarn dev` (per paket) | `backend/.env.development.local`, `admin/.env`, osv. (via dotenv) | All konfiguration för utvecklingsläge |
-| `docker compose` | Inline i `docker-compose.yml` + **root** `.env` (endast för `${VAR}`-interpolering) | Stacken är självkonfigurerande; root-`.env` håller **bara hemligheten** (nyckelparet) |
+| `docker compose` | Inline i `docker-compose.yml` + **root** `.env` (endast för `${VAR}`-interpolering) | Stacken är självkonfigurerande; root-`.env` håller **hemligheten** (nyckelparet) samt domän/port-konfig (`BASE_URL` + `*_PORT`) |
 
 Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser aldrig root-`.env`. Den enda hemlighet Docker behöver är ett självsignerat nyckelpar.
 
@@ -124,6 +124,17 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 | IdP-inloggningssida | http://localhost:7000/api/saml/idp/login |
 
 (Frontend på port 7002 ligger utkommenterad i `docker-compose.yml` – avkommentera tjänsten för att aktivera den.)
+
+Domän och portar är konfigurerbara från root-`.env` och kan ändras **oberoende av varandra**:
+
+| Variabel | Default | Styr |
+|---|---|---|
+| `BASE_URL` | `http://localhost` | Protokoll + värdnamn (utan port, utan avslutande `/`) |
+| `BACKEND_PORT` | `7000` | Backendens publicerade host-port |
+| `ADMIN_PORT` | `7001` | Adminens publicerade host-port |
+| `FRONTEND_PORT` | `7002` | Frontendens publicerade host-port |
+
+Alla SP/IdP-URL:er och adminens `NEXT_PUBLIC_API_URL` byggs ihop av `BASE_URL` + rätt `*_PORT`. Containrarna lyssnar alltid på `3000` internt. `ORIGIN` (CORS) härleds från `BASE_URL` + `ADMIN_PORT`/`FRONTEND_PORT`, men kan överskridas genom att sätta `ORIGIN` explicit i `.env` (t.ex. för att tillåta flera domäner samtidigt).
 
 ### Användardata: import och persistens
 
