@@ -167,6 +167,7 @@ Lägg till i `backend/.env.development.local` (se även `backend/.env.example.lo
 - `SAML_SP_AUDIENCE` — Audience/SPNameQualifier i utfärdade assertions. Faller tillbaka till `SAML_ISSUER` om tom.
 - `SAML_IDP_ENUMERATE_USERS` — `true` visar en användarlista på inloggningssidan, `false` kräver användarnamn/lösenord.
 - `SAML_IDP_PUBLIC_CERT` — (återanvänds) IdP:ns publika cert som motsvarar `SAML_IDP_PRIVATE_KEY`; det är detta cert som Service Providern måste lita på.
+- `SAML_IDP_BASE_PATH` — (valfritt) publik sub-path-prefix för IdP:n. T.ex. `/myidp` exponerar IdP:n på `<host>/myidp/api/saml/idp/*` (utöver standardvägen). Tom = inget prefix (standard). Se [Köra IdP:n under en sub-path](#köra-idpn-under-en-sub-path-tex-foobarcommyidp).
 
 Generera ett självsignerat nyckelpar för test:
 
@@ -185,6 +186,37 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 ### Peka en Service Provider mot IdP:n
 
 Sätt SP:ns `SAML_ENTRY_SSO=http://localhost:3001/api/saml/idp/sso` och låt SP:n lita på IdP:ns cert (`SAML_IDP_PUBLIC_CERT`). En SP kan också konfigureras via `GET /api/saml/idp/metadata`. Appens egen SP-sida kan på så vis logga in mot den egna backend-IdP:n istället för den fristående `web-app-fake-sso-idp`.
+
+### Köra IdP:n under en sub-path (t.ex. `foobar.com/myidp`)
+
+IdP:ns routes monteras under `/api/saml/idp/*`. Sätt `SAML_IDP_BASE_PATH` till ett prefix så monteras routern **även** under `<prefix>/api/saml/idp/*`, och alla webbläsarvända URL:er (formulärens `action` för login/logout/authenticate samt `SingleSignOnService`-Location i metadata) får med prefixet. Tom variabel = inget prefix, så befintliga uppsättningar påverkas inte.
+
+Med `SAML_IDP_BASE_PATH=/myidp` nås IdP:n alltså på `<host>/myidp/api/saml/idp/login`, `…/sso` osv. Eftersom routern monteras på båda vägarna fungerar det **både** vid direktaccess mot backend och bakom en omvänd proxy (proxyn behöver inte skriva om sökvägen).
+
+1. **Miljö** (sätt i root-`.env` och **bygg om** backend-imagen så ändringen läses in – se nedan):
+
+   ```
+   SAML_IDP_BASE_PATH=/myidp
+   SAML_IDP_ENTITY_ID=https://foobar.com/myidp/api/saml/idp/metadata
+   SAML_ENTRY_SSO=https://foobar.com/myidp/api/saml/idp/sso
+   ```
+
+   SSO-URL:en i metadata byggs från `SAML_IDP_ENTITY_ID`:s origin + den publika basen, så `SAML_IDP_ENTITY_ID` måste vara den fullständiga publika URL:en. `SAML_IDP_BASE_PATH` normaliseras – inledande/avslutande snedstreck spelar ingen roll (`myidp`, `/myidp` och `/myidp/` blir alla `/myidp`). Sätt den **inte** till bara `/`.
+
+2. **Omvänd proxy** (vid behov) – eftersom backend redan svarar på prefix-vägen behöver proxyn bara vidarebefordra den oförändrad (ingen omskrivning, alltså **ingen** avslutande slash på `proxy_pass`):
+
+   ```nginx
+   location /myidp/ {
+       proxy_pass http://backend:3000;
+       proxy_set_header Host $http_host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   ```
+
+3. **Service Provider** – peka SP:ns entryPoint på `https://foobar.com/myidp/api/saml/idp/sso` och läs in IdP-metadata från `https://foobar.com/myidp/api/saml/idp/metadata`. Cert, issuer och audience är oförändrade.
+
+I Docker-stacken skickas `SAML_IDP_BASE_PATH` vidare via `docker-compose.yml` (tom som standard) – sätt den i root-`.env`. Kodändringen ligger i den byggda imagen, så kör `docker compose up -d --build backend` för att både bygga om koden och läsa in den nya env-variabeln.
 
 ### Språkstöd
 

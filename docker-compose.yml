@@ -73,6 +73,13 @@ services:
       SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
+      # Optional: serve the IdP's browser-facing endpoints under a public sub-path
+      # (login/logout form actions + metadata SSO Location). Empty = default
+      # (/api/saml/idp). To expose the IdP at e.g. https://foobar.com/myidp/sso, set
+      # SAML_IDP_BASE_PATH=/myidp in .env, add a proxy rule mapping /myidp/ ->
+      # backend /api/saml/idp/ (see nginx.conf), and point SAML_ENTRY_SSO /
+      # SAML_IDP_ENTITY_ID at the /myidp URLs.
+      SAML_IDP_BASE_PATH: ${SAML_IDP_BASE_PATH:-}
       # The ONLY required secret — the self-signed signing keypair (see .env.example).
       SAML_IDP_PRIVATE_KEY: ${SAML_IDP_PRIVATE_KEY:?set SAML_IDP_PRIVATE_KEY in .env}
       SAML_IDP_PUBLIC_CERT: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}

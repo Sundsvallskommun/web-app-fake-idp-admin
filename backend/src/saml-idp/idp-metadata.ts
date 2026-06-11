@@ -1,4 +1,4 @@
-import { BASE_URL_PREFIX, SAML_IDP_ENTITY_ID, SAML_IDP_PUBLIC_CERT } from '@config';
+import { IDP_PUBLIC_PATH, SAML_IDP_ENTITY_ID, SAML_IDP_PUBLIC_CERT } from '@config';
 import { pemCertBody, xmlEscape } from './util';
 
 const HTTP_REDIRECT = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect';
@@ -12,7 +12,7 @@ function ssoUrl(): string {
   } catch {
     origin = '';
   }
-  return `${origin}${BASE_URL_PREFIX}/saml/idp/sso`;
+  return `${origin}${IDP_PUBLIC_PATH}/sso`;
 }
 
 /**

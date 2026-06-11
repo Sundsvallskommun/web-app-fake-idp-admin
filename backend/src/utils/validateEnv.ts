@@ -22,6 +22,8 @@ const validateEnv = () => {
     SAML_IDP_PRIVATE_KEY: str(),
     SAML_IDP_ENTITY_ID: str(),
     SAML_SP_AUDIENCE: str({ default: '' }),
+    // Optional public sub-path for the IdP's browser-facing URLs (reverse-proxy setups).
+    SAML_IDP_BASE_PATH: str({ default: '' }),
   });
 };
 

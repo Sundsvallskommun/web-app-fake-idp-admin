@@ -1,4 +1,4 @@
-import { BASE_URL_PREFIX, SAML_IDP_ENUMERATE_USERS } from '@config';
+import { IDP_MOUNT_PATH, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import { isValidUrl } from '@utils/util';
@@ -9,10 +9,12 @@ import { parseRequest } from './request-parser';
 import { createResponse, UserWithAttributes } from './response-builder';
 import { renderDetails, renderLogin, renderPostResponse } from './templates';
 
-const IDP_BASE = `${BASE_URL_PREFIX}/saml/idp`;
-const AUTHENTICATE_ACTION = `${IDP_BASE}/authenticate`;
-const LOGIN_ACTION = `${IDP_BASE}/login`;
-const LOGOUT_ACTION = `${IDP_BASE}/logout`;
+// Browser-facing action URLs use the PUBLIC base path (so they resolve correctly
+// when the IdP is served behind a reverse proxy at a sub-path); the router itself
+// is mounted at the internal IDP_MOUNT_PATH below.
+const AUTHENTICATE_ACTION = `${IDP_PUBLIC_PATH}/authenticate`;
+const LOGIN_ACTION = `${IDP_PUBLIC_PATH}/login`;
+const LOGOUT_ACTION = `${IDP_PUBLIC_PATH}/logout`;
 
 const usersService = new UsersService();
 
@@ -168,6 +170,13 @@ export function registerIdpRoutes(app: express.Application): void {
     res.type('application/xml').send(buildIdpMetadata());
   });
 
-  app.use(IDP_BASE, router);
-  logger.info(`SAML IdP routes mounted at ${IDP_BASE}`);
+  app.use(IDP_MOUNT_PATH, router);
+  // When a public sub-path prefix is configured, also serve the IdP there so it
+  // works whether reached directly or via a reverse proxy that doesn't rewrite.
+  if (IDP_PUBLIC_PATH !== IDP_MOUNT_PATH) {
+    app.use(IDP_PUBLIC_PATH, router);
+    logger.info(`SAML IdP routes mounted at ${IDP_MOUNT_PATH} and ${IDP_PUBLIC_PATH}`);
+  } else {
+    logger.info(`SAML IdP routes mounted at ${IDP_MOUNT_PATH}`);
+  }
 }
