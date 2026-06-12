@@ -1,12 +1,15 @@
+import { HighlightedText } from '@components/highlighted-text/highlighted-text.component';
+import { SearchQueryContext } from '@components/highlighted-text/search-query.context';
 import { defaultInformationFields } from '@config/defaults';
 import resources from '@config/resources';
 import { ResourceName } from '@interfaces/resource-name';
-import { AutoTable, AutoTableHeader, Icon } from '@sk-web-gui/react';
+import { AutoTable, AutoTableHeader, Icon, SearchField } from '@sk-web-gui/react';
 import { getFormattedFields } from '@utils/formatted-field';
+import { matchesQuery } from '@utils/match-query';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
 import { Check, Pencil } from 'lucide-react';
 import NextLink from 'next/link';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { capitalize } from 'underscore.string';
 import { useShallow } from 'zustand/react/shallow';
@@ -20,6 +23,7 @@ interface ListResourcesProps {
 export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers: _headers, data }) => {
   const { update, columns } = resources[resource];
   const { t } = useTranslation();
+  const [query, setQuery] = useState('');
   const [{ [resource]: storeHeaders }, setHeaders] = useLocalStorage(
     useShallow((state) => [state.headers, state.setHeaders])
   );
@@ -118,17 +122,39 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
         }
     ) || [];
 
+  // Highlight matched text in columns that don't already supply their own renderer
+  // (boolean check icons, the edit pencil, and custom columns like `groups` keep theirs).
+  const highlightedHeaders: AutoTableHeader[] = translatedHeaders.map((header) =>
+    header.renderColumn ? header : (
+      { ...header, renderColumn: (value) => <HighlightedText>{value as React.ReactNode}</HighlightedText> }
+    )
+  );
+
   const formattedData = useMemo(() => data?.map((row) => getFormattedFields(row)), [data]);
 
+  const filteredData = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return formattedData;
+    return formattedData?.filter((row) => matchesQuery(row, q));
+  }, [formattedData, query]);
+
   return (
-    <div>
-      {formattedData && formattedData?.length > 0 ?
+    <SearchQueryContext.Provider value={query}>
+      <SearchField
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onReset={() => setQuery('')}
+        showSearchButton={false}
+        placeholder={capitalize(t('common:filter'))}
+        className="mb-16 max-w-[32rem]"
+      />
+      {filteredData && filteredData?.length > 0 ?
         <AutoTable
           pageSize={15}
-          autodata={formattedData}
-          autoheaders={[...translatedHeaders, ...(update ? [editHeader] : [])]}
+          autodata={filteredData}
+          autoheaders={[...highlightedHeaders, ...(update ? [editHeader] : [])]}
         />
       : <h3>{capitalize(t('common:no_resources', { resources: t(`${resource}:name_zero`) }))}</h3>}
-    </div>
+    </SearchQueryContext.Provider>
   );
 };

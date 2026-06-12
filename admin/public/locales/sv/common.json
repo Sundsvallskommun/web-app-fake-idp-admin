@@ -6,6 +6,7 @@
   "create_new": "skapa ny {{resource}}",
   "createdAt": "Skapad",
   "edit": "redigera {{resource}}",
+  "filter": "filtrera",
   "go_back": "gå tillbaks",
   "id": "id",
   "info": "Information",

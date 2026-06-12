@@ -1,3 +1,4 @@
+import { HighlightedText } from '@components/highlighted-text/highlighted-text.component';
 import { AdminUser, CreateUserDto, UpdateUserDto } from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
@@ -29,7 +30,7 @@ const users: Resource<AdminUser> = {
     {
       property: 'groups',
       isColumnSortable: false,
-      renderColumn: (_value, item) => createElement('span', null, getGroups(item as AdminUser)),
+      renderColumn: (_value, item) => createElement(HighlightedText, null, getGroups(item as AdminUser)),
     },
   ],
 };
