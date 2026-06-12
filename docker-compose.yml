@@ -56,11 +56,11 @@ services:
       # so SAML_ENTRY_SSO + SAML_IDP_PUBLIC_CERT are the self-referential link.
       # All browser-facing SAML URLs use the PROXY origin (ADMIN_PORT) so the entire
       # login dance stays on one origin and the session cookie is first-party.
-      SAML_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/login/callback
-      SAML_LOGOUT_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/logout/callback
-      SAML_FAILURE_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/login
-      SAML_SUCCESS_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}
-      SAML_LOGOUT_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}
+      SAML_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/login/callback
+      SAML_LOGOUT_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/logout/callback
+      SAML_FAILURE_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/login
+      SAML_SUCCESS_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${ADMIN_BASE_PATH:-}
+      SAML_LOGOUT_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${ADMIN_BASE_PATH:-}
       SAML_ISSUER: passport-saml
       # The SP signs its AuthnRequest with this keypair. Since the IdP below never
       # verifies the SP's request signature, the SP simply REUSES the single IdP
@@ -69,17 +69,16 @@ services:
       SAML_PUBLIC_KEY: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
       # SAML Identity Provider role (issue). Self-referential: the SP above trusts
       # this IdP, signed with the one keypair you provide in .env.
-      SAML_ENTRY_SSO: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/idp/sso
-      SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}/api/saml/idp/metadata
+      SAML_ENTRY_SSO: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/idp/sso
+      SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
-      # Optional: serve the IdP's browser-facing endpoints under a public sub-path
-      # (login/logout form actions + metadata SSO Location). Empty = default
-      # (/api/saml/idp). To expose the IdP at e.g. https://foobar.com/myidp/sso, set
-      # SAML_IDP_BASE_PATH=/myidp in .env, add a proxy rule mapping /myidp/ ->
-      # backend /api/saml/idp/ (see nginx.conf), and point SAML_ENTRY_SSO /
-      # SAML_IDP_ENTITY_ID at the /myidp URLs.
-      SAML_IDP_BASE_PATH: ${SAML_IDP_BASE_PATH:-}
+      # Public sub-path prefix for the whole stack (admin + API + IdP). Empty =
+      # default layout (admin at /, API at /api, IdP at /api/saml/idp). Set
+      # PUBLIC_PREFIX=/idp2 (+ ADMIN_BASE_PATH=/idp2/admin) in .env to expose the IdP
+      # at <host>/idp2/api/saml/idp/* — the backend then emits those URLs in login
+      # forms + metadata, and is reachable at both the prefixed and unprefixed paths.
+      SAML_IDP_BASE_PATH: ${PUBLIC_PREFIX:-}
       # The ONLY required secret — the self-signed signing keypair (see .env.example).
       SAML_IDP_PRIVATE_KEY: ${SAML_IDP_PRIVATE_KEY:?set SAML_IDP_PRIVATE_KEY in .env}
       SAML_IDP_PUBLIC_CERT: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
@@ -92,7 +91,13 @@ services:
         # served), NOT the backend port — requests become same-origin /api/* calls.
         # Must stay ABSOLUTE: login.tsx does `new URL(apiURL('/saml/login'))`.
         NEXT_PUBLIC_API_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}
-        NEXT_PUBLIC_API_PATH: /api
+        # API path carries the public prefix so admin -> API calls hit <origin>/idp2/api/*.
+        NEXT_PUBLIC_API_PATH: ${PUBLIC_PREFIX:-}/api
+        # Next.js basePath: serve the admin UI under ADMIN_BASE_PATH (e.g. /idp2/admin).
+        # Empty = root. NOTE: basePath is INLINED at build time, so changing it needs
+        # a rebuild (`docker compose up --build admin`).
+        BASE_PATH: ${ADMIN_BASE_PATH:-}
+        NEXT_PUBLIC_BASE_PATH: ${ADMIN_BASE_PATH:-}
         NEXT_PUBLIC_APP_NAME: Fake IdP Admin
         DOMAIN_NAME: localhost
         NEXT_PUBLIC_FEATURE_SHOW_USER_PASSWORDS: "false"
@@ -104,15 +109,22 @@ services:
     depends_on:
       - backend
 
-  # Same-origin reverse proxy — the app's single entry point (see nginx.conf).
-  # Routes /api/* to the backend and everything else to the admin UI, so the SAML
-  # session cookie is first-party. This is what publishes ADMIN_PORT now.
+  # Same-origin reverse proxy — the app's single entry point (see nginx.conf.template).
+  # Routes the API to the backend and everything else to the admin UI, so the SAML
+  # session cookie is first-party. This is what publishes ADMIN_PORT now. The config
+  # is an envsubst template: PUBLIC_PREFIX/ADMIN_BASE_PATH are substituted at startup
+  # (NGINX_ENVSUBST_FILTER keeps nginx's own $vars intact), so the same file serves
+  # the default root layout and the prefixed (/idp2) layout.
   proxy:
     image: nginx:1.27-alpine
     ports:
       - "${ADMIN_PORT:-7001}:80"
+    environment:
+      PUBLIC_PREFIX: ${PUBLIC_PREFIX:-}
+      ADMIN_BASE_PATH: ${ADMIN_BASE_PATH:-}
+      NGINX_ENVSUBST_FILTER: "^(PUBLIC_PREFIX|ADMIN_BASE_PATH)$$"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       - admin
       - backend

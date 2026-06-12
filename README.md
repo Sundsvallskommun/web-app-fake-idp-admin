@@ -136,6 +136,37 @@ Domän och portar är konfigurerbara från root-`.env` och kan ändras **oberoen
 
 Alla SP/IdP-URL:er och adminens `NEXT_PUBLIC_API_URL` byggs ihop av `BASE_URL` + rätt `*_PORT`. Containrarna lyssnar alltid på `3000` internt. `ORIGIN` (CORS) härleds från `BASE_URL` + `ADMIN_PORT`/`FRONTEND_PORT`, men kan överskridas genom att sätta `ORIGIN` explicit i `.env` (t.ex. för att tillåta flera domäner samtidigt).
 
+### Köra hela stacken under en sub-path
+
+Hela stacken (admin-GUI + API + IdP) kan exponeras under ett gemensamt prefix bakom proxyn, t.ex. `https://foobar.com/idp2/...`. Två variabler i root-`.env` styr detta – båda tomma ger standardlayouten (admin på `/`, API på `/api`):
+
+| Variabel | Exempel | Styr |
+|---|---|---|
+| `PUBLIC_PREFIX` | `/idp2` | Prefix för API + IdP: `<host>/idp2/api/*` och `<host>/idp2/api/saml/idp/*` |
+| `ADMIN_BASE_PATH` | `/idp2/admin` | Next.js `basePath` för admin-GUI:t: `<host>/idp2/admin/*` |
+
+```
+PUBLIC_PREFIX=/idp2
+ADMIN_BASE_PATH=/idp2/admin
+```
+
+Den medföljande proxyn (`nginx.conf.template`) läser dessa via envsubst och dirigerar `${PUBLIC_PREFIX}/api/*` till backend (prefixet strippas) och `${ADMIN_BASE_PATH}/*` till admin. Allt ligger på samma origin, så SAML-sessionscookien förblir first-party.
+
+`basePath` och `NEXT_PUBLIC_*` **bakas in när admin-imagen byggs**, så du måste bygga om:
+
+```
+docker compose up -d --build
+```
+
+Använder du en **egen proxy** istället för den medföljande, applicera motsvarande regler (prefixet strippas mot backendens `/api/`, admin-vägen skickas vidare oförändrad):
+
+```nginx
+location /idp2/api/   { proxy_pass http://<backend>:3000/api/; }   # strippar /idp2
+location /idp2/admin/ { proxy_pass http://<admin>:3000; }          # ingen omskrivning
+```
+
+En extern Service Provider pekas mot `<host>/idp2/api/saml/idp/sso` och läser IdP-metadata på `<host>/idp2/api/saml/idp/metadata`.
+
 ### Användardata: import och persistens
 
 - **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Fyll på den på något av tre sätt:
@@ -216,7 +247,7 @@ Med `SAML_IDP_BASE_PATH=/myidp` nås IdP:n alltså på `<host>/myidp/api/saml/id
 
 3. **Service Provider** – peka SP:ns entryPoint på `https://foobar.com/myidp/api/saml/idp/sso` och läs in IdP-metadata från `https://foobar.com/myidp/api/saml/idp/metadata`. Cert, issuer och audience är oförändrade.
 
-I Docker-stacken skickas `SAML_IDP_BASE_PATH` vidare via `docker-compose.yml` (tom som standard) – sätt den i root-`.env`. Kodändringen ligger i den byggda imagen, så kör `docker compose up -d --build backend` för att både bygga om koden och läsa in den nya env-variabeln.
+Ovanstående gäller backend-nivån (relevant vid `yarn dev` eller när backend körs fristående). I **Docker-stacken** sätter du istället `PUBLIC_PREFIX` i root-`.env` – då härleder `docker-compose.yml` automatiskt `SAML_IDP_BASE_PATH`, `SAML_ENTRY_SSO` och `SAML_IDP_ENTITY_ID`. Vill du dessutom lägga admin-GUI:t under prefixet, se [Köra hela stacken under en sub-path](#köra-hela-stacken-under-en-sub-path). Kör `docker compose up -d --build` efter ändring (värdena bakas in i imagen).
 
 ### Språkstöd
 

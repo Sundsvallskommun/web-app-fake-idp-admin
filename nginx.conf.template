@@ -1,4 +1,4 @@
-# Same-origin reverse proxy for the fake-IdP stack.
+# Same-origin reverse proxy for the fake-IdP stack (envsubst template).
 #
 # Serves the admin UI and the backend API under ONE origin (the published admin
 # host:port, e.g. http://dev.test:7001). That makes the admin -> API calls
@@ -6,10 +6,15 @@
 # cross-site-cookie 401: every Set-Cookie in the SAML redirect chain
 # (admin -> SP -> IdP -> ACS callback -> admin) is stored and replayed reliably.
 #
-# Routing:
-#   /api/health/up  -> admin   (the admin's own Next.js health route)
-#   /api/*          -> backend  (REST API + SAML SP/IdP routes, all under /api)
-#   /*              -> admin    (Next.js pages + /_next static assets)
+# This file is an envsubst template (docker-compose mounts it under
+# /etc/nginx/templates/). Only ${PUBLIC_PREFIX} and ${ADMIN_BASE_PATH} are
+# substituted (NGINX_ENVSUBST_FILTER); nginx's own $vars are left untouched.
+#
+#   PUBLIC_PREFIX     public sub-path for the API + IdP, e.g. /idp2   (empty = none)
+#   ADMIN_BASE_PATH   Next.js basePath for the admin UI, e.g. /idp2/admin (empty = root)
+#
+# Default layout  (both empty):  /api/* -> backend,  /* -> admin
+# Prefixed layout (/idp2):       /idp2/api/* -> backend,  /idp2/admin/* -> admin
 
 server {
     listen 80;
@@ -19,8 +24,9 @@ server {
     # own limit to 10mb, so the proxy must not reject it first (nginx default 1m).
     client_max_body_size 10m;
 
-    # The admin app owns this one /api path (Next.js API route); keep it on admin.
-    location = /api/health/up {
+    # The admin app owns its own Next.js health route, which lives under the admin
+    # basePath (so /api/health/up at root, or /idp2/admin/api/health/up when prefixed).
+    location = ${ADMIN_BASE_PATH}/api/health/up {
         proxy_pass http://admin:3000;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -28,17 +34,19 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Backend API + SAML SP/IdP routes (everything else under /api).
-    location /api/ {
-        proxy_pass http://backend:3000;
+    # Backend API + SAML SP/IdP routes. The proxy_pass URI strips PUBLIC_PREFIX so
+    # the backend always sees /api/* (e.g. /idp2/api/saml/idp/sso -> /api/saml/idp/sso).
+    location ${PUBLIC_PREFIX}/api/ {
+        proxy_pass http://backend:3000/api/;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Admin UI (Next.js standalone) — pages and static assets.
-    location / {
+    # Admin UI (Next.js standalone). Served at its basePath (or root when unset);
+    # the full path is forwarded unchanged because Next expects the basePath.
+    location ${ADMIN_BASE_PATH}/ {
         proxy_pass http://admin:3000;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;

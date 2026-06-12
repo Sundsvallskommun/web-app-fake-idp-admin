@@ -8,7 +8,10 @@ export interface ApiResponse<T = unknown> {
 
 export const handleError = (error: AxiosError<ApiResponse>) => {
   if (error?.response?.status === 401 && !window?.location.pathname.includes('login')) {
-    window.location.href = `/login?path=${window.location.pathname}&failMessage=${error.response.data.message}`;
+    // Hard navigation, so prepend the Next.js basePath (next/router would add it
+    // automatically, but window.location does not).
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+    window.location.href = `${basePath}/login?path=${window.location.pathname}&failMessage=${error.response.data.message}`;
   }
 
   throw error;
