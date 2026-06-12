@@ -49,11 +49,14 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/next.config.js ./
+# Files the runtime needs must be owned by the non-root `nextjs` user below — the
+# standalone server scans `public/` to serve static assets and reads the configs at
+# runtime, so without --chown it hits EACCES (e.g. scandir '/app/public/fonts').
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 # next-i18next resolves this at runtime (serverSideTranslations) in standalone mode.
-COPY --from=builder /app/next-i18next.config.js ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/next-i18next.config.js ./
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
