@@ -23,7 +23,7 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, p
     useShallow((state) => [state.headers, state.setHeaders])
   );
   const { watch, register, reset } = useForm<{ headers: string[] }>({ defaultValues: { headers } });
-  const { create } = resources[resource];
+  const { create, columns } = resources[resource];
 
   const selectedHeaders = watch('headers');
 
@@ -66,7 +66,7 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, p
           <Icon icon={<RefreshCcw />} />
         </Button>
       )}
-      {properties && headers && (
+      {!columns && properties && headers && (
         <span className="relative">
           <PopupMenu position="under" align="end">
             <PopupMenu.Button

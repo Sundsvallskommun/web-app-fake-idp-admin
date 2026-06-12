@@ -1,3 +1,4 @@
+import { AutoTableHeader } from '@sk-web-gui/react';
 import { AxiosResponse } from 'axios';
 import { FieldPath } from 'react-hook-form';
 import { Create, GetMany, GetOne, ID, Remove, Update } from './resource-services';
@@ -22,4 +23,12 @@ export type Resource<
   remove?: Remove;
   defaultValues?: TCreate;
   requiredFields?: Array<FieldPath<TCreate & TUpdate>>;
+  /**
+   * Explicit list-table columns. When set, these override the columns that are
+   * otherwise auto-derived from the primitive fields of the data, and the
+   * column-picker in the list toolbar is hidden. Use this to surface nested or
+   * computed values (e.g. a SAML attribute) or to hide sensitive fields.
+   * Labels fall back to the `<resource>:properties.<property>` translation.
+   */
+  columns?: AutoTableHeader[];
 };

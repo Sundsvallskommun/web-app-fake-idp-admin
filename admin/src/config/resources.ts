@@ -1,6 +1,10 @@
 import { AdminUser, CreateUserDto, UpdateUserDto } from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
+import { createElement } from 'react';
+
+// `groups` is not a top-level field — it's one of the user's SAML attributes.
+const getGroups = (user: AdminUser) => user.attributes?.find((attribute) => attribute.key === 'groups')?.value ?? '';
 
 const users: Resource<AdminUser> = {
   name: 'users',
@@ -19,6 +23,15 @@ const users: Resource<AdminUser> = {
     attributes: [],
   },
   requiredFields: ['name', 'username', 'password'],
+  columns: [
+    { property: 'username' },
+    { property: 'name' },
+    {
+      property: 'groups',
+      isColumnSortable: false,
+      renderColumn: (_value, item) => createElement('span', null, getGroups(item as AdminUser)),
+    },
+  ],
 };
 
 const resources = { users };

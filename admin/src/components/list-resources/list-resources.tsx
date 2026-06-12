@@ -18,14 +18,14 @@ interface ListResourcesProps {
 }
 
 export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers: _headers, data }) => {
-  const { update } = resources[resource];
+  const { update, columns } = resources[resource];
   const { t } = useTranslation();
   const [{ [resource]: storeHeaders }, setHeaders] = useLocalStorage(
     useShallow((state) => [state.headers, state.setHeaders])
   );
 
   useEffect(() => {
-    if (!storeHeaders && data) {
+    if (!columns && !storeHeaders && data) {
       setHeaders({
         [resource]: [
           ...(defaultInformationFields || ['id']),
@@ -39,6 +39,11 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
   const headers = useMemo(
     () =>
       _headers ||
+      (columns &&
+        columns.map((column) => ({
+          ...column,
+          label: column.label ?? capitalize(t(`${resource}:properties.${column.property}`)),
+        }))) ||
       storeHeaders?.reduce<AutoTableHeader[]>((headers, key) => {
         if (data) {
           const type = typeof data?.[0]?.[key];
@@ -85,7 +90,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
         }
       }, []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [storeHeaders, _headers, data]
+    [storeHeaders, _headers, data, columns]
   );
 
   const editHeader: AutoTableHeader = {
