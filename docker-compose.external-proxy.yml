@@ -1,0 +1,55 @@
+# Overlay for running the stack behind YOUR OWN reverse proxy (e.g. Apache/httpd)
+# instead of the bundled nginx `proxy` service — typically when the public entry
+# point is on a different origin/port than the container ports, and/or you reach the
+# app by IP because no domain/TLS is set up yet (e.g. http://172.16.124.2).
+#
+# Use it EXPLICITLY (it is NOT auto-loaded — that is intentional, so the default
+# `docker compose up` keeps working unchanged):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build
+#
+# Why it is needed: stock docker-compose.yml composes every BROWSER-facing URL as
+# BASE_URL:ADMIN_PORT. Behind your own proxy the browser uses the proxy's origin
+# (often port 80, no suffix), which differs from the published container port — so
+# those URLs point the browser at the wrong place and you get cross-site-cookie 401s
+# and broken SAML redirects. This overlay rebases them on PUBLIC_ORIGIN, publishes the
+# admin container directly (your proxy talks to it), and disables the bundled nginx.
+#
+# Set in root .env (PUBLIC_ORIGIN = the origin the BROWSER uses; scheme+host, no
+# trailing slash, include a port only if your proxy listens on a non-standard one):
+#
+#   PUBLIC_ORIGIN=http://172.16.124.2
+#   PUBLIC_PREFIX=/idp2
+#   ADMIN_BASE_PATH=/idp2/admin
+#   BACKEND_PORT=7100      # your proxy -> backend  (API, /idp2/api -> :7100, prefix stripped)
+#   ADMIN_PORT=7101        # your proxy -> admin    (UI,  /idp2/admin -> :7101, path preserved)
+#
+# NEXT_PUBLIC_API_URL is inlined at build time, so always rebuild after changing it.
+
+services:
+  backend:
+    environment:
+      # RelayState/isValidOrigin whitelist must contain the public origin.
+      ORIGIN: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env}
+      # All browser-facing SP/IdP URLs live on the public origin + the public prefix.
+      SAML_CALLBACK_URL: ${PUBLIC_ORIGIN}${PUBLIC_PREFIX:-}/api/saml/login/callback
+      SAML_LOGOUT_CALLBACK_URL: ${PUBLIC_ORIGIN}${PUBLIC_PREFIX:-}/api/saml/logout/callback
+      SAML_FAILURE_REDIRECT: ${PUBLIC_ORIGIN}${PUBLIC_PREFIX:-}/api/saml/login
+      SAML_SUCCESS_REDIRECT: ${PUBLIC_ORIGIN}${ADMIN_BASE_PATH:-}
+      SAML_LOGOUT_REDIRECT: ${PUBLIC_ORIGIN}${ADMIN_BASE_PATH:-}
+      SAML_ENTRY_SSO: ${PUBLIC_ORIGIN}${PUBLIC_PREFIX:-}/api/saml/idp/sso
+      SAML_IDP_ENTITY_ID: ${PUBLIC_ORIGIN}${PUBLIC_PREFIX:-}/api/saml/idp/metadata
+
+  admin:
+    build:
+      args:
+        # Browser calls go to <public origin>/<prefix>/api/* — same origin as the page.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env}
+    # Publish the admin container so your proxy can reach it directly.
+    ports:
+      - "${ADMIN_PORT:-7101}:3000"
+
+  # Disable the bundled same-origin proxy — your own proxy replaces it. Assigning a
+  # profile keeps it from starting under a plain `up` (and frees ADMIN_PORT for admin).
+  proxy:
+    profiles: ["bundled-proxy-disabled"]

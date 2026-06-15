@@ -20,7 +20,13 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
   }, [loaded, refresh]);
 
   return (
-    <Card layout="horizontal" href={`/${resource}`} useHoverEffect color="vattjom" invert>
+    <Card
+      layout="horizontal"
+      href={`${process.env.NEXT_PUBLIC_BASE_PATH}/${resource}`}
+      useHoverEffect
+      color="vattjom"
+      invert
+    >
       <Card.Body className="py-16">
         <Card.Header>
           <h2 className="text-h4-sm md:text-h4-md xl:text-h4-lg">{capitalize(t(`${resource}:name_many`))}</h2>

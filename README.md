@@ -167,6 +167,76 @@ location /idp2/admin/ { proxy_pass http://<admin>:3000; }          # ingen omskr
 
 En extern Service Provider pekas mot `<host>/idp2/api/saml/idp/sso` och läser IdP-metadata på `<host>/idp2/api/saml/idp/metadata`.
 
+### Apache (httpd) som omvänd proxy
+
+Vill du köra Apache istället för den medföljande nginx-proxyn gäller samma princip: admin-GUI och API serveras under **ett** origin så att SAML-sessionscookien förblir first-party. Aktivera `mod_proxy`, `mod_proxy_http` och `mod_headers`.
+
+`<backend>`/`<admin>` är uppströmsmålen: i compose-nätverket `backend:3000` respektive `admin:3000`. Körs Apache på hosten används istället de publicerade portarna (`http://127.0.0.1:7000` / `http://127.0.0.1:7001`).
+
+**Standardlayout** (admin på `/`, API på `/api` – `PUBLIC_PREFIX`/`ADMIN_BASE_PATH` tomma):
+
+```apache
+<VirtualHost *:80>
+    ServerName localhost
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+    RequestHeader set X-Forwarded-Proto "http"      # "https" bakom TLS-terminering
+
+    # Adminens egen Next.js-healthroute (/api/health/up) ska gå till admin, inte
+    # backend. ProxyPass matchar första träff, så den mer specifika regeln först.
+    ProxyPass        /api/health/up http://<admin>:3000/api/health/up
+    ProxyPassReverse /api/health/up http://<admin>:3000/api/health/up
+
+    # Backend-API + SAML SP/IdP.
+    ProxyPass        /api/ http://<backend>:3000/api/
+    ProxyPassReverse /api/ http://<backend>:3000/api/
+
+    # Admin-GUI (Next.js) – allt annat.
+    ProxyPass        /     http://<admin>:3000/
+    ProxyPassReverse /     http://<admin>:3000/
+</VirtualHost>
+```
+
+**Sub-path-layout** (`PUBLIC_PREFIX=/idp2`, `ADMIN_BASE_PATH=/idp2/admin`): prefixet **strippas** mot backend (backend monterar allt under `/api`), medan admin-vägen skickas vidare **oförändrad** (Next byggs med `basePath=/idp2/admin` och serverar sina sidor och assets under den vägen):
+
+```apache
+    # API + SAML SP/IdP: /idp2/api/users -> backend /api/users  (prefixet strippas).
+    ProxyPass        /idp2/api/ http://<backend>:3000/api/
+    ProxyPassReverse /idp2/api/ http://<backend>:3000/api/
+
+    # Admin-GUI: behåll hela /idp2/admin-vägen (ingen avslutande slash, så även
+    # bara /idp2/admin matchar och inte faller igenom till en ev. catch-all).
+    ProxyPass        /idp2/admin http://<admin>:3000/idp2/admin
+    ProxyPassReverse /idp2/admin http://<admin>:3000/idp2/admin
+```
+
+`ProxyPass` matchar **första träff**, så lägg dessa **före** en ev. bredare regel (t.ex. en `/`-catch-all). Lägg **inte** en bred `/idp2`-regel före `/idp2/admin` – då fångas admin-trafiken av fel regel. `users.js`-importen postar filen som en JSON-body; Apache har ingen storleksgräns på proxyade requests by default, men har du satt `LimitRequestBody` globalt behöver vägen tillåta minst ~10 MB (`LimitRequestBody 10485760`).
+
+#### Bakom en egen proxy utan domän/TLS (t.ex. åtkomst via IP)
+
+Fronter du stacken med en **egen** proxy (Apache ovan) på en annan origin än containerportarna – typiskt port 80 utan portsuffix, och/eller åtkomst via IP eftersom domän/TLS inte är på plats (t.ex. `http://172.16.124.2`) – räcker inte proxy-reglerna. `docker-compose.yml` bygger nämligen alla **webbläsarvända** URL:er som `BASE_URL:ADMIN_PORT`, så admin-bundlen och SAML-URL:erna pekar webbläsaren mot fel port (t.ex. `:7101`) → cross-site-cookie-401 och trasiga SAML-redirects.
+
+Lägg därför till overlay-filen `docker-compose.external-proxy.yml`, som baserar om alla webbläsarvända URL:er på `PUBLIC_ORIGIN`, publicerar admin-containern direkt (din proxy pratar med den) och stänger av den medföljande nginx-proxyn. I root-`.env`:
+
+```
+PUBLIC_ORIGIN=http://172.16.124.2     # origin webbläsaren använder (din proxy), utan avslutande /
+PUBLIC_PREFIX=/idp2
+ADMIN_BASE_PATH=/idp2/admin
+BACKEND_PORT=7100                      # din proxy -> backend  (/idp2/api -> :7100)
+ADMIN_PORT=7101                        # din proxy -> admin    (/idp2/admin -> :7101)
+```
+
+Bygg om (overlay-filen auto-laddas **inte**, ange den explicit; `NEXT_PUBLIC_API_URL` bakas in vid build):
+
+```
+docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build
+```
+
+Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-party. Det är ren HTTP, så sätt **inte** `X-Forwarded-Proto https` – cookies är icke-`Secure` by design, vilket är rätt här. Verifiera efteråt att `…/idp2/api/saml/idp/metadata` anger `SingleSignOnService` på `http://172.16.124.2/idp2/api/saml/idp/sso` (utan `:7101`), och att adminens nätverksanrop går till `http://172.16.124.2/idp2/api/...`.
+
+**`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`localhost`) istället för klientens, så du hamnar på `http://localhost/idp2/admin/`. Backend påverkas inte (den bygger sina SAML-URL:er från `PUBLIC_ORIGIN`). Behöver en annan app i samma vhost se `localhost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
+
 ### Användardata: import och persistens
 
 - **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Fyll på den på något av tre sätt:

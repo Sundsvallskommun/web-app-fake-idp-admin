@@ -122,9 +122,13 @@ services:
     environment:
       PUBLIC_PREFIX: ${PUBLIC_PREFIX:-}
       ADMIN_BASE_PATH: ${ADMIN_BASE_PATH:-}
-      NGINX_ENVSUBST_FILTER: "^(PUBLIC_PREFIX|ADMIN_BASE_PATH)$$"
+      # NGINX_RESOLVER is exported at startup by 15-set-resolver.envsh (read from
+      # /etc/resolv.conf); it just has to pass this filter to be substituted into
+      # the template's `resolver` directive.
+      NGINX_ENVSUBST_FILTER: "^(PUBLIC_PREFIX|ADMIN_BASE_PATH|NGINX_RESOLVER)$$"
     volumes:
       - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-set-resolver.envsh:/docker-entrypoint.d/15-set-resolver.envsh:ro
     depends_on:
       - admin
       - backend

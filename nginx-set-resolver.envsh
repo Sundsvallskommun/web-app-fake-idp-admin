@@ -1,0 +1,11 @@
+# Sourced by the nginx image entrypoint (*.envsh files run before
+# 20-envsubst-on-templates.sh) so the export is visible to envsubst when it
+# fills ${NGINX_RESOLVER} in nginx.conf.template.
+#
+# Picks the container DNS server from /etc/resolv.conf so we never hardcode it:
+#   Docker  -> 127.0.0.11
+#   Podman  -> the network gateway running aardvark-dns (e.g. 10.89.0.1)
+# This is the DNS that knows the `admin`/`backend` service names, which is what
+# nginx must query to re-resolve the upstreams at request time.
+NGINX_RESOLVER="$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)"
+export NGINX_RESOLVER
