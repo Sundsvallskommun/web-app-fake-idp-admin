@@ -8,7 +8,7 @@ import Main from '@layouts/main/main.component';
 import { ApiResponse, apiService } from '@services/api-service';
 import { Button, Icon, Spinner, useSnackbar } from '@sk-web-gui/react';
 import { useResource } from '@utils/use-resource';
-import { Upload } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
@@ -22,6 +22,33 @@ export const UsersListPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // Trigger a client-side download of `content` as `filename` (no download util exists yet).
+  const downloadFile = (content: string, filename: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download the whole user store as a re-importable users.js module.
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      const res = await apiService.get<string>('/users/export', { responseType: 'text' });
+      downloadFile(res?.data ?? '', 'exported_users.js');
+      message({ message: t('users:export.success'), status: 'success' });
+    } catch {
+      message({ message: t('users:export.error'), status: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Upload a users.js file and replace the whole user store with its contents.
   const onImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,7 +102,7 @@ export const UsersListPage: React.FC = () => {
         <Header>
           <span className="flex flex-row items-center gap-16">
             <h1 className="leading-h4-sm">{capitalize(t('users:name_many'))}</h1>
-            {(loading || importing) && <Spinner size={2.5} className="leading-h4-sm" />}
+            {(loading || importing || exporting) && <Spinner size={2.5} className="leading-h4-sm" />}
             <Button
               variant="secondary"
               size="sm"
@@ -84,6 +111,15 @@ export const UsersListPage: React.FC = () => {
               leftIcon={<Icon icon={<Upload />} />}
             >
               {capitalize(t('users:import.button'))}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onExport}
+              disabled={exporting}
+              leftIcon={<Icon icon={<Download />} />}
+            >
+              {capitalize(t('users:export.button'))}
             </Button>
             <input
               ref={fileInputRef}

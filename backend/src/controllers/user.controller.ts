@@ -5,7 +5,9 @@ import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiR
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
 import { UsersService } from '@services/users.service';
+import { maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
+import { serializeUsersModule } from '@utils/serialize-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 
@@ -37,7 +39,22 @@ export class UserController {
   @ResponseSchema(AdminUserListResponse)
   async getUsers(@Res() response: any) {
     const data = await this.users.getUsers();
-    return response.send({ data, message: 'success' });
+    return response.send({ data: data.map(maskUser), message: 'success' });
+  }
+
+  // Must be declared BEFORE `getUser` (`/users/:id`): GET routes match in declaration
+  // order, so `:id` would otherwise capture the literal "export".
+  @Get('/users/export')
+  @OpenAPI({ summary: 'Export all fake-IdP users as a users.js module' })
+  async exportUsers(@Res() response: any) {
+    // Intentionally bypasses `maskUser` (unlike the other user responses): the export is a
+    // faithful, re-importable backup, so it carries the real attribute values. See
+    // serialize-users-module.ts.
+    const data = await this.users.getUsers();
+    const file = serializeUsersModule(data);
+    response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    response.setHeader('Content-Disposition', 'attachment; filename="exported_users.js"');
+    return response.send(file);
   }
 
   @Get('/users/:id')
@@ -48,7 +65,7 @@ export class UserController {
     if (!data) {
       throw new HttpException(404, 'User not found');
     }
-    return response.send({ data, message: 'success' });
+    return response.send({ data: maskUser(data), message: 'success' });
   }
 
   @Post('/users')
@@ -56,7 +73,7 @@ export class UserController {
   @ResponseSchema(AdminUserResponse)
   async createUser(@Body() body: CreateUserDto, @Res() response: any) {
     const data = await this.users.createUser(body);
-    return response.send({ data, message: 'success' });
+    return response.send({ data: maskUser(data), message: 'success' });
   }
 
   @Post('/users/import')
@@ -81,7 +98,7 @@ export class UserController {
       throw new HttpException(404, 'User not found');
     }
     const data = await this.users.updateUser(id, body);
-    return response.send({ data, message: 'success' });
+    return response.send({ data: maskUser(data), message: 'success' });
   }
 
   @Delete('/users/:id')

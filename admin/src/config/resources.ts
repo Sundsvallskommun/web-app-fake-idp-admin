@@ -4,8 +4,10 @@ import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
 import { createElement } from 'react';
 
-// `groups` is not a top-level field — it's one of the user's SAML attributes.
-const getGroups = (user: AdminUser) => user.attributes?.find((attribute) => attribute.key === 'groups')?.value ?? '';
+// `groups` and `citizenIdentifier` are not top-level fields — they're SAML
+// attributes. Returns '' (empty cell) when the user has no such attribute.
+const getAttribute = (user: AdminUser, key: string) =>
+  user.attributes?.find((attribute) => attribute.key === key)?.value ?? '';
 
 const users: Resource<AdminUser> = {
   name: 'users',
@@ -28,9 +30,15 @@ const users: Resource<AdminUser> = {
     { property: 'username' },
     { property: 'name' },
     {
+      property: 'citizenIdentifier',
+      isColumnSortable: false,
+      renderColumn: (_value, item) =>
+        createElement(HighlightedText, null, getAttribute(item as AdminUser, 'citizenIdentifier')),
+    },
+    {
       property: 'groups',
       isColumnSortable: false,
-      renderColumn: (_value, item) => createElement(HighlightedText, null, getGroups(item as AdminUser)),
+      renderColumn: (_value, item) => createElement(HighlightedText, null, getAttribute(item as AdminUser, 'groups')),
     },
   ],
 };

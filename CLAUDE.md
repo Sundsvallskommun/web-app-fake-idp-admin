@@ -53,7 +53,19 @@ Run inside the relevant package directory.
 - `yarn generate:contracts` — pull data models from the upstream WSO2 APIs listed in `src/config/api-config.ts`
 - Entry: `src/server.ts` → `App` (`src/app.ts`) wires middleware then mounts SAML SP routes, IdP routes, and routing-controllers at `BASE_URL_PREFIX` (`/api`), in that order.
 
-**Docker:** `docker-compose.yml` + `docker-compose.override.yml` build/run `backend` + `frontend`.
+**Docker:** `cp .env.example .env` (paste a signing keypair — the only required secret), then `docker compose up --build`. See **Deployment topology** below — this is the intended way to run the full stack.
+
+## Deployment topology (Docker stack)
+
+The whole point of the stack is to be self-referential and same-origin (see the long header comments in `docker-compose.yml` + `.env.example`, which are the authoritative reference):
+
+- **Three services:** `backend` (port `7000`, direct — Swagger/debug), `admin` (internal-only, `expose: 3000`), and an nginx `proxy` (`nginx.conf.template`) published on `ADMIN_PORT` (`7001`) as the **single browser entry point**. `frontend` is commented out. Browse the app at the proxy, not the admin/backend ports.
+- **Why the proxy exists:** it serves the admin UI and the backend API under one origin, so admin→API calls are same-origin and the SAML session cookie is first-party. Hitting the admin/backend ports directly causes cross-site-cookie **401s** and broken SAML redirects (this is the recurring trap; the recent "routing/paths/subpaths" commits are about getting it right).
+- **Self-referential SAML:** the SP role points at this same backend's IdP role; both are signed with the **one** keypair in `.env` (`SAML_IDP_PRIVATE_KEY` / `SAML_IDP_PUBLIC_CERT` — there is no separate SP keypair). All browser-facing SP/IdP URLs are composed from `BASE_URL` + `ADMIN_PORT` (the proxy origin).
+- **Env split:** the root `.env` is read by Docker **only** for `${VAR}` interpolation in compose; runtime config is set inline in `docker-compose.yml`. `yarn dev` instead uses the per-package `.env.*.local` files and ignores root `.env`.
+- **Sub-path / basePath:** the stack can be served under a public prefix. `PUBLIC_PREFIX` (e.g. `/idp2`) prefixes the API + IdP; `ADMIN_BASE_PATH` (e.g. `/idp2/admin`) is the Next.js `basePath`. Both are **inlined into the admin build**, so changing them requires `--build`. The same `nginx.conf.template` serves both the default-root and prefixed layouts via envsubst.
+- **Own reverse proxy:** `docker-compose.external-proxy.yml` is a NON-auto-loaded overlay for fronting the stack with your own proxy (Apache, etc.) on a different origin/IP; it rebases browser-facing URLs onto `PUBLIC_ORIGIN` and disables the bundled nginx. Run with `docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build`.
+- **DB persistence:** SQLite lives on the named volume `backend-data` and survives `up --build`/`down` (only `down -v` wipes it). Docker does **not** seed — populate via the admin UI (add users, or the "Import users" button on `/users`).
 
 ## Data-contract generation (important)
 

@@ -1,5 +1,6 @@
 import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
 import prisma from '@utils/prisma';
+import { isMaskedAttributeKey, MASKED_VALUE } from '@utils/mask-user';
 import { ImportUser } from '@utils/parse-users-module';
 
 const withAttributes = { include: { attributes: true } } as const;
@@ -30,7 +31,11 @@ export class UsersService {
     });
   }
 
-  public updateUser(id: string, data: UpdateUserDto) {
+  public async updateUser(id: string, data: UpdateUserDto) {
+    // The admin UI receives masked values for sensitive attributes (see mask-user.ts).
+    // When the edit form submits the mask sentinel back unchanged, restore the stored
+    // value so saving the form never clobbers a real personnummer with the mask.
+    const attributes = data.attributes && (await this.unmaskAttributes(id, data.attributes));
     return prisma.user.update({
       where: { id },
       data: {
@@ -38,12 +43,23 @@ export class UsersService {
         username: data.username,
         password: data.password,
         // Replace the attribute set wholesale when provided.
-        ...(data.attributes ?
-          { attributes: { deleteMany: {}, create: data.attributes.map(attributeData) } }
-        : {}),
+        ...(attributes ? { attributes: { deleteMany: {}, create: attributes.map(attributeData) } } : {}),
       },
       ...withAttributes,
     });
+  }
+
+  private async unmaskAttributes(id: string, attributes: { key: string; format: string; value: string; type: string }[]) {
+    if (!attributes.some(attribute => isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE)) {
+      return attributes;
+    }
+    const existing = await this.getUser(id);
+    const storedByKey = new Map(existing?.attributes.map(attribute => [attribute.key, attribute.value]));
+    return attributes.map(attribute =>
+      isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE ?
+        { ...attribute, value: storedByKey.get(attribute.key) ?? '' }
+      : attribute,
+    );
   }
 
   public removeUser(id: string) {

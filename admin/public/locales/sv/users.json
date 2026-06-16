@@ -9,6 +9,7 @@
     "username": "Användarnamn",
     "password": "Lösenord",
     "attributes": "Attribut",
+    "citizenIdentifier": "Personnummer",
     "groups": "Grupper"
   },
   "attribute": {
@@ -24,5 +25,10 @@
     "button": "Importera användare",
     "success": "{{count}} användare importerade",
     "error": "Kunde inte importera användarfilen"
+  },
+  "export": {
+    "button": "Exportera användare",
+    "success": "Användare exporterade",
+    "error": "Kunde inte exportera användare"
   }
 }
