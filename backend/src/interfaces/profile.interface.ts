@@ -5,5 +5,6 @@ export interface Profile extends SamlProfile {
   givenName: string;
   surname: string;
   username: string;
+  groups?: string | string[];
   attributes: { [key: string]: any };
 }

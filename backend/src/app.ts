@@ -1,4 +1,5 @@
 import {
+  ADMIN_PANEL_GROUP,
   APP_NAME,
   BASE_URL_PREFIX,
   CREDENTIALS,
@@ -97,6 +98,28 @@ const samlStrategy = new Strategy(
         name: 'SAML_MISSING_ATTRIBUTES',
         message: 'Missing profile attributes',
       });
+    }
+
+    // Optional group gate: when ADMIN_PANEL_GROUP is configured (comma-separated
+    // allow-list), only users whose `groups` claim contains one of those groups may
+    // sign in to the admin app. Empty/unset = no gating, preserving prior behavior.
+    // This blocks the passport session entirely, so it protects both the admin GUI
+    // and all `/users` CRUD endpoints (which require an authenticated session).
+    const allowedGroups = (ADMIN_PANEL_GROUP || '')
+      .split(',')
+      .map(g => g.trim().toLowerCase())
+      .filter(Boolean);
+    if (allowedGroups.length > 0) {
+      const claim = profile.groups;
+      const userGroups = (Array.isArray(claim) ? claim : typeof claim === 'string' ? claim.split(',') : [])
+        .map(g => String(g).trim().toLowerCase())
+        .filter(Boolean);
+      if (!userGroups.some(g => allowedGroups.includes(g))) {
+        return done({
+          name: 'SAML_MISSING_GROUP',
+          message: 'User is not a member of the admin panel group',
+        });
+      }
     }
 
     try {

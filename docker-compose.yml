@@ -73,6 +73,11 @@ services:
       SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
+      # Optional admin-panel access gate. Comma-separated allow-list of group names;
+      # only users whose SAML `groups` claim contains one of these may sign in. Empty
+      # (default) = no gating, any authenticated user is allowed. Set ADMIN_PANEL_GROUP
+      # in .env to restrict, e.g. ADMIN_PANEL_GROUP=hr_department_admin_test.
+      ADMIN_PANEL_GROUP: ${ADMIN_PANEL_GROUP:-}
       # Public sub-path prefix for the whole stack (admin + API + IdP). Empty =
       # default layout (admin at /, API at /api, IdP at /api/saml/idp). Set
       # PUBLIC_PREFIX=/idp2 (+ ADMIN_BASE_PATH=/idp2/admin) in .env to expose the IdP
