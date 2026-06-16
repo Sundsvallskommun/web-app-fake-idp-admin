@@ -2,7 +2,6 @@ import { IDP_MOUNT_PATH, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@conf
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import { isValidUrl } from '@utils/util';
-import { isValidOrigin } from '@utils/isValidOrigin';
 import express, { NextFunction, Request, Response } from 'express';
 import { buildIdpMetadata } from './idp-metadata';
 import { parseRequest } from './request-parser';
@@ -101,7 +100,6 @@ export function registerIdpRoutes(app: express.Application): void {
   const router = express.Router();
   router.use(idpCsp);
 
-  // SSO — inbound AuthnRequest (HTTP-Redirect = GET, HTTP-POST = POST).
   router.get(
     '/sso',
     wrap((req, res) => handleSso(req, res, req.query as { SAMLRequest?: string; RelayState?: string })),
@@ -111,7 +109,6 @@ export function registerIdpRoutes(app: express.Application): void {
     wrap((req, res) => handleSso(req, res, req.body as { SAMLRequest?: string; RelayState?: string })),
   );
 
-  // Credential submission from the SSO login page.
   router.post(
     '/authenticate',
     wrap(async (req, res) => {
@@ -124,7 +121,6 @@ export function registerIdpRoutes(app: express.Application): void {
     }),
   );
 
-  // IdP homepage — log in / view details without an AuthnRequest.
   router.get(
     '/login',
     wrap(async (req, res) => {
@@ -157,7 +153,7 @@ export function registerIdpRoutes(app: express.Application): void {
       await saveSession(req);
 
       const relayState = req.query.RelayState;
-      if (typeof relayState === 'string' && isValidUrl(relayState) && isValidOrigin(relayState)) {
+      if (typeof relayState === 'string' && isValidUrl(relayState)) {
         res.redirect(relayState);
       } else {
         res.redirect(LOGIN_ACTION);
@@ -165,7 +161,6 @@ export function registerIdpRoutes(app: express.Application): void {
     }),
   );
 
-  // IdP metadata for SP configuration.
   router.get('/metadata', (_req, res) => {
     res.type('application/xml').send(buildIdpMetadata());
   });

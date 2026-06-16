@@ -59,9 +59,6 @@ const sessionTTL = 4 * 24 * 60 * 60;
 // NOTE: memory uses ms while file uses seconds
 const sessionStore = new SessionStoreCreate(SESSION_MEMORY ? { checkPeriod: sessionTTL * 1000 } : { sessionTTL, path: './data/sessions' });
 
-// const prisma = new PrismaClient();
-// const apiService = new ApiService();
-
 passport.serializeUser(function (user, done) {
   done(null, user);
 });
@@ -102,30 +99,8 @@ const samlStrategy = new Strategy(
       });
     }
 
-    //   const groupList: ADRole[] =
-    //   groups !== undefined
-    //     ? (groups
-    //         .split(',')
-    //         .map(x => x.toLowerCase())
-    //         .filter(x => x.includes('sg_appl_app_')) as ADRole[])
-    //     : [];
-
-    // const appGroups: ADRole[] = groupList.length > 0 ? groupList : groupList.concat('sg_appl_app_read');
-
     try {
-      // const personNumber = profile.citizenIdentifier;
-      // const citizenResult = await apiService.get<any>({ url: `citizen/2.0/${personNumber}/guid` });
-      // const { data: personId } = citizenResult;
-
-      // if (!personId) {
-      //   return done({
-      //     name: 'SAML_CITIZEN_FAILED',
-      //     message: 'Failed to fetch user from Citizen API',
-      //   });
-      // }
-
       const findUser: User = {
-        // personId: personId,
         username: username,
         name: `${givenName} ${surname}`,
         givenName: givenName,
@@ -185,8 +160,6 @@ class App {
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());
-    // Raised from the 100kb default so the users.js import (sent as a JSON body)
-    // isn't rejected with 413 for larger seed files.
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use(cookieParser());
@@ -220,11 +193,6 @@ class App {
     });
     const samlPath = `${BASE_URL_PREFIX}/saml`;
     this.app.use((req, res, next) => {
-      // The SAML SP + IdP routes are browser-driven form/redirect flows: HTTP-POST
-      // binding and the IdP login form arrive as top-level navigations reached via a
-      // cross-origin redirect, so they legitimately carry a cross-origin or `Origin: null`
-      // header. CORS isn't enforced on top-level navigations anyway — only this
-      // server-side middleware would reject them — so skip the API whitelist here.
       if (req.path === samlPath || req.path.startsWith(`${samlPath}/`)) {
         return next();
       }
@@ -269,7 +237,7 @@ class App {
       },
       (req, res, next) => {
         let successRedirect = SAML_SUCCESS_REDIRECT;
-        if (typeof req.query.successRedirect === 'string' && isValidUrl(req.query.successRedirect) && isValidOrigin(req.query.successRedirect)) {
+        if (typeof req.query.successRedirect === 'string' && isValidUrl(req.query.successRedirect)) {
           successRedirect = req.query.successRedirect;
         }
 
@@ -278,7 +246,14 @@ class App {
             if (err) {
               return next(err);
             }
-            res.redirect(successRedirect);
+            delete req.session.idpUser;
+            delete req.session.idpRequest;
+            req.session.save(saveErr => {
+              if (saveErr) {
+                return next(saveErr);
+              }
+              res.redirect(successRedirect);
+            });
           });
         });
       },
@@ -293,12 +268,12 @@ class App {
         let successRedirect: URL, failureRedirect: URL;
         const urls = req?.body?.RelayState.split(',');
 
-        if (isValidUrl(urls[0]) && isValidOrigin(urls[0])) {
+        if (isValidUrl(urls[0])) {
           successRedirect = new URL(urls[0]);
         } else {
           successRedirect = new URL(SAML_SUCCESS_REDIRECT);
         }
-        if (isValidUrl(urls[1]) && isValidOrigin(urls[1])) {
+        if (isValidUrl(urls[1])) {
           failureRedirect = new URL(urls[1]);
         } else {
           failureRedirect = successRedirect;
@@ -365,8 +340,6 @@ class App {
       })(req, res, next);
     });
 
-    // IdP role: expose the SAML IdP endpoints (this backend acting as a fake
-    // Identity Provider), mounted alongside the SP saml routes above.
     registerIdpRoutes(this.app);
   }
 
