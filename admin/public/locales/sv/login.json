@@ -1,5 +1,6 @@
 {
   "description": "",
+  "logout_and_retry": "logga ut och försök igen",
   "errors": {
     "NOT_AUTHORIZED": "Inte inloggad",
     "SAML_MISSING_GROUP": "Användaren saknar rätt grupper",

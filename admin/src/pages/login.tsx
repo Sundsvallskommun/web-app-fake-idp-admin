@@ -43,6 +43,14 @@ export default function Start() {
     window.location.href = url.toString();
   };
 
+  const onLogoutAndRetry = () => {
+    const url = new URL(apiURL('/saml/idp/logout'));
+    url.search = new URLSearchParams({
+      RelayState: `${appURL()}/login`,
+    }).toString();
+    window.location.href = url.toString();
+  };
+
   useEffect(() => {
     setInitalFocus();
     if (!router.isReady) return;
@@ -89,7 +97,20 @@ export default function Start() {
               {capitalize(t('common:login'))}
             </Button>
 
-            {errorMessage && <FormErrorMessage className="mt-lg">{errorMessage}</FormErrorMessage>}
+            {errorMessage && (
+              <>
+                <FormErrorMessage className="mt-lg">{errorMessage}</FormErrorMessage>
+                <Button
+                  inverted
+                  variant="secondary"
+                  className="mt-md"
+                  onClick={() => onLogoutAndRetry()}
+                  data-cy="logoutRetryButton"
+                >
+                  {capitalize(t('login:logout_and_retry'))}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </main>

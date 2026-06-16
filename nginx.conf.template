@@ -20,6 +20,15 @@ server {
     listen 80;
     server_name _;
 
+    # Emit RELATIVE Location headers. nginx listens on 80 inside the container but is
+    # published on a different host port (e.g. 7101); with the default absolute
+    # redirects, nginx's automatic trailing-slash 301 (e.g. /idp2/admin -> /idp2/admin/,
+    # which fires when the SP success-redirect targets the bare admin basePath) would
+    # rebuild the URL with nginx's own port 80 — dropping :7101 and sending the browser
+    # to http://dev.test/idp2/admin/ (connection refused). Relative redirects keep the
+    # browser's original scheme/host/port.
+    absolute_redirect off;
+
     # Re-resolve upstream container names at request time (honoring this TTL)
     # instead of caching the IP once at startup. Without this, restarting the
     # admin/backend container alone re-rolls its IP and the proxy keeps hitting
