@@ -1,7 +1,14 @@
+import { SAML_SUCCESS_REDIRECT } from '@config';
 import type { UserWithAttributes } from './response-builder';
 import { htmlEscape } from './util';
 
 const TITLE = 'Fake SSO IDP';
+
+// Cross-link to the admin GUI. SAML_SUCCESS_REDIRECT is the admin home URL
+// (BASE_URL:ADMIN_PORT + ADMIN_BASE_PATH); omit the link if it isn't configured.
+const adminNav = SAML_SUCCESS_REDIRECT
+  ? `<p style="margin-top:1.5rem"><a href="${htmlEscape(SAML_SUCCESS_REDIRECT)}">Go to Admin GUI &rarr;</a></p>`
+  : '';
 
 // Minimal inline styling (the original linked purecss via express.static, which
 // this backend does not serve).
@@ -36,7 +43,8 @@ export function renderLogin(opts: { action: string; users: LoginUser[]; enumerat
       `<h1>${TITLE}</h1>` +
       errorHtml +
       `<fieldset name="credentials">${credentials}<button type="submit">Log in</button></fieldset>` +
-      `</form>`,
+      `</form>` +
+      adminNav,
   );
 }
 
@@ -46,7 +54,8 @@ export function renderDetails(opts: { user: UserWithAttributes; logoutAction: st
     `<h1>Logged in</h1>` +
       `<p>Logged in as: ${htmlEscape(opts.user.name || opts.user.username)}</p>` +
       `<p>Groups: ${htmlEscape(groups)}</p>` +
-      `<form action="${htmlEscape(opts.logoutAction)}" method="GET"><button type="submit">Log out</button></form>`,
+      `<form action="${htmlEscape(opts.logoutAction)}" method="GET"><button type="submit">Log out</button></form>` +
+      adminNav,
   );
 }
 

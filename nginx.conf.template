@@ -41,6 +41,19 @@ server {
     # own limit to 10mb, so the proxy must not reject it first (nginx default 1m).
     client_max_body_size 10m;
 
+    # App root -> fake-IdP login. Anyone who lands on the origin root (or the
+    # sub-path root like /idp2 and /idp2/ when PUBLIC_PREFIX is set) is sent to
+    # the IdP login page, so they always see the login form or -- if already
+    # logged in -- the "Logged in as X" details page (which links on to the admin
+    # GUI), instead of a bare 404 / lost root. The regex is anchored to the root
+    # ONLY: ^${PUBLIC_PREFIX}/?$ matches /idp2 and /idp2/ (or just / when
+    # PUBLIC_PREFIX is empty) and nothing deeper, so /idp2/api/* and /idp2/admin/*
+    # still fall through to their own prefix locations below. absolute_redirect
+    # off (set above) keeps the browser's host:port on the 302.
+    location ~ ^${PUBLIC_PREFIX}/?$ {
+        return 302 ${PUBLIC_PREFIX}/api/saml/idp/login;
+    }
+
     # The admin app owns its own Next.js health route, which lives under the admin
     # basePath (so /api/health/up at root, or /idp2/admin/api/health/up when prefixed).
     location = ${ADMIN_BASE_PATH}/api/health/up {

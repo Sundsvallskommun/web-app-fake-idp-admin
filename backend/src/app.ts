@@ -189,6 +189,12 @@ class App {
 
     this.app.use(
       session({
+        // Distinct cookie name so this backend's session does NOT collide with
+        // other express-session apps on the same host. Browser cookies ignore the
+        // port, so the default `connect.sid` would clobber (and be clobbered by)
+        // a co-hosted SP app (e.g. Mina sidor on another dev.test port), logging
+        // the user out of it. See LOGOUT.md / cookie-collision analysis.
+        name: 'fake-idp.sid',
         secret: SECRET_KEY,
         resave: false,
         saveUninitialized: false,
@@ -350,7 +356,11 @@ class App {
           failureRedirect.search = failMessage.toString();
           res.redirect(failureRedirect.toString());
         } else {
-          req.login(user, loginErr => {
+          // passport >=0.6 regenerates the session on login (session-fixation
+          // protection). Keep existing session info so the shared IdP session
+          // (req.session.idpUser / idpRequest) survives the SP login — otherwise
+          // logging into the admin would wipe the IdP SSO session.
+          req.login(user, { session: true, keepSessionInfo: true }, loginErr => {
             if (loginErr) {
               const failMessage = new URLSearchParams(failureRedirect.searchParams);
               failMessage.append('failMessage', 'SAML_UNKNOWN_ERROR');

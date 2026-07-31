@@ -1,5 +1,6 @@
 import { Menu } from '@components/menu/menu';
 import { useUserStore } from '@services/user-service/user-service';
+import { apiURL } from '@utils/api-url';
 import { Avatar, ColorSchemeMode, Icon, Logo, PopupMenu } from '@sk-web-gui/react';
 import { useTranslation } from 'next-i18next';
 import Head from 'next/head';
@@ -106,6 +107,11 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
                       </PopupMenu>
                     </PopupMenu.Item>
                   </PopupMenu.Group>
+                  <PopupMenu.Item>
+                    <a href={apiURL('/saml/idp/login')} target="_blank" rel="noreferrer">
+                      Fake IdP
+                    </a>
+                  </PopupMenu.Item>
                   <PopupMenu.Item>
                     <NextLink href="/logout">{capitalize(t('common:logout'))}</NextLink>
                   </PopupMenu.Item>
