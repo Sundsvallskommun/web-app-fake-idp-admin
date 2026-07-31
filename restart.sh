@@ -1,0 +1,1 @@
+docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build
