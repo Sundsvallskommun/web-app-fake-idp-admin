@@ -7,6 +7,7 @@ export type UserForm = Pick<CreateUserDto, 'name' | 'username' | 'password'> & {
   knownAttributes: Array<{ value: string }>;
   customAttributes: UserFormAttribute[];
   groupIds: number[];
+  applicationIds: number[];
 };
 
 export const emptyCustomAttribute = (): UserFormAttribute => ({
@@ -23,6 +24,7 @@ export const createEmptyUserForm = (): UserForm => ({
   knownAttributes: userAttributeDefinitions.map(() => ({ value: '' })),
   customAttributes: [],
   groupIds: [],
+  applicationIds: [],
 });
 
 export const userToForm = (user: AdminUser): UserForm => {
@@ -52,6 +54,7 @@ export const userToForm = (user: AdminUser): UserForm => {
     // editable so loading and saving a user never silently drops them.
     customAttributes: unmatchedAttributes,
     groupIds: user.groups.map((group) => group.id),
+    applicationIds: (user.applications ?? []).map((application) => application.id),
   };
 };
 
@@ -78,5 +81,6 @@ export const userFormToPayload = (form: UserForm): CreateUserDto => {
     password: form.password,
     attributes: [...knownAttributes, ...customAttributes],
     groupIds: form.groupIds,
+    applicationIds: form.applicationIds,
   };
 };

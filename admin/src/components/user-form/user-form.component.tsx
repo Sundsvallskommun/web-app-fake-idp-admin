@@ -1,4 +1,4 @@
-import { AdminGroup } from '@data-contracts/backend/data-contracts';
+import { AdminApplication, AdminGroup } from '@data-contracts/backend/data-contracts';
 import { Button } from '@components/ui/button';
 import { Checkbox } from '@components/ui/checkbox';
 import { Input } from '@components/ui/input';
@@ -31,6 +31,14 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
     refresh: refreshGroups,
   } = useResource('groups');
   const groups = groupData as AdminGroup[];
+  const {
+    data: applicationData,
+    loaded: applicationsLoaded,
+    loading: applicationsLoading,
+    error: applicationsError,
+    refresh: refreshApplications,
+  } = useResource('applications');
+  const applications = applicationData as AdminApplication[];
   const [groupQuery, setGroupQuery] = useState('');
   const normalizedGroupQuery = groupQuery.trim().toLowerCase();
   const visibleGroups = groups.filter(
@@ -155,6 +163,66 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
               }}
             />
           </>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <header>
+          <h2 className="text-xl font-bold mb-0">{capitalize(t('users:sections.applications'))}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{t('users:applications_help')}</p>
+        </header>
+
+        {applicationsLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
+        {applicationsError && applications.length === 0 && (
+          <ResourceError resources={t('applications:name_many')} onRetry={refreshApplications} />
+        )}
+        {!applicationsError && applicationsLoaded && applications.length === 0 && (
+          <p className="text-muted-foreground">
+            {t('users:no_applications')}{' '}
+            <NextLink href="/applications/new" className="underline">
+              {t('users:create_application')}
+            </NextLink>
+          </p>
+        )}
+        {applications.length > 0 && (
+          <Controller
+            control={control}
+            name="applicationIds"
+            render={({ field }) => {
+              const toggle = (applicationId: number, checked: boolean) =>
+                field.onChange(
+                  checked ? [...field.value, applicationId] : field.value.filter((id: number) => id !== applicationId)
+                );
+
+              return (
+                <div
+                  role="group"
+                  aria-label={capitalize(t('users:sections.applications'))}
+                  className="flex flex-col gap-3 max-h-80 overflow-y-auto"
+                >
+                  {applications.map((application) => (
+                    <div key={application.id} className="flex items-start gap-2 min-w-0">
+                      <Checkbox
+                        id={`application-${application.id}`}
+                        className="mt-1"
+                        checked={field.value.includes(application.id)}
+                        onCheckedChange={(checked) => toggle(application.id, checked === true)}
+                      />
+                      <Label
+                        htmlFor={`application-${application.id}`}
+                        className="flex flex-col font-normal min-w-0 break-words"
+                      >
+                        <strong>{application.name}</strong>
+                        {application.description && (
+                          <span className="text-sm text-muted-foreground">{application.description}</span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              );
+            }}
+          />
         )}
       </section>
 

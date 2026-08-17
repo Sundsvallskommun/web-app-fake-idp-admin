@@ -22,7 +22,8 @@
     "account": "Grunduppgifter",
     "groups": "Grupper och behörigheter",
     "known_attributes": "Kända identitetsattribut",
-    "custom_attributes": "Egna identitetsattribut"
+    "custom_attributes": "Egna identitetsattribut",
+    "applications": "Applikationer"
   },
   "known_attributes_help": "Fälten kommer från det befintliga användarunderlaget. Tomma fält skickas inte som SAML-attribut.",
   "custom_attributes_help": "Lägg till ett eget SAML-attribut när det saknas i schemat ovan.",
@@ -80,5 +81,8 @@
     "standard_help": "De claims SAML-svaret normalt innehåller. Tomma fält utelämnas ur svaret.",
     "alias": "Kompatibilitetsalias",
     "alias_help": "Alternativa nycklar för samma uppgifter, från LDAP/katalogstandarden (sn = efternamn, uid = användar-id) eller äldre appar. SAML-claims är skiftlägeskänsliga, så varianterna kan inte slås ihop — fyll i ett alias med samma värde som standardfältet när en ansluten app kräver just den nyckeln."
-  }
+  },
+  "applications_help": "Markera vilka anslutna applikationer testidentiteten används med. Styr applikationsfiltret i IdP-testinloggningen — påverkar aldrig SAML-svaret.",
+  "no_applications": "Det finns inga applikationer än.",
+  "create_application": "Skapa den första applikationen"
 }

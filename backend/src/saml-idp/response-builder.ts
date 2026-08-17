@@ -1,12 +1,12 @@
 import { SAML_IDP_ENTITY_ID, SAML_IDP_PRIVATE_KEY, SAML_ISSUER, SAML_SP_AUDIENCE } from '@config';
-import type { Attribute, Group, User } from '@prisma/client';
+import type { Application, Attribute, Group, User } from '@prisma/client';
 import { createGroupAttribute } from '@utils/group-claim';
 import { SignedXml } from 'xml-crypto';
 import { buildResponseXml } from './assertion-template';
 import type { ParsedAuthnRequest } from './request-parser';
 import { createId, createSessionId, normalizePem } from './util';
 
-export type UserWithAttributes = User & { attributes: Attribute[]; groups: Group[] };
+export type UserWithAttributes = User & { attributes: Attribute[]; groups: Group[]; applications?: Application[] };
 
 export interface BuiltResponse {
   /** SP ACS URL the auto-submitting form POSTs to. */

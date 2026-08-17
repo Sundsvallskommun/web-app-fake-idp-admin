@@ -7,6 +7,9 @@ export type ImportUser = {
   username: string;
   password: string;
   attributes?: Record<string, ImportAttribute>;
+  /** Anslutna testapplikationer (namn). Verktygsmetadata, aldrig ett SAML-claim.
+   *  Valfritt: äldre users.js-filer saknar fältet. */
+  applications?: string[];
 };
 
 /**

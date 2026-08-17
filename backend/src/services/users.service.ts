@@ -5,7 +5,11 @@ import { isMaskedAttributeKey, MASKED_VALUE } from '@utils/mask-user';
 import { ImportUser } from '@utils/parse-users-module';
 
 const withDetails = {
-  include: { attributes: true, groups: { orderBy: { name: 'asc' as const } } },
+  include: {
+    attributes: true,
+    groups: { orderBy: { name: 'asc' as const } },
+    applications: { orderBy: { name: 'asc' as const } },
+  },
 } as const;
 
 export class UsersService {
@@ -35,6 +39,7 @@ export class UsersService {
           data.groupIds !== undefined
             ? { connect: data.groupIds.map(id => ({ id })) }
             : { connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })) },
+        ...(data.applicationIds !== undefined ? { applications: { connect: data.applicationIds.map(id => ({ id })) } } : {}),
       },
       ...withDetails,
     });
@@ -65,6 +70,7 @@ export class UsersService {
                 },
               }
             : {}),
+        ...(data.applicationIds !== undefined ? { applications: { set: data.applicationIds.map(applicationId => ({ id: applicationId })) } } : {}),
       },
       ...withDetails,
     });
@@ -119,6 +125,13 @@ export class UsersService {
               groups: {
                 connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
               },
+              ...(user.applications && user.applications.length > 0
+                ? {
+                    applications: {
+                      connectOrCreate: [...new Set(user.applications)].map(name => ({ where: { name }, create: { name } })),
+                    },
+                  }
+                : {}),
             },
           });
         }

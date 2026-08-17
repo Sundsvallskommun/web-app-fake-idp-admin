@@ -14,17 +14,27 @@ datasource db {
 /// A fake-IdP user. NOTE: this is a test/simulator IdP, so `password` is stored
 /// in plain text on purpose — the IdP must be able to replay credentials.
 model User {
-  id         String      @id @default(cuid())
-  name       String
-  username   String
-  password   String
-  attributes Attribute[]
-  groups     Group[]
+  id           String        @id @default(cuid())
+  name         String
+  username     String
+  password     String
+  attributes   Attribute[]
+  groups       Group[]
+  applications Application[]
 }
 
 /// A documented SAML group. Membership is relational; the legacy comma-separated
 /// `groups` claim is produced only at the SAML and users.js boundaries.
 model Group {
+  id          Int    @id @default(autoincrement())
+  name        String @unique
+  description String @default("")
+  users       User[]
+}
+
+/// Ansluten testapplikation. Ren verktygsmetadata — blir ALDRIG ett SAML-claim.
+/// Styr filtrering av testidentiteter i IdP-inloggningen och adminpanelen.
+model Application {
   id          Int    @id @default(autoincrement())
   name        String @unique
   description String @default("")

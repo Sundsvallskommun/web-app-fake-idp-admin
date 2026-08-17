@@ -1,5 +1,6 @@
 /* eslint-disable */
 /* tslint:disable */
+// @ts-nocheck
 /*
  * ---------------------------------------------------------------
  * ## THIS FILE WAS GENERATED VIA SWAGGER-TYPESCRIPT-API        ##
@@ -12,6 +13,7 @@
 export interface User {
   name: string;
   username: string;
+  defaultCredentials?: boolean;
 }
 
 export interface UserApiResponse {
@@ -33,6 +35,12 @@ export interface UserGroup {
   description: string;
 }
 
+export interface UserApplication {
+  id: number;
+  name: string;
+  description: string;
+}
+
 export interface AdminUser {
   id: string;
   name: string;
@@ -40,6 +48,7 @@ export interface AdminUser {
   password: string;
   attributes: UserAttribute[];
   groups: UserGroup[];
+  applications: UserApplication[];
 }
 
 export interface AdminUserResponse {
@@ -75,6 +84,8 @@ export interface CreateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
+  /** @uniqueItems true */
+  applicationIds?: number[];
 }
 
 export interface ImportUsersDto {
@@ -88,6 +99,8 @@ export interface UpdateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
+  /** @uniqueItems true */
+  applicationIds?: number[];
 }
 
 export interface LoginAdminDto {
@@ -126,6 +139,35 @@ export interface UpdateGroupDto {
    * @minLength 1
    * @pattern ^[^,]+$
    */
+  name?: string;
+  description?: string;
+}
+
+export interface AdminApplication {
+  id: number;
+  name: string;
+  description: string;
+  userCount: number;
+}
+
+export interface AdminApplicationResponse {
+  data: AdminApplication;
+  message: string;
+}
+
+export interface AdminApplicationListResponse {
+  data: AdminApplication[];
+  message: string;
+}
+
+export interface CreateApplicationDto {
+  /** @minLength 1 */
+  name: string;
+  description: string;
+}
+
+export interface UpdateApplicationDto {
+  /** @minLength 1 */
   name?: string;
   description?: string;
 }

@@ -18,9 +18,43 @@ describe('Fake IdP pages', () => {
     expect(html).toContain('SAML-testinloggning');
     expect(html).toContain('Välj testidentitet');
     expect(html).toContain('app.example.test');
-    expect(html).toContain('Test Person (test.person)');
+    expect(html).toContain('Test Person');
+    expect(html).toContain('test.person');
     expect(html).toContain('Logga in och fortsätt');
     expect(html).toContain('Administration');
+  });
+
+  it('renders the application filter and badges when identities have applications', () => {
+    const html = renderLogin({
+      action: '/api/saml/idp/authenticate',
+      csrfToken,
+      navigation,
+      users: [
+        { id: 'user-1', name: 'Test Person', username: 'test.person', applications: ['draken', 'katla'] },
+        { id: 'user-2', name: 'Other Person', username: 'other.person' },
+      ],
+      enumerateUsers: true,
+    });
+
+    expect(html).toContain('id="appFilter"');
+    expect(html).toContain('Alla applikationer');
+    expect(html).toContain('<option value="draken">draken</option>');
+    expect(html).toContain('data-apps="draken|katla"');
+    expect(html).toContain('id="identitySearch"');
+    expect(html).toContain('class="badge"');
+  });
+
+  it('omits the application filter when no identity has applications', () => {
+    const html = renderLogin({
+      action: '/api/saml/idp/authenticate',
+      csrfToken,
+      navigation,
+      users,
+      enumerateUsers: true,
+    });
+
+    expect(html).toContain('id="identitySearch"');
+    expect(html).not.toContain('id="appFilter"');
   });
 
   it('allows selecting a test identity without an active SAML request', () => {

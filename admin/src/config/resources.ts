@@ -1,15 +1,18 @@
 import { HighlightedText } from '@components/highlighted-text/highlighted-text.component';
 import {
+  AdminApplication,
   AdminGroup,
   AdminUser,
+  CreateApplicationDto,
   CreateGroupDto,
   CreateUserDto,
+  UpdateApplicationDto,
   UpdateGroupDto,
   UpdateUserDto,
 } from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
-import { Boxes, Users } from 'lucide-react';
+import { AppWindow, Boxes, Users } from 'lucide-react';
 import { createElement } from 'react';
 
 // `citizenIdentifier` is not a top-level field — it is a SAML attribute.
@@ -83,6 +86,33 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
   ],
 };
 
-const resources = { users, groups };
+// Anslutna testapplikationer. Ren verktygsmetadata (aldrig SAML-claims) som
+// driver applikationsfiltret i IdP-testinloggningen och testidentitetsformuläret.
+const applications: Resource<AdminApplication, CreateApplicationDto, UpdateApplicationDto> = {
+  name: 'applications',
+  icon: AppWindow,
+  getOne: (id, params) => apiService.applicationControllerGetApplication(Number(id), params),
+  getMany: apiService.applicationControllerGetApplications,
+  create: ({ name, description }, params) =>
+    apiService.applicationControllerCreateApplication({ name, description }, params),
+  update: (id, { name, description }, params) =>
+    apiService.applicationControllerUpdateApplication(Number(id), { name, description }, params),
+  remove: (id, params) => apiService.applicationControllerRemoveApplication(Number(id), params),
+  defaultValues: { name: '', description: '' },
+  requiredFields: ['name'],
+  formFields: ['name', 'description'],
+  multilineFields: ['description'],
+  columns: [
+    { property: 'name' },
+    {
+      property: 'description',
+      renderColumn: (value) =>
+        createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
+    },
+    { property: 'userCount' },
+  ],
+};
+
+const resources = { users, groups, applications };
 
 export default resources;

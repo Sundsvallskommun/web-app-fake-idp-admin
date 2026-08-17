@@ -1,0 +1,12 @@
+{
+  "name": "applikation",
+  "name_zero": "applikationer",
+  "name_one": "applikation",
+  "name_other": "applikationer",
+  "name_many": "applikationer",
+  "properties": {
+    "name": "applikationsnamn",
+    "description": "beskrivning",
+    "userCount": "antal testidentiteter"
+  }
+}

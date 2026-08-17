@@ -26,6 +26,7 @@ describe('user form model', () => {
       name: 'Testperson',
       username: 'testperson',
       password: 'secret',
+      applications: [{ id: 1, name: 'draken', description: '' }],
       groups: [{ id: 7, name: 'editor', description: 'Can edit' }],
       attributes: [
         attribute(1, 'givenName', 'Test'),
@@ -62,6 +63,7 @@ describe('user form model', () => {
       password: 'secret',
       attributes: [{ key: 'applicationRole', value: 'editor', format: SAML_BASIC_FORMAT, type: XML_SCHEMA_STRING }],
       groupIds: [7],
+      applicationIds: [],
     });
   });
 });

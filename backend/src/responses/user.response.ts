@@ -55,6 +55,15 @@ export class UserGroup {
   description: string;
 }
 
+export class UserApplication {
+  @IsNumber()
+  id: number;
+  @IsString()
+  name: string;
+  @IsString()
+  description: string;
+}
+
 export class AdminUser {
   @IsString()
   id: string;
@@ -72,6 +81,10 @@ export class AdminUser {
   @ValidateNested({ each: true })
   @Type(() => UserGroup)
   groups: UserGroup[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserApplication)
+  applications: UserApplication[];
 }
 
 export class AdminUserResponse implements ApiResponse<AdminUser> {

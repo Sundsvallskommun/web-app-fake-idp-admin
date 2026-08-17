@@ -64,6 +64,8 @@ const createApp = () => {
   );
   app.use(csrfProtection);
   registerIdpRoutes(app, usersService);
+  // Express kräver arity 4 för felhanterare — _next måste stå kvar oanvänd.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((error: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
     res.status(error.status ?? 500).send(error.message);
   });

@@ -11,6 +11,7 @@ describe('users.js group compatibility', () => {
         password: 'test-password',
         attributes: [{ key: 'givenName', value: 'Test', format: 'basic', type: 'xs:string' }],
         groups: [{ name: 'editor' }, { name: 'reviewer' }],
+        applications: [{ name: 'draken' }, { name: 'katla' }],
       },
     ]);
 
@@ -24,5 +25,8 @@ describe('users.js group compatibility', () => {
         type: 'xs:string',
       },
     });
+    // Applikationer är inte claims — de åker med som eget fält och överlever
+    // export → import.
+    expect(user.applications).toEqual(['draken', 'katla']);
   });
 });

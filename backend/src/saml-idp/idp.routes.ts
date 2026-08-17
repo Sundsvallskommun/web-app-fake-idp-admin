@@ -17,6 +17,7 @@ const SAML_LOGIN_URL = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;
 const navigation: PageNavigation = {
   idpUrl: LOGIN_URL,
   adminUrl: ADMIN_URL,
+  assetsUrl: ADMIN_URL,
 };
 
 const idpRateLimit = rateLimit({
@@ -42,8 +43,21 @@ const wrap =
 
 const saveSession = (req: Request): Promise<void> => new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
 
+// Typsnitten bor i adminens /fonts. Via proxyn är det samma origin ('self');
+// i external-proxy-läget kan adminen ligga på annan origin — tillåt den explicit.
+const adminOrigin = (() => {
+  try {
+    return new URL(ADMIN_URL).origin;
+  } catch {
+    return "'self'";
+  }
+})();
+
 function idpCsp(_req: Request, res: Response, next: NextFunction) {
-  res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action *");
+  res.setHeader(
+    'Content-Security-Policy',
+    `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self' ${adminOrigin}; form-action *`,
+  );
   next();
 }
 
@@ -98,7 +112,12 @@ async function respondWithAssertion(req: Request, res: Response, user: UserWithA
 async function renderLoginPage(req: Request, usersService: IdpUserStore, options?: { error?: string; notice?: string }): Promise<string> {
   const request = req.session.idpRequest;
   const users = SAML_IDP_ENUMERATE_USERS
-    ? (await usersService.getUsers()).map(user => ({ id: user.id, name: user.name, username: user.username }))
+    ? (await usersService.getUsers()).map(user => ({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        applications: (user.applications ?? []).map(application => application.name),
+      }))
     : [];
 
   return renderLogin({
