@@ -1,4 +1,5 @@
 import { AxiosResponse } from 'axios';
+import { LucideIcon } from 'lucide-react';
 import { FieldPath } from 'react-hook-form';
 import { Create, GetMany, GetOne, ID, Remove, Update } from './resource-services';
 import { ServiceResponse } from './services';
@@ -35,6 +36,8 @@ export type Resource<
   TUpdate extends Record<string, any> = Partial<T>,
 > = {
   name: string;
+  /** Menyikon i sidomenyn. Utan ikon faller menyn tillbaka på en generisk. */
+  icon?: LucideIcon;
   getOne: GetOne<ResourceResponse<T>>;
   getMany: GetMany<ResourceResponse<T[]>>;
   create?: Create<TCreate, ResourceResponse<T>>;

@@ -61,7 +61,9 @@ export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-md border overflow-x-auto">
+      {/* Ingen egen overflow-x-auto: shadcns Table har redan en inre scrollcontainer,
+          och två nästlade gör sticky-kolumnen opålitlig. */}
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -109,13 +111,17 @@ export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} className="group">
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as { column: ResourceColumn } | undefined;
                   return (
                     <TableCell
                       key={cell.id}
-                      className={cn(meta?.column.sticky && 'sticky right-0 bg-background text-right')}
+                      className={cn(
+                        // Opak bakgrund som följer radhovern + vänsterkant, annars ser
+                        // raden avklippt ut och scrollad text går visuellt in i kolumnen.
+                        meta?.column.sticky && 'sticky right-0 bg-background group-hover:bg-muted border-l text-right'
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

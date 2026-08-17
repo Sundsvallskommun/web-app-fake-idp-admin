@@ -21,9 +21,10 @@ interface ListToolbarProps {
   resource: ResourceName;
   onRefresh?: () => void;
   properties?: string[];
+  className?: string;
 }
 
-export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, properties }) => {
+export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, properties, className }) => {
   const { t } = useTranslation();
   const [{ [resource]: headers }, setHeaders] = useLocalStorage(
     useShallow((state) => [state.headers, state.setHeaders])
@@ -44,7 +45,9 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, p
   };
 
   return (
-    <div className="absolute top-4 right-0 w-fit z-10 flex items-center gap-1">
+    // Statisk i headerraden (inte absolute) så den radbryts istället för att
+    // lägga sig ovanpå rubriken på smala skärmar.
+    <div className={cn('flex items-center gap-1', className)}>
       {!!create && (
         <Link
           href={`/${resource}/new`}

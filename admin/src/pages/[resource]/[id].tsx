@@ -123,7 +123,7 @@ export const EditAssistant: React.FC = () => {
     : <EditLayout
         headerInfo={
           !isNew ?
-            <ul className="text-sm flex gap-4">
+            <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
               {defaultInformationFields.map((field, index) => (
                 <li key={index + field}>
                   <strong>{capitalize(t(`common:${field}`))}: </strong>

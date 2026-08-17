@@ -61,9 +61,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# Next 16.3 resolves this helper from its nested dependency at runtime, but the
-# standalone output tracer currently copies only the CommonJS files.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/next/node_modules/@swc/helpers ./node_modules/next/node_modules/@swc/helpers
+# Next 16.3 resolver denna helper i runtime, men standalone-tracern kopierar bara
+# CommonJS-filerna. Var @swc/helpers hamnar beror på yarns hoisting: den låg
+# nästlad under next/ innan shadcn-beroendena kom in, och på toppnivå efter.
+# Kopiera hela @swc så bygget överlever båda layouterna.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@swc ./node_modules/@swc
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs

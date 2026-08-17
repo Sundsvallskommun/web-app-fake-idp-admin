@@ -112,14 +112,16 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
                     className="grid gap-3 md:grid-cols-2 max-h-80 overflow-y-auto"
                   >
                     {visibleGroups.map((group) => (
-                      <div key={group.id} className="flex items-start gap-2">
+                      // min-w-0 + break-words: annars trycker långa obrutna
+                      // gruppnamn (URL:er, AD-namn) in under grannkolumnen.
+                      <div key={group.id} className="flex items-start gap-2 min-w-0">
                         <Checkbox
                           id={`group-${group.id}`}
                           className="mt-1"
                           checked={field.value.includes(group.id)}
                           onCheckedChange={(checked) => toggle(group.id, checked === true)}
                         />
-                        <Label htmlFor={`group-${group.id}`} className="flex flex-col font-normal">
+                        <Label htmlFor={`group-${group.id}`} className="flex flex-col font-normal min-w-0 break-words">
                           <strong>{group.name}</strong>
                           {group.description && (
                             <span className="text-sm text-muted-foreground">{group.description}</span>
@@ -143,7 +145,7 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
 
         <div className="grid gap-4 md:grid-cols-2">
           {userAttributeDefinitions.map((definition, index) => (
-            <div key={definition.key} className="flex flex-col gap-2">
+            <div key={definition.key} className="flex flex-col gap-2 min-w-0">
               <Label htmlFor={`known-${definition.key}`}>
                 {capitalize(t(definition.labelKey))}
                 <span className="block text-sm font-normal text-muted-foreground">{definition.key}</span>

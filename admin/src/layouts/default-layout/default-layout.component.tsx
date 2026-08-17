@@ -73,16 +73,16 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
       <SidebarProvider>
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild size="lg" tooltip={process.env.NEXT_PUBLIC_APP_NAME}>
-                  <NextLink href="/">
-                    <LogoMark className="size-6 shrink-0" />
-                    <Logo className="h-6 w-auto group-data-[collapsible=icon]:hidden" />
-                  </NextLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+            {/* Drakens mönster: LogoMark visas ENDAST i ikonläge, ordmärket ENDAST
+                expanderat — aldrig båda, så märket dubbleras inte. */}
+            <NextLink
+              href="/"
+              className="flex items-center overflow-hidden rounded-md p-1.5 hover:bg-sidebar-accent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1"
+              aria-label={`${process.env.NEXT_PUBLIC_APP_NAME} – till startsidan`}
+            >
+              <LogoMark className="hidden h-8 w-auto shrink-0 text-sidebar-foreground group-data-[collapsible=icon]:block" />
+              <Logo className="h-8 w-auto shrink-0 text-sidebar-foreground group-data-[collapsible=icon]:hidden" />
+            </NextLink>
           </SidebarHeader>
 
           <SidebarContent>
@@ -98,7 +98,9 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
                       <Avatar className="size-8 rounded-lg">
                         <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
                       </Avatar>
-                      <span className="grid flex-1 text-left text-sm leading-tight truncate">{user.name}</span>
+                      <div className="grid flex-1 text-left leading-tight">
+                        <span className="truncate text-sm font-medium">{user.name}</span>
+                      </div>
                       <ChevronsUpDown className="ml-auto size-4" />
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
@@ -125,14 +127,16 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
           <SidebarRail />
         </Sidebar>
 
-        <SidebarInset className="max-h-screen overflow-hidden">
+        {/* svh (inte vh): på mobil med dynamiskt adressfält är 100vh högre än synlig
+            yta, så paginering m.m. hamnade bakom webbläsarens verktygsfält. */}
+        <SidebarInset className="max-h-svh overflow-hidden">
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="ml-auto">
               <ModeToggle />
             </div>
           </header>
-          <div className="px-6 py-4 md:py-7 md:px-10 grow max-h-full overflow-y-auto">{children}</div>
+          <div className="px-6 py-4 md:py-7 md:px-10 flex-1 min-h-0 overflow-y-auto">{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </div>

@@ -50,7 +50,9 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
 
   const { t } = useTranslation();
   return (
-    <div className="absolute top-10 right-12 w-fit flex items-center gap-1">
+    // Full bredd + högerställd i formulärets flödesordning: absolut positionering
+    // la knapparna ovanpå rubriken när viewporten smalnade.
+    <div className="w-full flex justify-end items-center gap-1">
       <Button type="submit" size="icon" variant="ghost" disabled={!isDirty} aria-label={capitalize(t('common:save'))}>
         <Save className="size-4" />
       </Button>

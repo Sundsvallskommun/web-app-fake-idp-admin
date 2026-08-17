@@ -46,11 +46,11 @@ export const Exempelsida: React.FC = () => {
       <DefaultLayout title={`${capitalize(t(`${resource}:name_many`))} - ${process.env.NEXT_PUBLIC_APP_NAME}`}>
         <Main>
           <Header>
-            <span className="flex flex-row gap-4 items-center">
+            <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
               <h1 className="text-3xl font-bold leading-6">{capitalize(t(`${resource}:name_many`))}</h1>
               {loading && <Loader2 className="size-6 animate-spin text-muted-foreground" />}
-            </span>
-            <ListToolbar resource={resource} onRefresh={refresh} properties={getProperties()} />
+              <ListToolbar className="ml-auto" resource={resource} onRefresh={refresh} properties={getProperties()} />
+            </div>
           </Header>
           {loaded && <ListResources resource={resource} data={data} />}
         </Main>

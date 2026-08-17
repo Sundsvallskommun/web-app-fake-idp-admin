@@ -97,7 +97,9 @@ export const UsersListPage: React.FC = () => {
     <DefaultLayout title={`${capitalize(t('users:name_many'))} - ${process.env.NEXT_PUBLIC_APP_NAME}`}>
       <Main>
         <Header>
-          <span className="flex flex-row items-center gap-4">
+          {/* flex-wrap: knappar och verktygsrad radbryts under rubriken på smala
+              skärmar istället för att överlappa. */}
+          <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
             <h1 className="text-3xl font-bold leading-6">{capitalize(t('users:name_many'))}</h1>
             {(loading || importing || exporting) && (
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -117,8 +119,8 @@ export const UsersListPage: React.FC = () => {
               className="hidden"
               onChange={onImportFile}
             />
-          </span>
-          <ListToolbar resource="users" onRefresh={refresh} properties={getProperties()} />
+            <ListToolbar className="ml-auto" resource="users" onRefresh={refresh} properties={getProperties()} />
+          </div>
         </Header>
         {loaded && <ListResources resource="users" data={displayData} />}
       </Main>

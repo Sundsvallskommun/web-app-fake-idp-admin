@@ -10,7 +10,7 @@ import {
   SidebarMenuSubItem,
 } from '@components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@components/ui/collapsible';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Database } from 'lucide-react';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
@@ -32,12 +32,15 @@ export const Menu = () => {
         {Object.keys(resources).map((resourcename) => {
           const resource = resources[resourcename as keyof typeof resources];
           const active = isActive(resource.name);
+          // Ikonen gör att posten förblir synlig när sidomenyn kollapsas till ikonläge.
+          const Icon = resource.icon ?? Database;
 
           return (
             <Collapsible key={resource.name} asChild defaultOpen={active} className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton isActive={active} tooltip={capitalize(t(`${resource.name}:name_many`))}>
+                    <Icon />
                     <span>{capitalize(t(`${resource.name}:name_many`))}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                   </SidebarMenuButton>

@@ -9,6 +9,7 @@ import {
 } from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
+import { Boxes, Users } from 'lucide-react';
 import { createElement } from 'react';
 
 // `citizenIdentifier` is not a top-level field — it is a SAML attribute.
@@ -17,6 +18,7 @@ const getAttribute = (user: AdminUser, key: string) =>
 
 const users: Resource<AdminUser> = {
   name: 'users',
+  icon: Users,
   // endpoints — the generated client types `id` as string; the Resource contract
   // allows string | number, so we bridge with String(id).
   getOne: (id, params) => apiService.userControllerGetUser(String(id), params),
@@ -56,6 +58,7 @@ const users: Resource<AdminUser> = {
 
 const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
   name: 'groups',
+  icon: Boxes,
   getOne: (id, params) => apiService.groupControllerGetGroup(Number(id), params),
   getMany: apiService.groupControllerGetGroups,
   create: ({ name, description }, params) => apiService.groupControllerCreateGroup({ name, description }, params),
