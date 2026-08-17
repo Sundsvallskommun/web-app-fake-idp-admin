@@ -6,7 +6,10 @@ import { apiClient } from '@services/api-client';
 import { useCrudHelper } from '@utils/use-crud-helpers';
 import { useResource } from '@utils/use-resource';
 import { useRouteGuard } from '@utils/routeguard.hook';
-import { Button, FormControl, FormLabel, Icon, Input, useSnackbar } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Input } from '@components/ui/input';
+import { Label } from '@components/ui/label';
+import { toast } from 'sonner';
 import { Plus, Save, Trash } from 'lucide-react';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -43,7 +46,6 @@ const toPayload = (data: UserForm): CreateUserDto => ({
 export const UserEditPage: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
-  const message = useSnackbar();
 
   const { id: _id } = useParams();
   const id = typeof _id === 'object' ? _id[0] : _id;
@@ -108,18 +110,12 @@ export const UserEditPage: React.FC = () => {
     apiClient
       .userControllerRemoveUser(id)
       .then(() => {
-        message({
-          message: capitalize(t('crud:remove.success', { resource: t('users:name_one') })),
-          status: 'success',
-        });
+        toast.success(capitalize(t('crud:remove.success', { resource: t('users:name_one') })));
         refresh();
         router.push('/users');
       })
       .catch(() => {
-        message({
-          message: capitalize(t('crud:remove.error', { resource: t('users:name_one') })),
-          status: 'error',
-        });
+        toast.error(capitalize(t('crud:remove.error', { resource: t('users:name_one') })));
       });
   };
 
@@ -136,71 +132,73 @@ export const UserEditPage: React.FC = () => {
       }
       backLink="/users"
     >
-      <form className="flex flex-col gap-32 grow max-w-4xl" onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-16">
-          <FormControl required>
-            <FormLabel>{capitalize(t('users:properties.name'))}</FormLabel>
-            <Input {...register('name')} />
-          </FormControl>
-          <FormControl required>
-            <FormLabel>{capitalize(t('users:properties.username'))}</FormLabel>
-            <Input {...register('username')} />
-          </FormControl>
-          <FormControl required>
-            <FormLabel>{capitalize(t('users:properties.password'))}</FormLabel>
-            <Input {...register('password')} />
-          </FormControl>
+      <form className="flex flex-col gap-8 grow max-w-xl" onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="user-name">{capitalize(t('users:properties.name'))}</Label>
+            <Input id="user-name" required {...register('name')} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="user-username">{capitalize(t('users:properties.username'))}</Label>
+            <Input id="user-username" required {...register('username')} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="user-password">{capitalize(t('users:properties.password'))}</Label>
+            <Input id="user-password" required {...register('password')} />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-16">
-          <header className="flex gap-24 items-center">
-            <h2 className="text-h4-md font-header mb-0">{capitalize(t('users:properties.attributes'))}</h2>
-            <Button type="button" size="sm" color="success" leftIcon={<Plus />} onClick={() => append(emptyAttribute())}>
+        <div className="flex flex-col gap-4">
+          <header className="flex gap-6 items-center">
+            <h2 className="text-xl font-bold mb-0">{capitalize(t('users:properties.attributes'))}</h2>
+            <Button type="button" size="sm" onClick={() => append(emptyAttribute())}>
+              <Plus className="size-4" />
               {capitalize(t('users:add_attribute'))}
             </Button>
           </header>
 
-          {fields.length === 0 && <p className="text-dark-disabled">{t('users:no_attributes')}</p>}
+          {fields.length === 0 && <p className="text-muted-foreground">{t('users:no_attributes')}</p>}
 
           {fields.map((field, index) => (
-            <div key={field.id} className="flex gap-12 items-end flex-wrap">
-              <FormControl className="grow">
-                <FormLabel>{capitalize(t('users:attribute.key'))}</FormLabel>
-                <Input {...register(`attributes.${index}.key`)} />
-              </FormControl>
-              <FormControl className="grow">
-                <FormLabel>{capitalize(t('users:attribute.value'))}</FormLabel>
-                <Input {...register(`attributes.${index}.value`)} />
-              </FormControl>
-              <FormControl className="grow">
-                <FormLabel>{capitalize(t('users:attribute.type'))}</FormLabel>
-                <Input {...register(`attributes.${index}.type`)} />
-              </FormControl>
-              <FormControl className="grow">
-                <FormLabel>{capitalize(t('users:attribute.format'))}</FormLabel>
-                <Input {...register(`attributes.${index}.format`)} />
-              </FormControl>
+            <div key={field.id} className="flex gap-3 items-end flex-wrap">
+              <div className="flex flex-col gap-2 grow">
+                <Label htmlFor={`attributes.${index}.key`}>{capitalize(t('users:attribute.key'))}</Label>
+                <Input id={`attributes.${index}.key`} {...register(`attributes.${index}.key`)} />
+              </div>
+              <div className="flex flex-col gap-2 grow">
+                <Label htmlFor={`attributes.${index}.value`}>{capitalize(t('users:attribute.value'))}</Label>
+                <Input id={`attributes.${index}.value`} {...register(`attributes.${index}.value`)} />
+              </div>
+              <div className="flex flex-col gap-2 grow">
+                <Label htmlFor={`attributes.${index}.type`}>{capitalize(t('users:attribute.type'))}</Label>
+                <Input id={`attributes.${index}.type`} {...register(`attributes.${index}.type`)} />
+              </div>
+              <div className="flex flex-col gap-2 grow">
+                <Label htmlFor={`attributes.${index}.format`}>{capitalize(t('users:attribute.format'))}</Label>
+                <Input id={`attributes.${index}.format`} {...register(`attributes.${index}.format`)} />
+              </div>
               <Button
                 type="button"
-                size="sm"
-                rounded
-                color="error"
-                iconButton
+                size="icon"
+                variant="destructive"
+                className="rounded-full shrink-0"
                 aria-label={capitalize(t('users:remove_attribute'))}
                 onClick={() => remove(index)}
               >
-                <Icon icon={<Trash />} />
+                <Trash className="size-4" />
               </Button>
             </div>
           ))}
         </div>
 
-        <div className="flex gap-16">
-          <Button type="submit" color="vattjom" leftIcon={<Save />} disabled={!isDirty}>
+        <div className="flex gap-4">
+          <Button type="submit" disabled={!isDirty}>
+            <Save className="size-4" />
             {capitalize(t('common:save'))}
           </Button>
           {!isNew && (
-            <Button type="button" variant="secondary" color="error" leftIcon={<Trash />} onClick={onRemove}>
+            <Button type="button" variant="destructive" onClick={onRemove}>
+              <Trash className="size-4" />
               {capitalize(t('common:remove'))}
             </Button>
           )}

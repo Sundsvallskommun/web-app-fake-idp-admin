@@ -1,6 +1,7 @@
 import resources from '@config/resources';
 import { ResourceName } from '@interfaces/resource-name';
-import { Button, Icon, useConfirm } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { useConfirm } from '@components/confirm/confirm-context';
 import { useCrudHelper } from '@utils/use-crud-helpers';
 import { Save, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -49,33 +50,23 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
 
   const { t } = useTranslation();
   return (
-    <Button.Group className="absolute top-40 right-48 w-fit">
-      <Button
-        type="submit"
-        color="vattjom"
-        size="sm"
-        showBackground={false}
-        leftIcon={<Save />}
-        disabled={!isDirty}
-        iconButton
-        aria-label={capitalize(t('common:save'))}
-      ></Button>
+    <div className="absolute top-10 right-12 w-fit flex items-center gap-1">
+      <Button type="submit" size="icon" variant="ghost" disabled={!isDirty} aria-label={capitalize(t('common:save'))}>
+        <Save className="size-4" />
+      </Button>
 
       {((!!remove && id) || !id) && (
-        <>
-          <Button
-            variant="tertiary"
-            color="error"
-            showBackground={false}
-            iconButton
-            aria-label={capitalize(t('common:remove', { resource: t(`${resource}:name_one`) }))}
-            size="sm"
-            onClick={() => onRemove()}
-          >
-            <Icon icon={<Trash />} />
-          </Button>
-        </>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          aria-label={capitalize(t('common:remove', { resource: t(`${resource}:name_one`) }))}
+          onClick={() => onRemove()}
+        >
+          <Trash className="size-4" />
+        </Button>
       )}
-    </Button.Group>
+    </div>
   );
 };

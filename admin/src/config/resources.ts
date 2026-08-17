@@ -33,12 +33,12 @@ const users: Resource<AdminUser> = {
       property: 'citizenIdentifier',
       isColumnSortable: false,
       renderColumn: (_value, item) =>
-        createElement(HighlightedText, null, getAttribute(item as AdminUser, 'citizenIdentifier')),
+        createElement(HighlightedText, null, getAttribute(item as unknown as AdminUser,'citizenIdentifier')),
     },
     {
       property: 'groups',
       isColumnSortable: false,
-      renderColumn: (_value, item) => createElement(HighlightedText, null, getAttribute(item as AdminUser, 'groups')),
+      renderColumn: (_value, item) => createElement(HighlightedText, null, getAttribute(item as unknown as AdminUser,'groups')),
     },
   ],
 };

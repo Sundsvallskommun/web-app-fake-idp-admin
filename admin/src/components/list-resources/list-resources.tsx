@@ -2,12 +2,16 @@ import { HighlightedText } from '@components/highlighted-text/highlighted-text.c
 import { SearchQueryContext } from '@components/highlighted-text/search-query.context';
 import { defaultInformationFields } from '@config/defaults';
 import resources from '@config/resources';
+import { ResourceColumn } from '@interfaces/resource';
 import { ResourceName } from '@interfaces/resource-name';
-import { AutoTable, AutoTableHeader, Icon, SearchField } from '@sk-web-gui/react';
+import { buttonVariants } from '@components/ui/button';
+import { Input } from '@components/ui/input';
+import { ListTable } from './list-table';
+import { cn } from '@utils/cn';
 import { getFormattedFields } from '@utils/formatted-field';
 import { matchesQuery } from '@utils/match-query';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
-import { Check, Pencil } from 'lucide-react';
+import { Check, Pencil, Search, X } from 'lucide-react';
 import NextLink from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +20,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 interface ListResourcesProps {
   resource: ResourceName;
-  headers?: AutoTableHeader[];
+  headers?: ResourceColumn[];
   data?: Array<Record<string, unknown>>;
 }
 
@@ -48,7 +52,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
           ...column,
           label: column.label ?? capitalize(t(`${resource}:properties.${column.property}`)),
         }))) ||
-      storeHeaders?.reduce<AutoTableHeader[]>((headers, key) => {
+      storeHeaders?.reduce<ResourceColumn[]>((headers, key) => {
         if (data) {
           const type = typeof data?.[0]?.[key];
           switch (type) {
@@ -81,7 +85,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
                   ),
                   property: key,
                   renderColumn: (value) => (
-                    <span>{value && <Icon.Padded rounded color="success" icon={<Check />} />}</span>
+                    <span>{!!value && <Check className="size-4 text-green-600 dark:text-green-500" />}</span>
                   ),
                   isColumnSortable: false,
                 },
@@ -97,7 +101,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
     [storeHeaders, _headers, data, columns]
   );
 
-  const editHeader: AutoTableHeader = {
+  const editHeader: ResourceColumn = {
     label: 'edit',
     property: 'id',
     isColumnSortable: false,
@@ -105,14 +109,18 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
     sticky: true,
     renderColumn: (value) => (
       <div className="text-right w-full">
-        <NextLink href={`/${resource}/${value}`} aria-label="Redigera">
-          <Icon.Padded icon={<Pencil />} variant="tertiary" className="link-btn" />
+        <NextLink
+          href={`/${resource}/${value}`}
+          aria-label={capitalize(t('common:edit', { defaultValue: 'Redigera' }))}
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+        >
+          <Pencil className="size-4" />
         </NextLink>
       </div>
     ),
   };
 
-  const translatedHeaders: AutoTableHeader[] =
+  const translatedHeaders: ResourceColumn[] =
     headers?.map((header) =>
       typeof header === 'object' ?
         { ...header, label: header?.label || capitalize(t(`${resource}:properties.${header}`)) }
@@ -124,7 +132,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
 
   // Highlight matched text in columns that don't already supply their own renderer
   // (boolean check icons, the edit pencil, and custom columns like `groups` keep theirs).
-  const highlightedHeaders: AutoTableHeader[] = translatedHeaders.map((header) =>
+  const highlightedHeaders: ResourceColumn[] = translatedHeaders.map((header) =>
     header.renderColumn ? header : (
       { ...header, renderColumn: (value) => <HighlightedText>{value as React.ReactNode}</HighlightedText> }
     )
@@ -140,21 +148,38 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
 
   return (
     <SearchQueryContext.Provider value={query}>
-      <SearchField
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onReset={() => setQuery('')}
-        showSearchButton={false}
-        placeholder={capitalize(t('common:filter'))}
-        className="mb-16 max-w-[32rem]"
-      />
-      {filteredData && filteredData?.length > 0 ?
-        <AutoTable
-          pageSize={15}
-          autodata={filteredData}
-          autoheaders={[...highlightedHeaders, ...(update ? [editHeader] : [])]}
+      {/* max-w-[32rem] var skriven för sk:s 10px-rot (320px) — max-w-80 ger samma bredd. */}
+      <div className="relative mb-4 max-w-80">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={capitalize(t('common:filter'))}
+          aria-label={capitalize(t('common:filter'))}
+          className="pl-9 pr-9"
         />
-      : <h3>{capitalize(t('common:no_resources', { resources: t(`${resource}:name_zero`) }))}</h3>}
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            aria-label={capitalize(t('common:clear', { defaultValue: 'Rensa' }))}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      {filteredData && filteredData?.length > 0 ?
+        <ListTable
+          pageSize={15}
+          data={filteredData}
+          columns={[...highlightedHeaders, ...(update ? [editHeader] : [])]}
+        />
+      : <h3 className="text-2xl font-bold">
+          {capitalize(t('common:no_resources', { resources: t(`${resource}:name_zero`) }))}
+        </h3>
+      }
     </SearchQueryContext.Provider>
   );
 };

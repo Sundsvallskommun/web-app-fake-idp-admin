@@ -2,7 +2,10 @@ import { defaultInformationFields } from '@config/defaults';
 import resources from '@config/resources';
 import { Resource } from '@interfaces/resource';
 import { ResourceName } from '@interfaces/resource-name';
-import { Button, cx, FormControl, FormLabel, Input } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Input } from '@components/ui/input';
+import { Label } from '@components/ui/label';
+import { cn } from '@utils/cn';
 import { fieldpathWithoutIndex } from '@utils/fieldpath-without-index';
 import { Minus } from 'lucide-react';
 import { FieldValues, useFormContext } from 'react-hook-form';
@@ -48,21 +51,22 @@ export const EditResourceObject: React.FC<EditResourceObjectProps> = ({
 
   return (
     <div
-      className={cx(
-        'flex flex-col gap-32 p-32 rounded-groups',
-        level % 2 === 0 ? 'bg-background-color-mixin-1 shadow-50' : 'bg-background-content border-1 border-divider'
+      className={cn(
+        // sk → Tailwind: gap-32/p-32 = 32px → gap-8/p-8; rounded-groups = 16px → rounded-2xl.
+        'flex flex-col gap-8 p-8 rounded-2xl',
+        level % 2 === 0 ? 'bg-muted shadow-sm' : 'bg-card border border-border'
       )}
     >
       <header className="flex justify-between items-start">
-        <Headercomp className={cx('font-header', level < 3 ? 'text-h3-lg' : 'text-h4-md')}>
+        <Headercomp className={cn('font-semibold', level < 3 ? 'text-2xl font-bold' : 'text-xl font-bold')}>
           {capitalize(t(`${resource}:properties.${i18nKey}.DEFAULT`))} {index !== undefined && index + 1}
         </Headercomp>
         {removable && (
           <Button
-            size="sm"
-            rounded
-            color="error"
-            iconButton
+            type="button"
+            size="icon"
+            variant="destructive"
+            className="rounded-full shrink-0"
             aria-label={capitalize(
               t('common:remove_resource', {
                 resource: t(`${resource}:properties.${i18nKey}.DEFAULT`),
@@ -70,7 +74,7 @@ export const EditResourceObject: React.FC<EditResourceObjectProps> = ({
             )}
             onClick={() => onRemove && onRemove()}
           >
-            <Minus />
+            <Minus className="size-4" />
           </Button>
         )}
       </header>
@@ -83,13 +87,18 @@ export const EditResourceObject: React.FC<EditResourceObjectProps> = ({
               requiredFields ? fieldpathWithoutIndex(requiredFields)?.includes(`${i18nKey}.${key}`) : false;
             if (type === 'string' || type === 'number') {
               return (
-                <FormControl key={`res-object-${index}`} required={isRequired}>
-                  <FormLabel>{capitalize(t(`${resource}:properties.${i18nKey}.${key}`))}</FormLabel>
+                <div key={`res-object-${index}`} className="flex flex-col gap-2">
+                  <Label htmlFor={`${dataTypeKey}.${key}`}>
+                    {capitalize(t(`${resource}:properties.${i18nKey}.${key}`))}
+                    {isRequired && <span aria-hidden="true"> *</span>}
+                  </Label>
                   <Input
+                    id={`${dataTypeKey}.${key}`}
                     type={type === 'number' ? 'number' : 'text'}
+                    required={isRequired}
                     {...register(`${dataTypeKey}.${key}` as keyof DataType)}
                   />
-                </FormControl>
+                </div>
               );
             }
             if (type === 'object') {

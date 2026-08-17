@@ -8,7 +8,7 @@ interface EmptyLayoutProps {
 
 export default function EmptyLayout({ title, children }: EmptyLayoutProps) {
   return (
-    <div className="EmptyLayout bg-background-content text-body">
+    <div className="EmptyLayout bg-background text-foreground">
       <Head>
         <title>{title}</title>
       </Head>

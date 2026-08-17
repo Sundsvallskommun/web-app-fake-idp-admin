@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Button, FormErrorMessage } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Card, CardContent } from '@components/ui/card';
 import EmptyLayout from '@layouts/empty-layout/empty-layout.component';
 import LoaderFullScreen from '@components/loader/loader-fullscreen';
 import { appURL } from '@utils/app-url';
@@ -85,33 +86,34 @@ export default function Start() {
   return (
     <EmptyLayout title={`${process.env.NEXT_PUBLIC_APP_NAME} - Logga In`}>
       <main>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="max-w-5xl w-full flex flex-col text-light-primary bg-inverted-background-content p-20 shadow-lg text-left">
-            <div className="mb-14">
-              <p className="my-0">{capitalize(t('common:admin_for'))}</p>
-              <h1 className="mb-10 text-xl">{process.env.NEXT_PUBLIC_APP_NAME}</h1>
-              <p className="my-0">{t('login:description')}</p>
-            </div>
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <Card className="max-w-md w-full text-left">
+            <CardContent className="flex flex-col p-6">
+              <div className="mb-3.5">
+                <p className="my-0 text-sm text-muted-foreground">{capitalize(t('common:admin_for'))}</p>
+                <h1 className="mb-2.5 text-xl font-semibold">{process.env.NEXT_PUBLIC_APP_NAME}</h1>
+                <p className="my-0 text-sm text-muted-foreground">{t('login:description')}</p>
+              </div>
 
-            <Button inverted onClick={() => onLogin()} ref={initalFocus} data-cy="loginButton">
-              {capitalize(t('common:login'))}
-            </Button>
+              <Button onClick={() => onLogin()} ref={initalFocus} data-cy="loginButton">
+                {capitalize(t('common:login'))}
+              </Button>
 
-            {errorMessage && (
-              <>
-                <FormErrorMessage className="mt-lg">{errorMessage}</FormErrorMessage>
-                <Button
-                  inverted
-                  variant="secondary"
-                  className="mt-md"
-                  onClick={() => onLogoutAndRetry()}
-                  data-cy="logoutRetryButton"
-                >
-                  {capitalize(t('login:logout_and_retry'))}
-                </Button>
-              </>
-            )}
-          </div>
+              {errorMessage && (
+                <>
+                  <p className="mt-6 text-sm font-medium text-destructive">{errorMessage}</p>
+                  <Button
+                    variant="secondary"
+                    className="mt-4"
+                    onClick={() => onLogoutAndRetry()}
+                    data-cy="logoutRetryButton"
+                  >
+                    {capitalize(t('login:logout_and_retry'))}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </EmptyLayout>

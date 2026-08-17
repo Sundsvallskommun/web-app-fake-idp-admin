@@ -1,4 +1,3 @@
-import { ColorSchemeMode } from '@sk-web-gui/react';
 import { ResourceName } from './resource-name';
 
 export type TableProperty = string;
@@ -15,8 +14,6 @@ export interface DataStorage {
 export type ResourceData = Partial<Record<ResourceName, DataStorage>>;
 
 export interface LocalStorage {
-  colorScheme: ColorSchemeMode;
-  setColorScheme: (color: ColorSchemeMode) => void;
   headers: Headers;
   setHeaders: (headers: Headers) => void;
   resourceData: ResourceData;
