@@ -1,7 +1,10 @@
 import EmptyLayout from '@layouts/empty-layout/empty-layout.component';
 import { loginAdmin } from '@services/admin-auth-service';
 import { useUserStore } from '@services/user-service/user-service';
-import { Button, FormControl, FormErrorMessage, FormLabel, Input } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Card, CardContent } from '@components/ui/card';
+import { Input } from '@components/ui/input';
+import { Label } from '@components/ui/label';
 import axios from 'axios';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -44,46 +47,52 @@ export default function Login() {
   return (
     <EmptyLayout title={`${process.env.NEXT_PUBLIC_APP_NAME} - Logga in`}>
       <main>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="max-w-4xl w-full flex flex-col text-light-primary bg-inverted-background-content p-12 md:p-20 shadow-lg text-left">
-            <div className="mb-14">
-              <p className="my-0">{capitalize(t('common:admin_for'))}</p>
-              <h1 className="mb-10 text-xl">{process.env.NEXT_PUBLIC_APP_NAME}</h1>
-              <p className="my-0">{t('login:description')}</p>
-            </div>
+        <div className="flex items-center justify-center min-h-screen p-4">
+          <Card className="max-w-md w-full text-left">
+            <CardContent className="flex flex-col p-6">
+              <div className="mb-3.5">
+                <p className="my-0 text-sm text-muted-foreground">{capitalize(t('common:admin_for'))}</p>
+                <h1 className="mb-2.5 text-xl font-semibold">{process.env.NEXT_PUBLIC_APP_NAME}</h1>
+                <p className="my-0 text-sm text-muted-foreground">{t('login:description')}</p>
+              </div>
 
-            <form onSubmit={onSubmit} className="flex flex-col gap-16">
-              <FormControl required>
-                <FormLabel>{capitalize(t('login:username'))}</FormLabel>
-                <Input
-                  ref={usernameInput}
-                  name="username"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  disabled={isSubmitting}
-                />
-              </FormControl>
+              <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="login-username">{capitalize(t('login:username'))}</Label>
+                  <Input
+                    id="login-username"
+                    ref={usernameInput}
+                    name="username"
+                    autoComplete="username"
+                    required
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
 
-              <FormControl required>
-                <FormLabel>{capitalize(t('login:password'))}</FormLabel>
-                <Input
-                  type="password"
-                  name="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={isSubmitting}
-                />
-              </FormControl>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="login-password">{capitalize(t('login:password'))}</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={isSubmitting}
+                  />
+                </div>
 
-              <Button inverted type="submit" disabled={isSubmitting} data-cy="loginButton">
-                {capitalize(isSubmitting ? t('login:submitting') : t('login:submit'))}
-              </Button>
+                <Button type="submit" disabled={isSubmitting} data-cy="loginButton">
+                  {capitalize(isSubmitting ? t('login:submitting') : t('login:submit'))}
+                </Button>
 
-              {errorMessage && <FormErrorMessage>{errorMessage}</FormErrorMessage>}
-            </form>
-          </div>
+                {errorMessage && <p className="text-sm font-medium text-destructive">{errorMessage}</p>}
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </EmptyLayout>

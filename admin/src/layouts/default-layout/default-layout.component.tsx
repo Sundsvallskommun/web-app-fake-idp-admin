@@ -1,13 +1,35 @@
 import { Menu } from '@components/menu/menu';
+import { Logo } from '@components/logo/logo';
+import { LogoMark } from '@components/logo/logo-mark';
+import { ModeToggle } from '@components/mode-toggle/mode-toggle';
+import { Avatar, AvatarFallback } from '@components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@components/ui/dropdown-menu';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from '@components/ui/sidebar';
 import { useUserStore } from '@services/user-service/user-service';
 import { apiURL } from '@utils/api-url';
-import { Avatar, ColorSchemeMode, Icon, Logo, PopupMenu } from '@sk-web-gui/react';
 import { useTranslation } from 'next-i18next';
 import Head from 'next/head';
 import NextLink from 'next/link';
 import { capitalize } from '@utils/capitalize';
-import { ChevronRight, Sun, Moon, Monitor, Check } from 'lucide-react';
-import { useLocalStorage } from '@utils/use-localstorage.hook';
+import { ChevronsUpDown, ExternalLink, LogOut } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 
 interface DefaultLayoutProps {
@@ -21,9 +43,6 @@ interface DefaultLayoutProps {
 export default function DefaultLayout({ title, postTitle, headerSubtitle, children }: DefaultLayoutProps) {
   const layoutTitle = `${process.env.NEXT_PUBLIC_APP_NAME} admin${headerSubtitle ? ` - ${headerSubtitle}` : ''}`;
   const fullTitle = postTitle ? `${layoutTitle} - ${postTitle}` : `${layoutTitle}`;
-  const [colorScheme, setColorScheme] = useLocalStorage(
-    useShallow((state) => [state.colorScheme, state.setColorScheme])
-  );
   const { t } = useTranslation();
   const user = useUserStore(useShallow((state) => state.user));
 
@@ -32,11 +51,11 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
     contentElement?.focus();
   };
 
-  const colorSchemeIcons: Record<ColorSchemeMode, React.JSX.Element> = {
-    light: <Sun />,
-    dark: <Moon />,
-    system: <Monitor />,
-  };
+  const initials = user.name
+    .split(' ')
+    .map((name) => name.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
 
   return (
     <div className="DefaultLayout full-page-layout">
@@ -51,80 +70,71 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
         </a>
       </NextLink>
 
-      <div className="flex w-full min-h-screen h-full">
-        <nav className="flex flex-col justify-between p-24 shadow-100 bg-background-content min-h-full">
-          <div className="flex flex-col gap-24">
-            <NextLink href="/">
-              <Logo title={process.env.NEXT_PUBLIC_APP_NAME} className="rounded-button" />
-            </NextLink>
-            <Menu />
-          </div>
-          <div className="relative flex flex-col w-full">
-            <PopupMenu>
-              <PopupMenu.Button variant="tertiary" showBackground={false} className="justify-start">
-                <Avatar
-                  initials={`${user.name
-                    .split(' ')
-                    .map((name) => name.charAt(0).toUpperCase())
-                    .slice(0, 2)
-                    .join('')}`}
-                  size="sm"
-                  rounded
-                />
-                {user.name}
-              </PopupMenu.Button>
-              <PopupMenu.Panel className="w-full" position="over">
-                <PopupMenu.Items>
-                  <PopupMenu.Group>
-                    <PopupMenu.Item>
-                      <PopupMenu>
-                        <PopupMenu.Button rightIcon={<ChevronRight />} className="!justify-between">
-                          <span className="flex gap-12">
-                            {colorSchemeIcons[colorScheme]}
-                            {capitalize(t('layout:color_scheme'))}
-                          </span>
-                        </PopupMenu.Button>
-                        <PopupMenu.Panel>
-                          <PopupMenu.Items>
-                            {Object.keys(colorSchemeIcons).map((scheme) => (
-                              <PopupMenu.Item key={`cs-${scheme}`}>
-                                <button
-                                  onClick={() => setColorScheme(scheme as ColorSchemeMode)}
-                                  role="menuitemradio"
-                                  aria-checked={scheme === colorScheme}
-                                  className="!justify-between min-w-[20rem]"
-                                >
-                                  <span className="flex gap-12">
-                                    {colorSchemeIcons[scheme as ColorSchemeMode]}
-                                    {capitalize(t(`layout:color_schemes.${scheme}`))}
-                                  </span>
-                                  {scheme === colorScheme && <Icon.Padded size={18} rounded icon={<Check />} />}
-                                </button>
-                              </PopupMenu.Item>
-                            ))}
-                          </PopupMenu.Items>
-                        </PopupMenu.Panel>
-                      </PopupMenu>
-                    </PopupMenu.Item>
-                  </PopupMenu.Group>
-                  <PopupMenu.Item>
-                    <a href={apiURL('/saml/idp/login')} target="_blank" rel="noreferrer">
-                      IdP-testsession
-                    </a>
-                  </PopupMenu.Item>
-                  <PopupMenu.Item>
-                    <NextLink href="/logout">{capitalize(t('common:logout'))}</NextLink>
-                  </PopupMenu.Item>
-                </PopupMenu.Items>
-              </PopupMenu.Panel>
-            </PopupMenu>
-          </div>
-        </nav>
+      <SidebarProvider>
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild size="lg" tooltip={process.env.NEXT_PUBLIC_APP_NAME}>
+                  <NextLink href="/">
+                    <LogoMark className="size-6 shrink-0" />
+                    <Logo className="h-6 w-auto group-data-[collapsible=icon]:hidden" />
+                  </NextLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
 
-        <div className="flex-grow relative w-full flex max-h-screen overflow-hidden">
-          <div className="px-24 py-16 md:py-28 md:px-40 grow max-h-full overflow-y-scroll">{children}</div>
-        </div>
-      </div>
+          <SidebarContent>
+            <Menu />
+          </SidebarContent>
+
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton size="lg" tooltip={user.name}>
+                      <Avatar className="size-8 rounded-lg">
+                        <AvatarFallback className="rounded-lg text-xs">{initials}</AvatarFallback>
+                      </Avatar>
+                      <span className="grid flex-1 text-left text-sm leading-tight truncate">{user.name}</span>
+                      <ChevronsUpDown className="ml-auto size-4" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="top" align="start" className="w-(--radix-dropdown-menu-trigger-width)">
+                    <DropdownMenuItem asChild>
+                      <a href={apiURL('/saml/idp/login')} target="_blank" rel="noreferrer">
+                        <ExternalLink className="size-4" />
+                        IdP-testsession
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <NextLink href="/logout">
+                        <LogOut className="size-4" />
+                        {capitalize(t('common:logout'))}
+                      </NextLink>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+
+          <SidebarRail />
+        </Sidebar>
+
+        <SidebarInset className="max-h-screen overflow-hidden">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="ml-auto">
+              <ModeToggle />
+            </div>
+          </header>
+          <div className="px-6 py-4 md:py-7 md:px-10 grow max-h-full overflow-y-auto">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }

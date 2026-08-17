@@ -1,7 +1,6 @@
 import { ApiResponse, apiService } from '../api-service';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { __DEV__ } from '@sk-web-gui/react';
 import { emptyUser } from './defaults';
 import { ServiceResponse } from '@interfaces/services';
 import { User } from '@data-contracts/backend/data-contracts';
@@ -53,6 +52,6 @@ export const useUserStore = create<State & Actions>()(
         set(initialState);
       },
     }),
-    { enabled: __DEV__ }
+    { enabled: process.env.NODE_ENV !== 'production' }
   )
 );

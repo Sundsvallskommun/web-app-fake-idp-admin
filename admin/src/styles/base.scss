@@ -11,8 +11,3 @@ body,
 body {
   overflow-x: hidden;
 }
-a:focus-visible {
-  .link-btn {
-    @apply ring-ring ring;
-  }
-}

@@ -16,9 +16,9 @@ export const Start = () => {
     <DefaultLayout title={`${process.env.NEXT_PUBLIC_APP_NAME} - ${t('example:title')}`}>
       <Main>
         <Header>
-          <h1 className="mb-0">{capitalize(`${t('common:welcome')}`)}</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-0">{capitalize(`${t('common:welcome')}`)}</h1>
         </Header>
-        <ul className="flex flex-wrap gap-32">
+        <ul className="flex flex-wrap gap-8">
           {Object.keys(resources).map((resourceName, index) => (
             <ResourceCard key={`${resourceName}-${index}`} resource={resourceName as ResourceName} />
           ))}

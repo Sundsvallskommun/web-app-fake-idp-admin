@@ -22,14 +22,13 @@ export const HighlightedText: React.FC<{ children?: React.ReactNode }> = ({ chil
     }
     if (idx > i) parts.push(text.slice(i, idx));
     parts.push(
-      <mark key={idx} className="bg-warning-background-200 rounded-sm">
+      <mark key={idx} className="bg-yellow-200 text-foreground dark:bg-yellow-700 rounded-sm">
         {text.slice(idx, idx + query.length)}
       </mark>
     );
     i = idx + query.length;
   }
-  // Render a single element: the table cell wrapper (`.sk-table-col-content`) is a
-  // flex container with `gap-8`, so a fragment's multiple children would each become
-  // a gapped flex item, adding whitespace around every <mark>.
+  // Render a single element rather than a fragment, so that a flex table cell can't
+  // turn each part into a separately gapped flex item.
   return <span>{parts}</span>;
 };

@@ -123,7 +123,7 @@ export const EditAssistant: React.FC = () => {
     : <EditLayout
         headerInfo={
           !isNew ?
-            <ul className="text-small flex gap-16">
+            <ul className="text-sm flex gap-4">
               {defaultInformationFields.map((field, index) => (
                 <li key={index + field}>
                   <strong>{capitalize(t(`common:${field}`))}: </strong>
@@ -141,7 +141,7 @@ export const EditAssistant: React.FC = () => {
         backLink={`/${resource}`}
       >
         <FormProvider {...form}>
-          <form className="flex flex-row gap-32 justify-between grow flex-wrap" onSubmit={handleSubmit(onSubmit)}>
+          <form className="flex flex-row gap-8 justify-between grow flex-wrap" onSubmit={handleSubmit(onSubmit)}>
             <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
             <EditResource resource={resource} isNew={isNew} />
           </form>

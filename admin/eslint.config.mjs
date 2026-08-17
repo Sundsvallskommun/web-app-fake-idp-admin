@@ -21,6 +21,17 @@ export default defineConfig([
     },
   },
   {
+    // Vendorade shadcn/ui-komponenter. De genereras av `npx shadcn add` och ska inte
+    // handredigeras, så vi anpassar reglerna istället för filerna: shadcn exporterar
+    // medvetet både komponenter och cva-varianter/hooks per fil, och
+    // SidebarMenuSkeleton använder Math.random() för sin platshållarbredd.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'react-hooks/purity': 'off',
+    },
+  },
+  {
     files: ['*.js'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',

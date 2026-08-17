@@ -29,7 +29,7 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
 
   return (
     <>
-      <div className="flex flex-col gap-32 grow mb-32">
+      <div className="flex flex-col gap-8 grow mb-8">
         {editableFields
           .filter((key) => !defaultInformationFields.includes(key))
           .map((key, index) => {
@@ -47,7 +47,7 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
             );
           })}
       </div>
-      <div className="flex flex-col gap-32 grow mb-32">
+      <div className="flex flex-col gap-8 grow mb-8">
         {editableFields
           .filter((key) => !defaultInformationFields.includes(key))
           .map((key, index) => {

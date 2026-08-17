@@ -5,7 +5,7 @@ import { ResourceName } from '@interfaces/resource-name';
 import DefaultLayout from '@layouts/default-layout/default-layout.component';
 import { Header } from '@layouts/header/header.component';
 import Main from '@layouts/main/main.component';
-import { Spinner } from '@sk-web-gui/react';
+import { Loader2 } from 'lucide-react';
 import { stringToResourceName } from '@utils/stringToResourceName';
 import { useResource } from '@utils/use-resource';
 import { GetServerSideProps } from 'next';
@@ -46,9 +46,9 @@ export const Exempelsida: React.FC = () => {
       <DefaultLayout title={`${capitalize(t(`${resource}:name_many`))} - ${process.env.NEXT_PUBLIC_APP_NAME}`}>
         <Main>
           <Header>
-            <span className="flex flex-row gap-16">
-              <h1 className="leading-h4-sm">{capitalize(t(`${resource}:name_many`))}</h1>
-              {loading && <Spinner size={2.5} className="leading-h4-sm" />}
+            <span className="flex flex-row gap-4 items-center">
+              <h1 className="text-3xl font-bold leading-6">{capitalize(t(`${resource}:name_many`))}</h1>
+              {loading && <Loader2 className="size-6 animate-spin text-muted-foreground" />}
             </span>
             <ListToolbar resource={resource} onRefresh={refresh} properties={getProperties()} />
           </Header>

@@ -8,7 +8,8 @@ import { apiClient } from '@services/api-client';
 import { useCrudHelper } from '@utils/use-crud-helpers';
 import { useResource } from '@utils/use-resource';
 import { useRouteGuard } from '@utils/routeguard.hook';
-import { Button, useSnackbar } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { toast } from 'sonner';
 import { Save, Trash } from 'lucide-react';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -22,7 +23,6 @@ import { capitalize } from '@utils/capitalize';
 export const UserEditPage: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
-  const message = useSnackbar();
 
   const { id: _id } = useParams();
   const id = typeof _id === 'object' ? _id[0] : _id;
@@ -85,18 +85,12 @@ export const UserEditPage: React.FC = () => {
     apiClient
       .userControllerRemoveUser(id)
       .then(() => {
-        message({
-          message: capitalize(t('crud:remove.success', { resource: t('users:name_one') })),
-          status: 'success',
-        });
+        toast.success(capitalize(t('crud:remove.success', { resource: t('users:name_one') })));
         refresh();
         router.push('/users');
       })
       .catch(() => {
-        message({
-          message: capitalize(t('crud:remove.error', { resource: t('users:name_one') })),
-          status: 'error',
-        });
+        toast.error(capitalize(t('crud:remove.error', { resource: t('users:name_one') })));
       });
   };
 
@@ -113,15 +107,17 @@ export const UserEditPage: React.FC = () => {
       }
       backLink="/users"
     >
-      <form className="flex flex-col gap-32 grow max-w-4xl" onSubmit={handleSubmit(onSubmit)}>
+      <form className="flex flex-col gap-8 grow max-w-xl" onSubmit={handleSubmit(onSubmit)}>
         <UserFormFields control={control} register={register} />
 
-        <div className="flex gap-16">
-          <Button type="submit" color="vattjom" leftIcon={<Save />} disabled={!isDirty}>
+        <div className="flex gap-4">
+          <Button type="submit" disabled={!isDirty}>
+            <Save className="size-4" />
             {capitalize(t('common:save'))}
           </Button>
           {!isNew && (
-            <Button type="button" variant="secondary" color="error" leftIcon={<Trash />} onClick={onRemove}>
+            <Button type="button" variant="destructive" onClick={onRemove}>
+              <Trash className="size-4" />
               {capitalize(t('common:remove'))}
             </Button>
           )}
