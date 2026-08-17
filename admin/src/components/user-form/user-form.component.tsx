@@ -3,6 +3,7 @@ import { Button } from '@components/ui/button';
 import { Checkbox } from '@components/ui/checkbox';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { PasswordInput } from '@components/password-input/password-input';
 import { useResource } from '@utils/use-resource';
 import { Loader2, Plus, Search, Trash, X } from 'lucide-react';
 import NextLink from 'next/link';
@@ -42,12 +43,20 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
               {capitalize(t(definition.labelKey))}
               {definition.required && <span aria-hidden="true"> *</span>}
             </Label>
-            <Input
-              id={`user-${definition.key}`}
-              type={definition.inputType}
-              required={definition.required}
-              {...register(definition.key, { required: definition.required })}
-            />
+            {definition.inputType === 'password' ?
+              <PasswordInput
+                id={`user-${definition.key}`}
+                required={definition.required}
+                autoComplete="off"
+                {...register(definition.key, { required: definition.required })}
+              />
+            : <Input
+                id={`user-${definition.key}`}
+                type={definition.inputType}
+                required={definition.required}
+                {...register(definition.key, { required: definition.required })}
+              />
+            }
           </div>
         ))}
       </section>

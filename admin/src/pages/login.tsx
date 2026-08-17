@@ -5,6 +5,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { PasswordInput } from '@components/password-input/password-input';
 import axios from 'axios';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -73,9 +74,8 @@ export default function Login() {
 
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="login-password">{capitalize(t('login:password'))}</Label>
-                  <Input
+                  <PasswordInput
                     id="login-password"
-                    type="password"
                     name="password"
                     autoComplete="current-password"
                     required
