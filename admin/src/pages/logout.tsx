@@ -1,24 +1,20 @@
+import { logoutAdmin } from '@services/admin-auth-service';
 import { useUserStore } from '@services/user-service/user-service';
-import { apiURL } from '@utils/api-url';
-import { appURL } from '@utils/app-url';
+import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 export default function Logout() {
-  const resetUser = useUserStore(useShallow((s) => s.reset));
+  const router = useRouter();
+  const resetUser = useUserStore(useShallow((state) => state.reset));
 
   useEffect(() => {
-    resetUser();
-    localStorage.clear();
+    logoutAdmin().finally(() => {
+      resetUser();
+      localStorage.clear();
+      void router.replace('/login?loggedout');
+    });
+  }, [resetUser, router]);
 
-    const url = new URL(apiURL('/saml/logout'));
-    url.search = new URLSearchParams({
-      successRedirect: `${appURL()}/login?loggedout`,
-    }).toString();
-    window.location.href = url.toString();
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return <></>;
+  return null;
 }

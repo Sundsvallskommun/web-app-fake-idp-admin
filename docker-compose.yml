@@ -7,8 +7,8 @@
 # (direct, for swagger/debug), frontend -> 7002.
 #
 # Browse the app at the PROXY (ADMIN_PORT). The nginx `proxy` service serves the admin
-# UI and the backend API under ONE origin, so the admin->API calls are same-origin and
-# the SAML session cookie is first-party — this is what fixes the cross-site-cookie 401.
+# UI and the backend API under ONE origin, so the admin->API calls and admin session
+# cookie are same-origin.
 # See nginx.conf. (ADMIN_PORT now publishes the proxy; the admin container is internal.)
 #
 # ENV: this file is the single source of truth for the Docker stack's config.
@@ -58,9 +58,9 @@ services:
       # login dance stays on one origin and the session cookie is first-party.
       SAML_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/login/callback
       SAML_LOGOUT_CALLBACK_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/logout/callback
-      SAML_FAILURE_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/login
-      SAML_SUCCESS_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${ADMIN_BASE_PATH:-}
-      SAML_LOGOUT_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${ADMIN_BASE_PATH:-}
+      SAML_FAILURE_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/test
+      SAML_SUCCESS_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/test
+      SAML_LOGOUT_REDIRECT: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/test
       SAML_ISSUER: passport-saml
       # The SP signs its AuthnRequest with this keypair. Since the IdP below never
       # verifies the SP's request signature, the SP simply REUSES the single IdP
@@ -73,11 +73,11 @@ services:
       SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
-      # Optional admin-panel access gate. Comma-separated allow-list of group names;
-      # only users whose SAML `groups` claim contains one of these may sign in. Empty
-      # (default) = no gating, any authenticated user is allowed. Set ADMIN_PANEL_GROUP
-      # in .env to restrict, e.g. ADMIN_PANEL_GROUP=hr_department_admin_test.
-      ADMIN_PANEL_GROUP: ${ADMIN_PANEL_GROUP:-}
+      # Admin operator account. This is separate from test identities in SQLite.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Admin}
+      ADMIN_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${ADMIN_BASE_PATH:-}/start
       # Public sub-path prefix for the whole stack (admin + API + IdP). Empty =
       # default layout (admin at /, API at /api, IdP at /api/saml/idp). Set
       # PUBLIC_PREFIX=/idp2 (+ ADMIN_BASE_PATH=/idp2/admin) in .env to expose the IdP
@@ -94,7 +94,6 @@ services:
       args:
         # Point the browser at the PROXY origin (same as where the admin page is
         # served), NOT the backend port — requests become same-origin /api/* calls.
-        # Must stay ABSOLUTE: login.tsx does `new URL(apiURL('/saml/login'))`.
         NEXT_PUBLIC_API_URL: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}
         # API path carries the public prefix so admin -> API calls hit <origin>/idp2/api/*.
         NEXT_PUBLIC_API_PATH: ${PUBLIC_PREFIX:-}/api
@@ -115,8 +114,8 @@ services:
       - backend
 
   # Same-origin reverse proxy — the app's single entry point (see nginx.conf.template).
-  # Routes the API to the backend and everything else to the admin UI, so the SAML
-  # session cookie is first-party. This is what publishes ADMIN_PORT now. The config
+  # Routes the API to the backend and everything else to the admin UI. This is what
+  # publishes ADMIN_PORT now. The config
   # is an envsubst template: PUBLIC_PREFIX/ADMIN_BASE_PATH are substituted at startup
   # (NGINX_ENVSUBST_FILTER keeps nginx's own $vars intact), so the same file serves
   # the default root layout and the prefixed (/idp2) layout.
@@ -158,6 +157,6 @@ volumes:
 
 # NOTE: the database lives on the named volume `backend-data` and PERSISTS across
 # `up --build` / `down` (only `down -v` wipes it). It starts empty (migrations run
-# at startup, but seeding is not wired into Docker) — populate it via the admin UI
-# (the proxy on ADMIN_PORT, e.g. http://dev.test:7001), either by adding users by hand
-# or with the "Import users" button on /users, which replaces all users from a users.js.
+# at startup, but seeding is not wired into Docker) — populate test identities via
+# the admin UI (the proxy on ADMIN_PORT), either by adding them by hand or with the
+# import button on /users, which replaces all test identities from a users.js file.

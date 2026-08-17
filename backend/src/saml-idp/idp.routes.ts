@@ -1,163 +1,187 @@
-import { IDP_MOUNT_PATH, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
+import { ADMIN_URL, BASE_URL_PREFIX, IDP_MOUNT_PATH, IDP_PATH_PREFIX, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
-import { isValidUrl } from '@utils/util';
 import express, { NextFunction, Request, Response } from 'express';
 import { buildIdpMetadata } from './idp-metadata';
 import { parseRequest } from './request-parser';
 import { createResponse, UserWithAttributes } from './response-builder';
-import { renderDetails, renderLogin, renderPostResponse } from './templates';
+import { LoginTarget, PageNavigation, renderIdentitySession, renderLogin, renderPostResponse } from './templates';
 
-// Browser-facing action URLs use the PUBLIC base path (so they resolve correctly
-// when the IdP is served behind a reverse proxy at a sub-path); the router itself
-// is mounted at the internal IDP_MOUNT_PATH below.
 const AUTHENTICATE_ACTION = `${IDP_PUBLIC_PATH}/authenticate`;
-const LOGIN_ACTION = `${IDP_PUBLIC_PATH}/login`;
+const LOGIN_URL = `${IDP_PUBLIC_PATH}/login`;
 const LOGOUT_ACTION = `${IDP_PUBLIC_PATH}/logout`;
+const SAML_LOGIN_URL = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;
 
-const usersService = new UsersService();
+const navigation: PageNavigation = {
+  idpUrl: LOGIN_URL,
+  adminUrl: ADMIN_URL,
+};
+
+export interface IdpUserStore {
+  getUser(id: string): Promise<UserWithAttributes | null>;
+  getUsers(): Promise<UserWithAttributes[]>;
+  getUsersByUsername(username: string): Promise<UserWithAttributes[]>;
+}
 
 type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<unknown>;
 
-/** Wrap an async handler so rejected promises reach the error middleware (Express 4 won't). */
 const wrap =
   (handler: AsyncHandler) =>
   (req: Request, res: Response, next: NextFunction): void => {
     handler(req, res, next).catch(next);
   };
 
-/** Persist the session and resolve once written (needed between /sso and /authenticate). */
 const saveSession = (req: Request): Promise<void> => new Promise((resolve, reject) => req.session.save(err => (err ? reject(err) : resolve())));
 
-/**
- * Relax helmet's default CSP for the IdP HTML pages: the postResponse page
- * relies on an inline `onload` submit and the pages use an inline <style>, and
- * the auto-submit form posts to the SP's ACS (any origin).
- */
 function idpCsp(_req: Request, res: Response, next: NextFunction) {
   res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action *");
   next();
 }
 
-/** Resolve the IdP-logged-in user (with attributes) from the session, if any. */
-async function loadIdpUser(req: Request): Promise<UserWithAttributes | null> {
-  const id = req.session.idpUser?.id;
-  if (!id) return null;
-  return (await usersService.getUser(id)) as UserWithAttributes | null;
-}
+async function validateIdpUser(req: Request, usersService: IdpUserStore): Promise<UserWithAttributes | null> {
+  const form = { ...(req.query as Record<string, unknown>), ...(req.body as Record<string, unknown>) };
 
-/** Validate credentials against the Prisma user store (plaintext, by design). */
-async function validateIdpUser(req: Request): Promise<UserWithAttributes | null> {
-  const frm = { ...(req.query as Record<string, unknown>), ...(req.body as Record<string, unknown>) };
-  let user: UserWithAttributes | null = null;
-
-  if (typeof frm.userid === 'string' && frm.userid) {
-    user = (await usersService.getUser(frm.userid)) as UserWithAttributes | null;
-  } else if (typeof frm.username === 'string' && typeof frm.password === 'string' && frm.username && frm.password) {
-    // `username` is not unique in the schema, so match password in JS.
-    const candidates = await usersService.getUsersByUsername(frm.username);
-    user = (candidates.find(u => u.password === frm.password) as UserWithAttributes | undefined) ?? null;
+  if (typeof form.userid === 'string' && form.userid) {
+    return usersService.getUser(form.userid);
   }
 
-  if (user) {
-    req.session.idpUser = { id: user.id };
+  if (typeof form.username === 'string' && typeof form.password === 'string' && form.username && form.password) {
+    const candidates = await usersService.getUsersByUsername(form.username);
+    return candidates.find(user => user.password === form.password) ?? null;
+  }
+
+  return null;
+}
+
+const describeTarget = (destination: string): LoginTarget => {
+  try {
+    return { name: new URL(destination).host, url: destination };
+  } catch {
+    return { name: 'Ansluten testapplikation', url: destination };
+  }
+};
+
+async function selectedIdentity(req: Request, usersService: IdpUserStore): Promise<UserWithAttributes | null> {
+  if (!req.session.idpIdentityId) {
+    return null;
+  }
+
+  const user = await usersService.getUser(req.session.idpIdentityId);
+  if (!user) {
+    delete req.session.idpIdentityId;
     await saveSession(req);
   }
   return user;
 }
 
-/** Render the auto-submitting SAML Response for the stored request + user. */
-function respondWithAssertion(req: Request, res: Response, user: UserWithAttributes) {
+async function respondWithAssertion(req: Request, res: Response, user: UserWithAttributes): Promise<void> {
   const request = req.session.idpRequest;
   if (!request) {
     throw new Error('No SAML request in session');
   }
+
   const built = createResponse(request, user);
+  delete req.session.idpRequest;
+  await saveSession(req);
   res.send(renderPostResponse({ action: built.action, samlResponse: built.samlResponse, relayState: built.relayState }));
 }
 
-/** Store the inbound AuthnRequest, then either post the assertion or show the login page. */
-async function handleSso(req: Request, res: Response, source: { SAMLRequest?: string; RelayState?: string }) {
-  const request = await parseRequest(source);
-  req.session.idpRequest = request;
+async function renderLoginPage(req: Request, usersService: IdpUserStore, options?: { error?: string; notice?: string }): Promise<string> {
+  const request = req.session.idpRequest;
+  const users = SAML_IDP_ENUMERATE_USERS
+    ? (await usersService.getUsers()).map(user => ({ id: user.id, name: user.name, username: user.username }))
+    : [];
+
+  return renderLogin({
+    action: AUTHENTICATE_ACTION,
+    navigation,
+    users,
+    enumerateUsers: SAML_IDP_ENUMERATE_USERS,
+    target: request ? describeTarget(request.destination) : undefined,
+    error: options?.error,
+    notice: options?.notice,
+  });
+}
+
+async function renderIdpHome(req: Request, usersService: IdpUserStore): Promise<string> {
+  const user = await selectedIdentity(req, usersService);
+  if (!user) {
+    const notice = req.query.loggedout === '1' ? 'Testidentiteten är utloggad.' : undefined;
+    return renderLoginPage(req, usersService, { notice });
+  }
+
+  return renderIdentitySession({
+    identity: user,
+    navigation,
+    logoutAction: LOGOUT_ACTION,
+    samlLoginUrl: SAML_LOGIN_URL,
+  });
+}
+
+async function handleSso(
+  req: Request,
+  res: Response,
+  source: { SAMLRequest?: string; RelayState?: string },
+  usersService: IdpUserStore,
+): Promise<void> {
+  req.session.idpRequest = await parseRequest(source);
   await saveSession(req);
 
-  const user = await loadIdpUser(req);
+  const user = await selectedIdentity(req, usersService);
   if (user) {
-    respondWithAssertion(req, res, user);
-  } else {
-    res.send(await renderLoginPage(AUTHENTICATE_ACTION));
+    await respondWithAssertion(req, res, user);
+    return;
   }
+
+  res.send(await renderLoginPage(req, usersService));
 }
 
-/** Build the login page, including the user dropdown when enumeration is enabled. */
-async function renderLoginPage(action: string, error?: string): Promise<string> {
-  const users = SAML_IDP_ENUMERATE_USERS ? (await usersService.getUsers()).map(u => ({ id: u.id, username: u.username })) : [];
-  return renderLogin({ action, users, enumerateUsers: SAML_IDP_ENUMERATE_USERS, error });
-}
-
-export function registerIdpRoutes(app: express.Application): void {
+export function registerIdpRoutes(app: express.Application, usersService: IdpUserStore = new UsersService()): void {
   const router = express.Router();
   router.use(idpCsp);
 
   router.get(
     '/sso',
-    wrap((req, res) => handleSso(req, res, req.query as { SAMLRequest?: string; RelayState?: string })),
+    wrap((req, res) => handleSso(req, res, req.query as { SAMLRequest?: string; RelayState?: string }, usersService)),
   );
   router.post(
     '/sso',
-    wrap((req, res) => handleSso(req, res, req.body as { SAMLRequest?: string; RelayState?: string })),
+    wrap((req, res) => handleSso(req, res, req.body as { SAMLRequest?: string; RelayState?: string }, usersService)),
   );
 
   router.post(
     '/authenticate',
     wrap(async (req, res) => {
-      const user = await validateIdpUser(req);
-      if (user) {
-        respondWithAssertion(req, res, user);
-      } else {
-        res.send(await renderLoginPage(AUTHENTICATE_ACTION, 'Wrong username or password'));
+      const user = await validateIdpUser(req, usersService);
+      if (!user) {
+        res.status(401).send(await renderLoginPage(req, usersService, { error: 'Fel användarnamn eller lösenord' }));
+        return;
       }
+
+      req.session.idpIdentityId = user.id;
+      if (req.session.idpRequest) {
+        await respondWithAssertion(req, res, user);
+        return;
+      }
+
+      await saveSession(req);
+      res.redirect(303, LOGIN_URL);
     }),
   );
 
-  router.get(
-    '/login',
-    wrap(async (req, res) => {
-      const user = await loadIdpUser(req);
-      if (user) {
-        res.send(renderDetails({ user, logoutAction: LOGOUT_ACTION }));
-      } else {
-        res.send(await renderLoginPage(LOGIN_ACTION));
-      }
-    }),
-  );
   router.post(
-    '/login',
-    wrap(async (req, res) => {
-      const user = await validateIdpUser(req);
-      if (user) {
-        res.send(renderDetails({ user, logoutAction: LOGOUT_ACTION }));
-      } else {
-        res.redirect(LOGIN_ACTION);
-      }
-    }),
-  );
-
-  // Logout — clear only the IdP session fields (the session is shared with the SP side).
-  router.get(
     '/logout',
     wrap(async (req, res) => {
-      delete req.session.idpUser;
-      delete req.session.idpRequest;
+      delete req.session.idpIdentityId;
       await saveSession(req);
+      res.redirect(303, `${LOGIN_URL}?loggedout=1`);
+    }),
+  );
 
-      const relayState = req.query.RelayState;
-      if (typeof relayState === 'string' && isValidUrl(relayState)) {
-        res.redirect(relayState);
-      } else {
-        res.redirect(LOGIN_ACTION);
-      }
+  router.get(
+    '/login',
+    wrap(async (req, res) => {
+      res.send(await renderIdpHome(req, usersService));
     }),
   );
 
@@ -166,8 +190,6 @@ export function registerIdpRoutes(app: express.Application): void {
   });
 
   app.use(IDP_MOUNT_PATH, router);
-  // When a public sub-path prefix is configured, also serve the IdP there so it
-  // works whether reached directly or via a reverse proxy that doesn't rewrite.
   if (IDP_PUBLIC_PATH !== IDP_MOUNT_PATH) {
     app.use(IDP_PUBLIC_PATH, router);
     logger.info(`SAML IdP routes mounted at ${IDP_MOUNT_PATH} and ${IDP_PUBLIC_PATH}`);

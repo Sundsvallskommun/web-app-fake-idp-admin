@@ -3,12 +3,12 @@ import { HttpException } from '@exceptions/HttpException';
 
 const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (req.isAuthenticated()) {
+    if (req.session.adminUser) {
       next();
     } else {
       next(new HttpException(401, 'NOT_AUTHORIZED'));
     }
-  } catch (error) {
+  } catch {
     next(new HttpException(401, 'AUTH_FAILED'));
   }
 };

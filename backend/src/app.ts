@@ -1,5 +1,5 @@
 import {
-  ADMIN_PANEL_GROUP,
+  ADMIN_URL,
   APP_NAME,
   BASE_URL_PREFIX,
   CREDENTIALS,
@@ -7,6 +7,8 @@ import {
   NODE_ENV,
   ORIGIN,
   PORT,
+  IDP_PATH_PREFIX,
+  IDP_PUBLIC_PATH,
   SAML_CALLBACK_URL,
   SAML_ENTRY_SSO,
   SAML_FAILURE_REDIRECT,
@@ -50,6 +52,7 @@ import { additionalConverters } from './utils/custom-validation-classes';
 import { isValidOrigin } from './utils/isValidOrigin';
 import { isValidUrl } from './utils/util';
 import { registerIdpRoutes } from './saml-idp/idp.routes';
+import { renderSamlTest } from './saml-idp/templates';
 
 const corsWhitelist = ORIGIN.split(',')
   .map(origin => origin.trim())
@@ -58,7 +61,10 @@ const corsWhitelist = ORIGIN.split(',')
 const SessionStoreCreate = SESSION_MEMORY ? createMemoryStore(session) : createFileStore(session);
 const sessionTTL = 4 * 24 * 60 * 60;
 // NOTE: memory uses ms while file uses seconds
-const sessionStore = new SessionStoreCreate(SESSION_MEMORY ? { checkPeriod: sessionTTL * 1000 } : { sessionTTL, path: './data/sessions' });
+const createSessionStore = (path: string) => new SessionStoreCreate(SESSION_MEMORY ? { checkPeriod: sessionTTL * 1000 } : { sessionTTL, path });
+
+const adminSessionStore = createSessionStore('./data/sessions/admin');
+const samlSessionStore = createSessionStore('./data/sessions/saml');
 
 passport.serializeUser(function (user, done) {
   done(null, user);
@@ -98,28 +104,6 @@ const samlStrategy = new Strategy(
         name: 'SAML_MISSING_ATTRIBUTES',
         message: 'Missing profile attributes',
       });
-    }
-
-    // Optional group gate: when ADMIN_PANEL_GROUP is configured (comma-separated
-    // allow-list), only users whose `groups` claim contains one of those groups may
-    // sign in to the admin app. Empty/unset = no gating, preserving prior behavior.
-    // This blocks the passport session entirely, so it protects both the admin GUI
-    // and all `/users` CRUD endpoints (which require an authenticated session).
-    const allowedGroups = (ADMIN_PANEL_GROUP || '')
-      .split(',')
-      .map(g => g.trim().toLowerCase())
-      .filter(Boolean);
-    if (allowedGroups.length > 0) {
-      const claim = profile.groups;
-      const userGroups = (Array.isArray(claim) ? claim : typeof claim === 'string' ? claim.split(',') : [])
-        .map(g => String(g).trim().toLowerCase())
-        .filter(Boolean);
-      if (!userGroups.some(g => allowedGroups.includes(g))) {
-        return done({
-          name: 'SAML_MISSING_GROUP',
-          message: 'User is not a member of the admin panel group',
-        });
-      }
     }
 
     try {
@@ -187,20 +171,29 @@ class App {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use(cookieParser());
 
-    this.app.use(
-      session({
-        // Distinct cookie name so this backend's session does NOT collide with
-        // other express-session apps on the same host. Browser cookies ignore the
-        // port, so the default `connect.sid` would clobber (and be clobbered by)
-        // a co-hosted SP app (e.g. Mina sidor on another dev.test port), logging
-        // the user out of it. See LOGOUT.md / cookie-collision analysis.
-        name: 'fake-idp.sid',
-        secret: SECRET_KEY,
-        resave: false,
-        saveUninitialized: false,
-        store: sessionStore,
-      }),
-    );
+    const samlPaths = [`${BASE_URL_PREFIX}/saml`, `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml`];
+    const adminSessionMiddleware = session({
+      name: 'fake-idp-admin.sid',
+      secret: SECRET_KEY,
+      resave: false,
+      saveUninitialized: false,
+      store: adminSessionStore,
+    });
+    const samlSessionMiddleware = session({
+      // Browser cookies ignore ports, so keep the IdP/SP session name distinct
+      // from both the admin panel and other locally hosted applications.
+      name: 'fake-idp.sid',
+      secret: SECRET_KEY,
+      resave: false,
+      saveUninitialized: false,
+      store: samlSessionStore,
+    });
+
+    this.app.use((req, res, next) => {
+      const usesSamlSession = samlPaths.some(path => req.path === path || req.path.startsWith(`${path}/`));
+      const middleware = usesSamlSession ? samlSessionMiddleware : adminSessionMiddleware;
+      return middleware(req, res, next);
+    });
 
     this.app.use(passport.initialize());
     this.app.use(passport.session());
@@ -220,12 +213,27 @@ class App {
         }
       },
     });
-    const samlPath = `${BASE_URL_PREFIX}/saml`;
     this.app.use((req, res, next) => {
-      if (req.path === samlPath || req.path.startsWith(`${samlPath}/`)) {
+      if (samlPaths.some(path => req.path === path || req.path.startsWith(`${path}/`))) {
         return next();
       }
       return corsMiddleware(req, res, next);
+    });
+
+    const samlLoginUrl = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;
+    this.app.get(`${BASE_URL_PREFIX}/saml/test`, (req, res) => {
+      const user = req.user as User | undefined;
+      const error = typeof req.query.failMessage === 'string' ? req.query.failMessage : undefined;
+
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+      res.send(
+        renderSamlTest({
+          identity: user ? { name: user.name, username: user.username } : undefined,
+          navigation: { idpUrl: `${IDP_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL },
+          samlLoginUrl,
+          error,
+        }),
+      );
     });
 
     this.app.get(
@@ -275,7 +283,6 @@ class App {
             if (err) {
               return next(err);
             }
-            delete req.session.idpUser;
             delete req.session.idpRequest;
             req.session.save(saveErr => {
               if (saveErr) {
@@ -327,7 +334,7 @@ class App {
     this.app.post(`${BASE_URL_PREFIX}/saml/login/callback`, bodyParser.urlencoded({ extended: false }), (req, res, next) => {
       let successRedirect: URL, failureRedirect: URL;
 
-      let urls = req?.body?.RelayState.split(',');
+      const urls = req?.body?.RelayState.split(',');
 
       if (isValidUrl(urls[0]) && isValidOrigin(urls[0])) {
         successRedirect = new URL(urls[0]);
@@ -356,16 +363,14 @@ class App {
           failureRedirect.search = failMessage.toString();
           res.redirect(failureRedirect.toString());
         } else {
-          // passport >=0.6 regenerates the session on login (session-fixation
-          // protection). Keep existing session info so the shared IdP session
-          // (req.session.idpUser / idpRequest) survives the SP login — otherwise
-          // logging into the admin would wipe the IdP SSO session.
+          // Keep the SAML session's transient return information when passport
+          // regenerates it as protection against session fixation.
           req.login(user, { session: true, keepSessionInfo: true }, loginErr => {
             if (loginErr) {
               const failMessage = new URLSearchParams(failureRedirect.searchParams);
               failMessage.append('failMessage', 'SAML_UNKNOWN_ERROR');
               failureRedirect.search = failMessage.toString();
-              res.redirect(failureRedirect.toString());
+              return res.redirect(failureRedirect.toString());
             }
             return res.redirect(successRedirect.toString());
           });

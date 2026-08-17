@@ -1,6 +1,3 @@
-import { Request } from 'express';
-import { User } from '@interfaces/users.interface';
-
 export interface DataStoredInToken {
   id: number;
 }
@@ -15,11 +12,6 @@ export interface TokenData {
 //   organizationNumber: string;
 //   organizationId: string;
 // }
-
-export interface RequestWithUser extends Request {
-  user: User;
-  // representing?: Representing;
-}
 
 export interface Permissions {
   canEditSystemMessages: boolean;
