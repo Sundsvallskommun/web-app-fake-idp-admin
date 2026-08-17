@@ -44,7 +44,20 @@
     "surname_uppercase": "Efternamn, versal nyckel",
     "firstname": "Förnamn, äldre nyckel",
     "org_tree": "Organisationsträd",
-    "user_id": "Användar-id, äldre nyckel"
+    "user_id": "Användar-id, äldre nyckel",
+    "given_name_help": "Personens förnamn.",
+    "surname_help": "Personens efternamn.",
+    "citizen_identifier_help": "Personnummer, oftast 12 siffror utan bindestreck — kontrollera vilket format mottagande app förväntar sig.",
+    "username_help": "Samma användar-id som i Grunduppgifter. Skickas som claim till appen.",
+    "email_help": "E-postadress.",
+    "uid_oid_help": "LDAP-standardens maskinnamn (OID) för användar-id — vissa appar läser bara denna nyckel. Samma värde som Användarnamn.",
+    "sn_help": "LDAP-namnet för efternamn (surname). Samma värde som Efternamn.",
+    "uid_help": "LDAP-namnet för användar-id. Samma värde som Användarnamn.",
+    "given_name_lowercase_help": "Alias med gemen nyckel (givenname). Samma värde som Förnamn.",
+    "surname_uppercase_help": "Alias med versal nyckel (Surname). Samma värde som Efternamn.",
+    "firstname_help": "Äldre alias för förnamn.",
+    "org_tree_help": "Organisationstillhörighet som sökväg.",
+    "user_id_help": "Äldre alias för användar-id."
   },
   "add_attribute": "Lägg till attribut",
   "remove_attribute": "Ta bort attribut",
@@ -61,5 +74,11 @@
     "error": "Kunde inte exportera testidentiteter",
     "confirm_title": "exportera testidentiteter?",
     "confirm_text": "Filen innehåller samtliga testidentiteters lösenord i klartext. Hantera den därefter."
+  },
+  "known_attributes_groups": {
+    "standard": "Standardattribut",
+    "standard_help": "De claims SAML-svaret normalt innehåller. Tomma fält utelämnas ur svaret.",
+    "alias": "Kompatibilitetsalias",
+    "alias_help": "Alternativa nycklar för samma uppgifter, från LDAP/katalogstandarden (sn = efternamn, uid = användar-id) eller äldre appar. SAML-claims är skiftlägeskänsliga, så varianterna kan inte slås ihop — fyll i ett alias med samma värde som standardfältet när en ansluten app kräver just den nyckeln."
   }
 }

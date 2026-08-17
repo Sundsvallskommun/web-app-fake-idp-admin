@@ -164,17 +164,41 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
           <p className="text-sm text-muted-foreground mt-1">{t('users:known_attributes_help')}</p>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {userAttributeDefinitions.map((definition, index) => (
-            <div key={definition.key} className="flex flex-col gap-2 min-w-0">
-              <Label htmlFor={`known-${definition.key}`}>
-                {capitalize(t(definition.labelKey))}
-                <span className="block text-sm font-normal text-muted-foreground">{definition.key}</span>
-              </Label>
-              <Input id={`known-${definition.key}`} {...register(`knownAttributes.${index}.value`)} />
+        {/* Grupperat i standard vs alias: 13 platta fält där fyra betyder
+            "användar-id" var omöjliga att tyda. Register-index måste ändå följa
+            userAttributeDefinitions ordning, därav indexOf. */}
+        {(['standard', 'alias'] as const).map((group) => (
+          <div key={group} className="flex flex-col gap-3">
+            <header>
+              <h3 className="font-semibold">{t(`users:known_attributes_groups.${group}`)}</h3>
+              <p className="text-sm text-muted-foreground">{t(`users:known_attributes_groups.${group}_help`)}</p>
+            </header>
+            <div className="grid gap-4 md:grid-cols-2">
+              {userAttributeDefinitions
+                .filter((definition) => definition.group === group)
+                .map((definition) => {
+                  const index = userAttributeDefinitions.indexOf(definition);
+                  const help = t(`${definition.labelKey}_help`, { defaultValue: '' });
+                  return (
+                    <div key={definition.key} className="flex flex-col gap-1.5 min-w-0">
+                      <Label htmlFor={`known-${definition.key}`}>
+                        {capitalize(t(definition.labelKey))}
+                        <span className="block text-sm font-normal text-muted-foreground break-words">
+                          {definition.key}
+                        </span>
+                      </Label>
+                      {help && <p className="text-xs text-muted-foreground">{help}</p>}
+                      <Input
+                        id={`known-${definition.key}`}
+                        placeholder={definition.placeholder}
+                        {...register(`knownAttributes.${index}.value`)}
+                      />
+                    </div>
+                  );
+                })}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </section>
 
       <section className="flex flex-col gap-4">
