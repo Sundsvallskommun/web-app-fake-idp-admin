@@ -1,5 +1,4 @@
 import { HttpException } from '@/exceptions/HttpException';
-import { RequestWithUser } from '@/interfaces/auth.interface';
 import { ClientUser } from '@/interfaces/users.interface';
 import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
@@ -10,6 +9,7 @@ import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { serializeUsersModule } from '@utils/serialize-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { Request } from 'express';
 
 @Controller()
 @UseBefore(authMiddleware)
@@ -19,8 +19,8 @@ export class UserController {
   @Get('/me')
   @OpenAPI({ summary: 'Return current user' })
   @ResponseSchema(UserApiResponse)
-  async getMe(@Req() req: RequestWithUser, @Res() response: any): Promise<ClientUser> {
-    const { name, username } = req.user;
+  async getMe(@Req() req: Request, @Res() response: any): Promise<ClientUser> {
+    const { name, username } = req.session.adminUser;
 
     if (!name) {
       throw new HttpException(400, 'Bad Request');

@@ -1,8 +1,8 @@
 {
-  "name_zero": "användare",
-  "name_one": "användare",
-  "name_many": "användare",
-  "name_other": "användare",
+  "name_zero": "testidentiteter",
+  "name_one": "testidentitet",
+  "name_many": "testidentiteter",
+  "name_other": "testidentiteter",
   "properties": {
     "id": "Id",
     "name": "Namn",
@@ -22,13 +22,13 @@
   "remove_attribute": "Ta bort attribut",
   "no_attributes": "Inga attribut än",
   "import": {
-    "button": "Importera användare",
-    "success": "{{count}} användare importerade",
-    "error": "Kunde inte importera användarfilen"
+    "button": "Importera testidentiteter",
+    "success": "{{count}} testidentiteter importerade",
+    "error": "Kunde inte importera testidentiteter"
   },
   "export": {
-    "button": "Exportera användare",
-    "success": "Användare exporterade",
-    "error": "Kunde inte exportera användare"
+    "button": "Exportera testidentiteter",
+    "success": "Testidentiteter exporterade",
+    "error": "Kunde inte exportera testidentiteter"
   }
 }

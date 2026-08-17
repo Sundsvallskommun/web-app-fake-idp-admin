@@ -109,7 +109,7 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
                   </PopupMenu.Group>
                   <PopupMenu.Item>
                     <a href={apiURL('/saml/idp/login')} target="_blank" rel="noreferrer">
-                      Fake IdP
+                      IdP-testsession
                     </a>
                   </PopupMenu.Item>
                   <PopupMenu.Item>

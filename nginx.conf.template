@@ -41,12 +41,10 @@ server {
     # own limit to 10mb, so the proxy must not reject it first (nginx default 1m).
     client_max_body_size 10m;
 
-    # Stack root -> admin start page. The admin login guard owns authentication:
-    # it starts the SP -> IdP SAML flow when no Passport session exists. Sending
-    # root directly to the IdP details page would only create an IdP session, and
-    # the "Go to Admin GUI" link back to root would loop here without ever creating
-    # the SP session required by the admin API. The regex is anchored to the stack
-    # root only, so API and admin routes still fall through to their locations.
+    # Stack root -> admin start page. Admin authentication is independent from the
+    # IdP test identity session; the public IdP test surface lives under /api/saml/idp.
+    # The regex is anchored to the stack root so API and admin routes still fall
+    # through to their dedicated locations.
     location ~ ^${PUBLIC_PREFIX}/?$ {
         return 302 ${ADMIN_BASE_PATH}/start;
     }

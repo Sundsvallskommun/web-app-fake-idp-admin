@@ -1,4 +1,5 @@
 import { Api } from '@data-contracts/backend/Api';
+import { getCsrfToken } from './csrf-service';
 
 // NEXT_PUBLIC_API_PATH is the API root path INCLUDING any public sub-path prefix
 // (e.g. "/idp2/api"; "/api" in the default layout). The generated Api methods already
@@ -18,4 +19,12 @@ const apiPrefix = apiPath.replace(/\/api\/?$/, '');
 export const apiClient = new Api({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL ?? ''}${apiPrefix}`,
   withCredentials: true,
+});
+
+apiClient.instance.interceptors.request.use(async (config) => {
+  const method = (config.method ?? 'get').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    config.headers.set('x-csrf-token', await getCsrfToken());
+  }
+  return config;
 });

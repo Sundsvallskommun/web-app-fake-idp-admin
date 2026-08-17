@@ -39,10 +39,10 @@ export const {
   SAML_IDP_PRIVATE_KEY,
   SAML_IDP_ENTITY_ID,
   SAML_SP_AUDIENCE,
-  // Optional comma-separated allow-list of group names. When set, only users whose
-  // SAML `groups` claim contains one of these may sign in to the admin app. Empty/
-  // unset = no gating (any authenticated user is allowed).
-  ADMIN_PANEL_GROUP,
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD,
+  ADMIN_DISPLAY_NAME,
+  ADMIN_URL,
 } = process.env;
 
 // IdP role: canonical path where the IdP routes are mounted on this Express app.
