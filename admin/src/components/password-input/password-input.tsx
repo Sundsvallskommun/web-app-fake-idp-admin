@@ -16,8 +16,8 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
     const { t } = useTranslation();
     const label =
       visible ?
-        t('common:hide_password', { defaultValue: 'Dölj lösenord' })
-      : t('common:show_password', { defaultValue: 'Visa lösenord' });
+        t('common:hide_password')
+      : t('common:show_password');
 
     return (
       <div className="relative">

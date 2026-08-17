@@ -7,5 +7,6 @@
     "dark": "mörkt läge",
     "light": "ljust läge",
     "system": "följ system"
-  }
+  },
+  "default_credentials_warning": "Adminkontot använder standardlösenordet admin/admin. Sätt ADMIN_PASSWORD i .env innan stacken exponeras utanför localhost."
 }

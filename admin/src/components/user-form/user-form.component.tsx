@@ -4,6 +4,7 @@ import { Checkbox } from '@components/ui/checkbox';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { PasswordInput } from '@components/password-input/password-input';
+import { ResourceError } from '@components/resource-error/resource-error.component';
 import { useResource } from '@utils/use-resource';
 import { Loader2, Plus, Search, Trash, X } from 'lucide-react';
 import NextLink from 'next/link';
@@ -22,7 +23,13 @@ type UserFormFieldsProps = {
 export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, register }) => {
   const { t } = useTranslation();
   const { fields, append, remove } = useFieldArray({ control, name: 'customAttributes' });
-  const { data: groupData, loaded: groupsLoaded, loading: groupsLoading } = useResource('groups');
+  const {
+    data: groupData,
+    loaded: groupsLoaded,
+    loading: groupsLoading,
+    error: groupsError,
+    refresh: refreshGroups,
+  } = useResource('groups');
   const groups = groupData as AdminGroup[];
   const [groupQuery, setGroupQuery] = useState('');
   const normalizedGroupQuery = groupQuery.trim().toLowerCase();
@@ -68,7 +75,10 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
         </header>
 
         {groupsLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
-        {groupsLoaded && groups.length === 0 && (
+        {groupsError && groups.length === 0 && (
+          <ResourceError resources={t('groups:name_many')} onRetry={refreshGroups} />
+        )}
+        {!groupsError && groupsLoaded && groups.length === 0 && (
           <p className="text-muted-foreground">
             {t('users:no_groups')}{' '}
             <NextLink href="/groups/new" className="underline">
@@ -95,7 +105,7 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
                 <button
                   type="button"
                   onClick={() => setGroupQuery('')}
-                  aria-label={capitalize(t('common:clear', { defaultValue: 'Rensa' }))}
+                  aria-label={capitalize(t('common:clear'))}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />

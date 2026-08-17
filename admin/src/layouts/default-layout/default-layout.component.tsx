@@ -136,6 +136,16 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
               <ModeToggle />
             </div>
           </header>
+          {/* Stacken kan frontas publikt — defaultlösenordet ska inte kunna
+              glömmas kvar obemärkt. Flaggan kommer från backend via /me. */}
+          {user.defaultCredentials && (
+            <div
+              role="alert"
+              className="shrink-0 border-b border-yellow-300 bg-yellow-100 px-4 py-1.5 text-sm text-yellow-950 dark:border-yellow-700 dark:bg-yellow-900 dark:text-yellow-100"
+            >
+              {t('layout:default_credentials_warning')}
+            </div>
+          )}
           <div className="px-6 py-4 md:py-7 md:px-10 flex-1 min-h-0 overflow-y-auto">{children}</div>
         </SidebarInset>
       </SidebarProvider>

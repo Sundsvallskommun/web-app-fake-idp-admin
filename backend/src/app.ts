@@ -26,6 +26,7 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { csrfProtection, generateCsrfToken } from '@middlewares/csrf.middleware';
 import { Strategy, VerifiedCallback } from '@node-saml/passport-saml';
 import { logger, stream } from '@utils/logger';
+import { AdminAuthService } from '@services/admin-auth.service';
 import bodyParser from 'body-parser';
 import { defaultMetadataStorage } from 'class-transformer/cjs/storage';
 import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
@@ -157,6 +158,12 @@ class App {
       logger.info(`======= ENV: ${this.env} =======`);
       logger.info(`🚀 App listening on the port ${this.port}`);
       logger.info(`=================================`);
+      if (new AdminAuthService().usesDefaultCredentials()) {
+        // Stacken kan frontas publikt (docker-compose.external-proxy.yml). Med
+        // kvarstående defaultlösenord är IdP:n öppen och utfärdar giltiga
+        // SAML-assertions till anslutna SP-appar.
+        logger.warn(`⚠️  Adminkontot använder defaultlösenordet 'admin'. Sätt ADMIN_PASSWORD innan stacken exponeras utanför localhost.`);
+      }
     });
   }
 

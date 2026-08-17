@@ -13,7 +13,7 @@ declare module 'express-session' {
     passport?: any;
     representingChoices?: Engagement[];
     messages: string[];
-    adminUser?: { name: string; username: string };
+    adminUser?: { name: string; username: string; defaultCredentials?: boolean };
     // IdP role: the selected test identity and any AuthnRequest awaiting an assertion.
     idpIdentityId?: string;
     idpRequest?: { destination: string; inResponseTo: string; relayState?: string };

@@ -23,7 +23,7 @@ export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
           <div className="flex gap-3 py-2">
             <span className="text-muted-foreground text-sm h-6">
               {loading ?
-                <Loader2 className="size-4 animate-spin" aria-label={t('common:loading', { defaultValue: 'Laddar' })} />
+                <Loader2 className="size-4 animate-spin" aria-label={t('common:loading')} />
               : <>
                   <strong>{data.length}</strong> {t(`${resource}:name`, { count: data.length })}
                 </>

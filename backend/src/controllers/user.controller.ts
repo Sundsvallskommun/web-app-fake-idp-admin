@@ -28,7 +28,7 @@ export class UserController {
   @OpenAPI({ summary: 'Return current user' })
   @ResponseSchema(UserApiResponse)
   async getMe(@Req() req: Request, @Res() response: any): Promise<ClientUser> {
-    const { name, username } = req.session.adminUser;
+    const { name, username, defaultCredentials } = req.session.adminUser;
 
     if (!name) {
       throw new HttpException(400, 'Bad Request');
@@ -37,6 +37,7 @@ export class UserController {
     const userData: ClientUser = {
       name: name,
       username: username,
+      defaultCredentials: defaultCredentials,
     };
 
     return response.send({ data: userData, message: 'success' });

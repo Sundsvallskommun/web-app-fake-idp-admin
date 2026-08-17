@@ -9,6 +9,15 @@ const matches = (value: string, expected: string): boolean => {
 };
 
 export class AdminAuthService {
+  /**
+   * Stacken kan frontas av en publik proxy (docker-compose.external-proxy.yml) —
+   * kvarstående default-lösenord är då en öppen IdP som utfärdar giltiga
+   * SAML-assertions. Flaggan driver startvarningen och bannern i admin-UI:t.
+   */
+  usesDefaultCredentials(): boolean {
+    return ADMIN_PASSWORD === 'admin';
+  }
+
   authenticate(username: string, password: string): ClientUser | null {
     if (!ADMIN_USERNAME || !ADMIN_PASSWORD || !ADMIN_DISPLAY_NAME) {
       return null;
@@ -23,6 +32,7 @@ export class AdminAuthService {
     return {
       name: ADMIN_DISPLAY_NAME,
       username: ADMIN_USERNAME,
+      defaultCredentials: this.usesDefaultCredentials(),
     };
   }
 }

@@ -2,6 +2,16 @@
 
 *2026-08-17 · granskad på branchen `integration/next` (#3 + #4 + #5 + shadcn-migreringen), både i kod och mot körande docker-stack på localhost:7001.*
 
+> **Status: åtgärdat.** Samtliga fynd nedan är åtgärdade i efterföljande commits på
+> samma branch, verifierade med type-check/lint/test i båda paketen och tre
+> Playwright-smokes mot den ombyggda docker-stacken. Tre medvetna undantag:
+> 3.4 (TanStack Query — större ombyggnad; symptomen är åtgärdade via felstater,
+> dedupe och alltid-omhämtning), 6.2 (RSA-fixtur — marginell) och 7.2
+> (Dockerfile-workarounden behålls tills Next fixar tracingen). Smoke-sviten
+> hittade dessutom en bugg äldre än migreringen: radera-flödet i det generiska
+> formuläret navigerade aldrig efter lyckad radering (`handleRemove` fick ett
+> redan startat promise istället för en thunk, dolt av `Remove<T = any>`).
+
 Dokumentet listar brister, tveksamma vägval och förbättringsförslag — bibliotek, funktion och utseende. Varje fynd har **var**, **varför det spelar roll** och **förslag**. Skalan:
 
 - 🔴 **Hög** — påverkar användare eller datasäkerhet konkret

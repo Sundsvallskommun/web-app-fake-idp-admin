@@ -1,4 +1,3 @@
-import 'dotenv';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { create } from 'zustand';
 import { LocalStorage } from '../interfaces/localstorage';
@@ -34,6 +33,13 @@ export const useLocalStorage = create(
           const oldData = state?.resourceData?.[resource] ?? newResource;
           return {
             resourceData: { ...state.resourceData, [resource]: { ...oldData, loading } },
+          };
+        }),
+      setError: (resource, error) =>
+        set((state) => {
+          const oldData = state?.resourceData?.[resource] ?? newResource;
+          return {
+            resourceData: { ...state.resourceData, [resource]: { ...oldData, error } },
           };
         }),
     }),

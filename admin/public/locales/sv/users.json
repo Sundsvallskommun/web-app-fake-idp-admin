@@ -58,6 +58,8 @@
   "export": {
     "button": "Exportera testidentiteter",
     "success": "Testidentiteter exporterade",
-    "error": "Kunde inte exportera testidentiteter"
+    "error": "Kunde inte exportera testidentiteter",
+    "confirm_title": "exportera testidentiteter?",
+    "confirm_text": "Filen innehåller samtliga testidentiteters lösenord i klartext. Hantera den därefter."
   }
 }

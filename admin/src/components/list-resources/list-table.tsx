@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { capitalize } from '@utils/capitalize';
 import { useTranslation } from 'react-i18next';
 
 type Row = Record<string, unknown>;
@@ -58,6 +59,8 @@ export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 
   });
 
   const pageCount = table.getPageCount();
+  const currentPageSize = table.getState().pagination.pageSize;
+  const showFooter = pageCount > 1 || data.length > pageSize;
 
   return (
     <div className="flex flex-col gap-4">
@@ -133,33 +136,52 @@ export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 
         </Table>
       </div>
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-end gap-3">
-          <span aria-live="polite" className="text-sm text-muted-foreground">
-            {t('common:page_of', {
-              defaultValue: 'Sida {{page}} av {{count}}',
-              page: table.getState().pagination.pageIndex + 1,
-              count: pageCount,
-            })}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            aria-label={t('common:previous_page', { defaultValue: 'Föregående sida' })}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            aria-label={t('common:next_page', { defaultValue: 'Nästa sida' })}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
+      {showFooter && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground mr-auto">
+            {capitalize(t('common:rows_per_page'))}
+            <select
+              value={currentPageSize}
+              onChange={(event) => table.setPageSize(Number(event.target.value))}
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {[15, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+          {pageCount > 1 && (
+            <>
+              <span aria-live="polite" className="text-sm text-muted-foreground">
+                {capitalize(
+                  t('common:page_of', {
+                    page: table.getState().pagination.pageIndex + 1,
+                    count: pageCount,
+                  })
+                )}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label={capitalize(t('common:previous_page'))}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label={capitalize(t('common:next_page'))}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>

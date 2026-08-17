@@ -40,8 +40,7 @@ const users: Resource<AdminUser> = {
     {
       property: 'citizenIdentifier',
       isColumnSortable: false,
-      renderColumn: (_value, item) =>
-        createElement(HighlightedText, null, getAttribute(item as unknown as AdminUser,'citizenIdentifier')),
+      renderColumn: (_value, item) => createElement(HighlightedText, null, getAttribute(item, 'citizenIdentifier')),
     },
     {
       property: 'groups',
@@ -50,7 +49,7 @@ const users: Resource<AdminUser> = {
         createElement(
           HighlightedText,
           null,
-          (item as unknown as AdminUser).groups.map((group) => group.name).join(',')
+          item.groups.map((group) => group.name).join(',')
         ),
     },
   ],
@@ -71,7 +70,17 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
   // Beskrivningen är gruppens dokumentation (roll? organisationstillhörighet?
   // ren testdata?) — ge den en flerradig yta att skrivas i.
   multilineFields: ['description'],
-  columns: [{ property: 'name' }, { property: 'description' }, { property: 'userCount' }],
+  columns: [
+    { property: 'name' },
+    {
+      property: 'description',
+      // Beskrivningar uppmuntras vara långa (textarea) — klipp till två rader i
+      // listan så tabellen förblir skanningsbar; hela texten syns i redigeringen.
+      renderColumn: (value) =>
+        createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
+    },
+    { property: 'userCount' },
+  ],
 };
 
 const resources = { users, groups };

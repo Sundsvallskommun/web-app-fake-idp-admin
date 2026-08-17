@@ -43,6 +43,21 @@ Sedan som vanligt: `yarn dev` (port 3002), `yarn build`, `yarn type-check`, `yar
 | `cx` | `cn` (`src/utils/cn.ts`) |
 | `__DEV__` | `process.env.NODE_ENV !== 'production'` |
 
+## Två formulärvägar — när väljer man vilken?
+
+Appen har två sätt att bygga redigeringsformulär, och regeln är:
+
+- **Generiska vägen** (`src/pages/[resource]/` + `src/components/edit-resource/`):
+  default för nya resurser. Fälten härleds ur `defaultValues` i registret;
+  `requiredFields`/`multilineFields` styr validering och fälttyp. Räcker så länge
+  resursen är platta fält + enkla objekt/arrayer (exempel: `groups`).
+- **Egen sida** (mönstret i `src/pages/users/` + `src/components/user-form/`):
+  först när resursen behöver relationsfält (gruppväljaren), domänschema
+  (kända SAML-attribut) eller annan logik som inte kan uttryckas i registret.
+
+Byt inte väg "för utseendets skull" — gemensamma byggstenar (spara/ta bort-raden,
+`PasswordInput`, feltytan) ska hållas delade så vägarna inte divergerar.
+
 ## Fällan: spacing-skalan
 
 `@sk-web-gui/core`-preseten satte `html { font-size: 0.625em }` (10px-rot) och definierade

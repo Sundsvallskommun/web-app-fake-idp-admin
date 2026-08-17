@@ -1,5 +1,6 @@
 import { Api } from '@data-contracts/backend/Api';
 import { getCsrfToken } from './csrf-service';
+import { handleUnauthorized } from './handle-unauthorized';
 
 // NEXT_PUBLIC_API_PATH is the API root path INCLUDING any public sub-path prefix
 // (e.g. "/idp2/api"; "/api" in the default layout). The generated Api methods already
@@ -28,3 +29,16 @@ apiClient.instance.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Samma 401-beteende som api-service. Interceptorn ligger här (inte i den
+// genererade http-client) eftersom allt under data-contracts/ skrivs över av
+// yarn generate:contracts.
+apiClient.instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      handleUnauthorized(error.response?.data?.message);
+    }
+    return Promise.reject(error);
+  }
+);

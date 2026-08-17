@@ -11,7 +11,7 @@ import { cn } from '@utils/cn';
 import { getFormattedFields } from '@utils/formatted-field';
 import { matchesQuery } from '@utils/match-query';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
-import { Check, Pencil, Search, X } from 'lucide-react';
+import { Check, Pencil, Plus, Search, X } from 'lucide-react';
 import NextLink from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +25,11 @@ interface ListResourcesProps {
 }
 
 export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers: _headers, data }) => {
-  const { update, columns } = resources[resource];
+  const { update, create } = resources[resource];
+  // Registret typar kolumnerna per resurs (ResourceColumn<AdminUser> osv.) så att
+  // renderColumn-implementationerna typkontrolleras där de skrivs. Den här generiska
+  // listan arbetar radtypslöst — typen raderas medvetet vid exakt en gräns.
+  const columns = resources[resource].columns as ResourceColumn[] | undefined;
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [{ [resource]: storeHeaders }, setHeaders] = useLocalStorage(
@@ -111,7 +115,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
       <div className="text-right w-full">
         <NextLink
           href={`/${resource}/${value}`}
-          aria-label={capitalize(t('common:edit', { defaultValue: 'Redigera' }))}
+          aria-label={capitalize(t('common:edit_row'))}
           className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
         >
           <Pencil className="size-4" />
@@ -163,22 +167,41 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
           <button
             type="button"
             onClick={() => setQuery('')}
-            aria-label={capitalize(t('common:clear', { defaultValue: 'Rensa' }))}
+            aria-label={capitalize(t('common:clear'))}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
           >
             <X className="size-4" />
           </button>
         )}
       </div>
+      {/* Skärmläsare får veta att filtret ändrade resultatet — DOM-bytet i
+          tabellen annonseras inte av sig självt. */}
+      <span aria-live="polite" className="sr-only">
+        {t('common:result_count', { count: filteredData?.length ?? 0 })}
+      </span>
       {filteredData && filteredData?.length > 0 ?
         <ListTable
           pageSize={15}
           data={filteredData}
           columns={[...highlightedHeaders, ...(update ? [editHeader] : [])]}
         />
-      : <h3 className="text-2xl font-bold">
-          {capitalize(t('common:no_resources', { resources: t(`${resource}:name_zero`) }))}
-        </h3>
+      : <div className="flex flex-col items-start gap-3">
+          <h3 className="text-2xl font-bold">
+            {capitalize(t('common:no_resources', { resources: t(`${resource}:name_zero`) }))}
+          </h3>
+          {/* Tom-state med väg vidare, samma mönster som gruppväljarens
+              "skapa den första gruppen"-länk. Visas inte vid aktivt filter —
+              då är rätt åtgärd att rensa filtret, inte skapa. */}
+          {!query && create && (
+            <NextLink
+              href={`/${resource}/new`}
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              <Plus className="size-4" />
+              {capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}
+            </NextLink>
+          )}
+        </div>
       }
     </SearchQueryContext.Provider>
   );

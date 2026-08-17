@@ -35,7 +35,11 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
         )
         .then((confirm) => {
           if (confirm) {
-            handleRemove(remove(id)).then((res) => {
+            // OBS: thunk — handleRemove anropar själv. `handleRemove(remove(id))`
+            // skickade ett redan startat promise; hjälparen kraschade på att
+            // "anropa" det, visade fel-toast och navigerade aldrig, trots att
+            // servern hann radera. Doldes av att Remove<T = any> returnerade any.
+            handleRemove(() => remove(id)).then((res) => {
               if (res) {
                 reset();
                 router.push(parentPath);

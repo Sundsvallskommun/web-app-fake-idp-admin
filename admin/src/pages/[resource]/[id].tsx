@@ -14,7 +14,6 @@ import { useResource } from '@utils/use-resource';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
@@ -24,7 +23,7 @@ export const EditAssistant: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { resource: _resource, id: _id } = useParams();
+  const { resource: _resource, id: _id } = router.query;
   const resource = stringToResourceName((typeof _resource === 'object' ? _resource[0] : _resource) ?? '');
   if (!resource) {
     router.push('/');
@@ -124,12 +123,16 @@ export const EditAssistant: React.FC = () => {
         headerInfo={
           !isNew ?
             <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
-              {defaultInformationFields.map((field, index) => (
-                <li key={index + field}>
-                  <strong>{capitalize(t(`common:${field}`))}: </strong>
-                  {formdata?.[field]}
-                </li>
-              ))}
+              {/* Visa bara fält som resursen faktiskt har med värde — Group saknar
+                  t.ex. createdAt/updatedAt och etiketter utan värden är brus. */}
+              {defaultInformationFields
+                .filter((field) => formdata?.[field] !== undefined && formdata?.[field] !== null && formdata?.[field] !== '')
+                .map((field, index) => (
+                  <li key={index + field}>
+                    <strong>{capitalize(t(`common:${field}`))}: </strong>
+                    {formdata?.[field]}
+                  </li>
+                ))}
             </ul>
           : undefined
         }

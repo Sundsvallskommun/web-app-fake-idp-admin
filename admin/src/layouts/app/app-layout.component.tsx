@@ -13,7 +13,8 @@ export function MyApp({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
         </LoginGuard>
       </ConfirmProvider>
-      <Toaster richColors closeButton />
+      {/* top-right: default (nere till höger) krockar visuellt med tabellpagineringen. */}
+      <Toaster richColors closeButton position="top-right" />
     </ThemeProvider>
   );
 }

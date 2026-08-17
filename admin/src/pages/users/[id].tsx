@@ -14,7 +14,6 @@ import { Save, Trash } from 'lucide-react';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -24,7 +23,7 @@ export const UserEditPage: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { id: _id } = useParams();
+  const { id: _id } = router.query;
   const id = typeof _id === 'object' ? _id[0] : _id;
   const isNew = id === 'new';
 

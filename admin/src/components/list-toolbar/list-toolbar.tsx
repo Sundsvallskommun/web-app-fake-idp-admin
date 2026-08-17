@@ -8,6 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip';
 import { cn } from '@utils/cn';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
 import { FilePlus2, RefreshCcw, Settings } from 'lucide-react';
@@ -46,38 +47,54 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, p
 
   return (
     // Statisk i headerraden (inte absolute) så den radbryts istället för att
-    // lägga sig ovanpå rubriken på smala skärmar.
+    // lägga sig ovanpå rubriken på smala skärmar. Tooltips: ikonknappar utan
+    // synlig text måste förklara sig själva för seende användare också.
     <div className={cn('flex items-center gap-1', className)}>
       {!!create && (
-        <Link
-          href={`/${resource}/new`}
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
-          aria-label={capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}
-        >
-          <FilePlus2 className="size-4" />
-        </Link>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href={`/${resource}/new`}
+              className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+              aria-label={capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}
+            >
+              <FilePlus2 className="size-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>{capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}</TooltipContent>
+        </Tooltip>
       )}
       {!!onRefresh && (
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={capitalize(t('common:refresh'))}
-          onClick={() => onRefresh()}
-        >
-          <RefreshCcw className="size-4" />
-        </Button>
-      )}
-      {!columns && properties && headers && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              aria-label={capitalize(t('common:columns', { defaultValue: 'Kolumner' }))}
+              aria-label={capitalize(t('common:refresh'))}
+              onClick={() => onRefresh()}
             >
-              <Settings className="size-4" />
+              <RefreshCcw className="size-4" />
             </Button>
-          </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{capitalize(t('common:refresh'))}</TooltipContent>
+        </Tooltip>
+      )}
+      {!columns && properties && headers && (
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={capitalize(t('common:columns'))}
+                >
+                  <Settings className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{capitalize(t('common:columns'))}</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent align="end">
             {properties.map((prop) => (
               <DropdownMenuCheckboxItem

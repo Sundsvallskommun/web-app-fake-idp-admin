@@ -1,5 +1,6 @@
 import { apiURL } from '@utils/api-url';
 import { getCsrfToken } from './csrf-service';
+import { handleUnauthorized } from './handle-unauthorized';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 export interface ApiResponse<T = unknown> {
@@ -8,11 +9,8 @@ export interface ApiResponse<T = unknown> {
 }
 
 export const handleError = (error: AxiosError<ApiResponse>) => {
-  if (error?.response?.status === 401 && !window?.location.pathname.includes('login')) {
-    // Hard navigation, so prepend the Next.js basePath (next/router would add it
-    // automatically, but window.location does not).
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-    window.location.href = `${basePath}/login?path=${window.location.pathname}&failMessage=${error.response.data.message}`;
+  if (error?.response?.status === 401) {
+    handleUnauthorized(error.response.data?.message);
   }
 
   throw error;

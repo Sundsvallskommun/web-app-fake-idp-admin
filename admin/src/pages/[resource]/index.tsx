@@ -1,5 +1,6 @@
 import { ListResources } from '@components/list-resources/list-resources';
 import { ListToolbar } from '@components/list-toolbar/list-toolbar';
+import { ResourceError } from '@components/resource-error/resource-error.component';
 import resources from '@config/resources';
 import { ResourceName } from '@interfaces/resource-name';
 import DefaultLayout from '@layouts/default-layout/default-layout.component';
@@ -11,7 +12,6 @@ import { useResource } from '@utils/use-resource';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { capitalize } from '@utils/capitalize';
@@ -20,10 +20,10 @@ export const Exempelsida: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { resource: _resource } = useParams();
+  const { resource: _resource } = router.query;
   const resource = stringToResourceName((typeof _resource === 'object' ? _resource[0] : _resource) ?? '');
 
-  const { data, refresh, loaded, loading } = useResource(resource as ResourceName);
+  const { data, refresh, loaded, loading, error } = useResource(resource as ResourceName);
 
   useEffect(() => {
     if (!resource) {
@@ -52,7 +52,11 @@ export const Exempelsida: React.FC = () => {
               <ListToolbar className="ml-auto" resource={resource} onRefresh={refresh} properties={getProperties()} />
             </div>
           </Header>
-          {loaded && <ListResources resource={resource} data={data} />}
+          {/* Feltytan visas när det inte finns någon data att falla tillbaka på —
+              annars renderas (möjligen inaktuell) cache och toasten informerar. */}
+          {error && data.length === 0 ?
+            <ResourceError resources={t(`${resource}:name_many`)} onRetry={refresh} />
+          : loaded && <ListResources resource={resource} data={data} />}
         </Main>
       </DefaultLayout>
     )

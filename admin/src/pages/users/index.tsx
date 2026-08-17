@@ -1,5 +1,7 @@
 import { ListResources } from '@components/list-resources/list-resources';
 import { ListToolbar } from '@components/list-toolbar/list-toolbar';
+import { ResourceError } from '@components/resource-error/resource-error.component';
+import { useConfirm } from '@components/confirm/confirm-context';
 import { features } from '@config/features';
 import resources from '@config/resources';
 import DefaultLayout from '@layouts/default-layout/default-layout.component';
@@ -18,7 +20,8 @@ import { capitalize } from '@utils/capitalize';
 
 export const UsersListPage: React.FC = () => {
   const { t } = useTranslation();
-  const { data, refresh, loaded, loading } = useResource('users');
+  const { data, refresh, loaded, loading, error } = useResource('users');
+  const { showConfirmation } = useConfirm();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -38,6 +41,15 @@ export const UsersListPage: React.FC = () => {
 
   // Download the whole user store as a re-importable users.js module.
   const onExport = async () => {
+    // Filen innehåller klartextlösenord (simulatorns syfte) — gör nedladdningen
+    // till ett medvetet val istället för en reflex.
+    const confirmed = await showConfirmation(
+      capitalize(t('users:export.confirm_title')),
+      t('users:export.confirm_text'),
+      capitalize(t('users:export.button')),
+      capitalize(t('common:close'))
+    );
+    if (!confirmed) return;
     setExporting(true);
     try {
       const res = await apiService.get<string>('/users/export', { responseType: 'text' });
@@ -122,7 +134,9 @@ export const UsersListPage: React.FC = () => {
             <ListToolbar className="ml-auto" resource="users" onRefresh={refresh} properties={getProperties()} />
           </div>
         </Header>
-        {loaded && <ListResources resource="users" data={displayData} />}
+        {error && data.length === 0 ?
+          <ResourceError resources={t('users:name_many')} onRetry={refresh} />
+        : loaded && <ListResources resource="users" data={displayData} />}
       </Main>
     </DefaultLayout>
   );

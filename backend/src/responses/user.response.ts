@@ -1,7 +1,7 @@
 import ApiResponse from '@/interfaces/api-service.interface';
 import { ClientUser } from '@/interfaces/users.interface';
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 // export class Permissions implements IPermissions {
 //   @IsBoolean()
@@ -13,6 +13,9 @@ export class User implements ClientUser {
   name: string;
   @IsString()
   username: string;
+  @IsOptional()
+  @IsBoolean()
+  defaultCredentials?: boolean;
   // @IsEnum(InternalRoleEnum)
   // role: InternalRole;
   // @ValidateNested()

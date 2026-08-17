@@ -13,7 +13,12 @@ describe('AdminAuthService', () => {
     expect(service.authenticate('admin', 'correct-password')).toEqual({
       name: 'Local Admin',
       username: 'admin',
+      defaultCredentials: false,
     });
+  });
+
+  it('flags the default password so the UI can warn about it', () => {
+    expect(service.usesDefaultCredentials()).toBe(false);
   });
 
   it.each([

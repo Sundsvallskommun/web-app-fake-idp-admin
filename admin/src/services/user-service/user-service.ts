@@ -5,15 +5,23 @@ import { emptyUser } from './defaults';
 import { ServiceResponse } from '@interfaces/services';
 import { User } from '@data-contracts/backend/data-contracts';
 
-const handleSetUserResponse: (res: ApiResponse<User>) => User = (res) => ({
+/**
+ * Sessionsanvändaren med backendflaggan för defaultlösenord. Lokal utökning av
+ * den genererade typen tills kontrakten regenererats mot en backend som har
+ * fältet (yarn generate:contracts kräver körande backend).
+ */
+export type AdminSessionUser = User & { defaultCredentials?: boolean };
+
+const handleSetUserResponse: (res: ApiResponse<AdminSessionUser>) => AdminSessionUser = (res) => ({
   name: res.data.name,
   username: res.data.username,
+  defaultCredentials: res.data.defaultCredentials === true,
   // permissions: res.data.permissions,
 });
 
-const getMe: () => Promise<ServiceResponse<User>> = () => {
+const getMe: () => Promise<ServiceResponse<AdminSessionUser>> = () => {
   return apiService
-    .get<ApiResponse<User>>('me')
+    .get<ApiResponse<AdminSessionUser>>('me')
     .then((res) => ({ data: handleSetUserResponse(res.data) }))
     .catch((e) => ({
       message: e.response?.data.message,
@@ -22,11 +30,11 @@ const getMe: () => Promise<ServiceResponse<User>> = () => {
 };
 
 interface State {
-  user: User;
+  user: AdminSessionUser;
 }
 interface Actions {
-  setUser: (user: User) => void;
-  getMe: () => Promise<ServiceResponse<User>>;
+  setUser: (user: AdminSessionUser) => void;
+  getMe: () => Promise<ServiceResponse<AdminSessionUser>>;
   reset: () => void;
 }
 

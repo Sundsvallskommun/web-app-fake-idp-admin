@@ -54,16 +54,17 @@ export const useCrudHelper = (resource: string) => {
     }
   };
 
-  const handleRemove = async <TData = unknown>(remove: () => ResourceResponse<TData>): Promise<TData | undefined> => {
+  // Boolean, inte svarskroppen: de genererade delete-endpointsen är typade
+  // AxiosResponse<void>, och ingen anropare använder mer än utfallet.
+  const handleRemove = async (remove: () => Promise<unknown>): Promise<boolean> => {
     const name = t(`${resource}:name_one`);
     try {
-      const result = await remove();
-      if (result) {
-        toast.success(capitalize(t('crud:remove.success', { resource: name })));
-        return Promise.resolve(result.data.data);
-      }
+      await remove();
+      toast.success(capitalize(t('crud:remove.success', { resource: name })));
+      return true;
     } catch {
       toast.error(capitalize(t('crud:remove.error', { resource: name })));
+      return false;
     }
   };
 
