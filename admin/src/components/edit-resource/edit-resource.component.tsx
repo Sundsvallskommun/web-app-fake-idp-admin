@@ -17,7 +17,7 @@ interface EditResourceProps {
 
 export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const { t } = useTranslation();
-  const { formFields, requiredFields } = resources[resource] as Resource<FieldValues>;
+  const { formFields, requiredFields, multilineFields } = resources[resource] as Resource<FieldValues>;
 
   type CreateType = Parameters<NonNullable<Resource<FieldValues>['create']>>[0];
   type UpdateType = Parameters<NonNullable<Resource<FieldValues>['update']>>[1];
@@ -26,39 +26,39 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const { watch } = useFormContext<DataType>();
   const formdata = watch() as DataType;
   const editableFields = formFields ?? Object.keys(formdata);
+  const visibleFields = editableFields.filter((key) => !defaultInformationFields.includes(key));
+  const complexFields = visibleFields.filter((key) => typeof formdata[key] === 'object');
 
   return (
     <>
-      <div className="flex flex-col gap-8 grow mb-8">
-        {editableFields
-          .filter((key) => !defaultInformationFields.includes(key))
-          .map((key, index) => {
-            const isRequired = requiredFields ? requiredFields.some((requiredField) => requiredField === key) : false;
+      <div className="flex flex-col gap-8">
+        {visibleFields.map((key, index) => {
+          const isRequired = requiredFields ? requiredFields.some((requiredField) => requiredField === key) : false;
 
-            return (
-              <Fragment key={`formc-${index}`}>
-                <EditResourceInput
-                  property={key}
-                  index={index}
-                  required={isRequired}
-                  label={capitalize(t(`${resource}:properties.${key}`))}
-                />
-              </Fragment>
-            );
-          })}
+          return (
+            <Fragment key={`formc-${index}`}>
+              <EditResourceInput
+                property={key}
+                index={index}
+                required={isRequired}
+                multiline={multilineFields?.some((multilineField) => multilineField === key)}
+                label={capitalize(t(`${resource}:properties.${key}`))}
+              />
+            </Fragment>
+          );
+        })}
       </div>
-      <div className="flex flex-col gap-8 grow mb-8">
-        {editableFields
-          .filter((key) => !defaultInformationFields.includes(key))
-          .map((key, index) => {
-            const type = typeof formdata[key];
-            if (type === 'object') {
-              return Array.isArray(formdata[key]) ?
-                  <EditResourceArray key={`res-${index}`} resource={resource} property={key} />
-                : <EditResourceObject key={`res-${index}`} resource={resource} property={key} />;
-            }
-          })}
-      </div>
+      {/* Rendera inte en tom sektion för resurser utan objekt/array-fält — den
+          tog upp plats i layouten fast den saknade innehåll. */}
+      {complexFields.length > 0 && (
+        <div className="flex flex-col gap-8">
+          {complexFields.map((key, index) =>
+            Array.isArray(formdata[key]) ?
+              <EditResourceArray key={`res-${index}`} resource={resource} property={key} />
+            : <EditResourceObject key={`res-${index}`} resource={resource} property={key} />
+          )}
+        </div>
+      )}
     </>
   );
 };

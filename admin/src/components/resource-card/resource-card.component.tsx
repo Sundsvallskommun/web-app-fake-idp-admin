@@ -3,7 +3,6 @@ import { Card, CardContent } from '@components/ui/card';
 import { useResource } from '@utils/use-resource';
 import { Loader2 } from 'lucide-react';
 import NextLink from 'next/link';
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { capitalize } from '@utils/capitalize';
 
@@ -12,14 +11,9 @@ interface ResourceCardProps {
 }
 
 export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
-  const { data, loaded, loading, refresh } = useResource(resource);
+  // useResource hämtar själv om vid montering.
+  const { data, loading } = useResource(resource);
   const { t } = useTranslation();
-
-  useEffect(() => {
-    if (!loaded) {
-      refresh();
-    }
-  }, [loaded, refresh]);
 
   return (
     <Card className="transition-colors hover:bg-accent hover:text-accent-foreground">

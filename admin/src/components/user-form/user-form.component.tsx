@@ -115,14 +115,16 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
                   );
 
                 return (
+                  /* En kolumn på full bredd: beskrivningen är gruppens dokumentation
+                     och ska få plats att läsas, inte klämmas in på halv bredd. */
                   <div
                     role="group"
                     aria-label={capitalize(t('users:sections.groups'))}
-                    className="grid gap-3 md:grid-cols-2 max-h-80 overflow-y-auto"
+                    className="flex flex-col gap-3 max-h-80 overflow-y-auto"
                   >
                     {visibleGroups.map((group) => (
-                      // min-w-0 + break-words: annars trycker långa obrutna
-                      // gruppnamn (URL:er, AD-namn) in under grannkolumnen.
+                      // min-w-0 + break-words: långa obrutna namn (URL:er, AD-namn)
+                      // ska radbrytas istället för att spränga radbredden.
                       <div key={group.id} className="flex items-start gap-2 min-w-0">
                         <Checkbox
                           id={`group-${group.id}`}

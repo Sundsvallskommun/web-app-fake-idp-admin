@@ -45,6 +45,8 @@ export type Resource<
   remove?: Remove;
   defaultValues?: TCreate;
   requiredFields?: Array<FieldPath<TCreate & TUpdate>>;
+  /** Fält som redigeras i flerradig textarea istället för enradigt input. */
+  multilineFields?: Array<FieldPath<TCreate & TUpdate>>;
   formFields?: Array<Extract<keyof (TCreate & TUpdate), string>>;
   /**
    * Explicit list-table columns. When set, these override the columns that are

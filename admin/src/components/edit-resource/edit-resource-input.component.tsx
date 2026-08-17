@@ -1,6 +1,7 @@
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { Switch } from '@components/ui/switch';
+import { Textarea } from '@components/ui/textarea';
 import { Controller, useFormContext } from 'react-hook-form';
 
 type InputProps = React.ComponentPropsWithoutRef<typeof Input>;
@@ -10,9 +11,17 @@ interface EditResourceInputProps extends Omit<InputProps, 'ref' | 'key'> {
   property: string;
   index: number;
   required?: boolean;
+  /** Rendera som flerradig textarea istället för enradigt fält. */
+  multiline?: boolean;
 }
 
-export const EditResourceInput: React.FC<EditResourceInputProps> = ({ label, property, required, ...rest }) => {
+export const EditResourceInput: React.FC<EditResourceInputProps> = ({
+  label,
+  property,
+  required,
+  multiline,
+  ...rest
+}) => {
   const { register, watch, control } = useFormContext();
   const data = watch(property);
   const type = typeof data;
@@ -42,13 +51,16 @@ export const EditResourceInput: React.FC<EditResourceInputProps> = ({ label, pro
         {label}
         {required && <span aria-hidden="true"> *</span>}
       </Label>
-      <Input
-        id={property}
-        type={type === 'number' ? 'number' : 'text'}
-        required={required}
-        {...register(property)}
-        {...rest}
-      />
+      {multiline && type !== 'number' ?
+        <Textarea id={property} rows={4} required={required} {...register(property)} />
+      : <Input
+          id={property}
+          type={type === 'number' ? 'number' : 'text'}
+          required={required}
+          {...register(property)}
+          {...rest}
+        />
+      }
     </div>
   );
 };

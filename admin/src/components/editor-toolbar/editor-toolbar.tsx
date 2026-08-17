@@ -50,23 +50,18 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
 
   const { t } = useTranslation();
   return (
-    // Full bredd + högerställd i formulärets flödesordning: absolut positionering
-    // la knapparna ovanpå rubriken när viewporten smalnade.
-    <div className="w-full flex justify-end items-center gap-1">
-      <Button type="submit" size="icon" variant="ghost" disabled={!isDirty} aria-label={capitalize(t('common:save'))}>
+    // Tydliga textknappar under formulärfälten, samma mönster som
+    // users-formulärets spara/ta bort-rad.
+    <div className="flex items-center gap-4">
+      <Button type="submit" disabled={!isDirty}>
         <Save className="size-4" />
+        {capitalize(t('common:save'))}
       </Button>
 
       {((!!remove && id) || !id) && (
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="text-destructive hover:text-destructive"
-          aria-label={capitalize(t('common:remove', { resource: t(`${resource}:name_one`) }))}
-          onClick={() => onRemove()}
-        >
+        <Button type="button" variant="destructive" onClick={() => onRemove()}>
           <Trash className="size-4" />
+          {capitalize(t('common:remove'))}
         </Button>
       )}
     </div>

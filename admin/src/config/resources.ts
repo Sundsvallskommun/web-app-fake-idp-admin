@@ -68,6 +68,9 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
   defaultValues: { name: '', description: '' },
   requiredFields: ['name'],
   formFields: ['name', 'description'],
+  // Beskrivningen är gruppens dokumentation (roll? organisationstillhörighet?
+  // ren testdata?) — ge den en flerradig yta att skrivas i.
+  multilineFields: ['description'],
   columns: [{ property: 'name' }, { property: 'description' }, { property: 'userCount' }],
 };
 

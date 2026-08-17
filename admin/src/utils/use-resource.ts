@@ -36,9 +36,11 @@ export const useResource = (resource: ResourceName) => {
   }, [resource]);
 
   useEffect(() => {
-    if (!loaded || !resourceData) {
-      refresh();
-    }
+    // Hämta alltid om vid montering — cachen renderas direkt medan färsk data
+    // hämtas i bakgrunden. Den gamla `!loaded`-vakten gjorde cachen permanent för
+    // hela webbläsarsessionen: en resurs som en gång lästs som tom förblev tom i
+    // t.ex. gruppväljaren även när API:t hade data (import, andra vyer, andra flikar).
+    refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resource]);
 

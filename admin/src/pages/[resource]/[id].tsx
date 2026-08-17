@@ -141,9 +141,12 @@ export const EditAssistant: React.FC = () => {
         backLink={`/${resource}`}
       >
         <FormProvider {...form}>
-          <form className="flex flex-row gap-8 justify-between grow flex-wrap" onSubmit={handleSubmit(onSubmit)}>
-            <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
+          {/* Vertikal kolumn (som users-formuläret). Den gamla flex-row + wrap +
+              justify-between + grow stretchade raderna över hela sidhöjden, så
+              verktygsraden hamnade svävande och fälten långt ner. */}
+          <form className="flex flex-col gap-8 max-w-xl" onSubmit={handleSubmit(onSubmit)}>
             <EditResource resource={resource} isNew={isNew} />
+            <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
           </form>
         </FormProvider>
       </EditLayout>;
