@@ -292,6 +292,13 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 - `GET /api/saml/idp/metadata` — IdP-metadata för att konfigurera en Service Provider.
 - `GET /api/saml/test` — lokal testapp som startar SAML och visar mottagen identitet.
 
+Muterande admin- och IdP-anrop skyddas med en sessionsbunden CSRF-token. Admin-GUI:t
+hämtar och skickar token automatiskt. Egna API-klienter hämtar den från
+`GET /api/admin-auth/csrf` och skickar den i headern `x-csrf-token`. De externa
+SAML POST-bindningarna (`/saml/idp/sso` och `/saml/login/callback`) är undantagna,
+eftersom anropen kommer från en Service Provider respektive Identity Provider.
+IdP-routes och adminlogin har även lokal IP-baserad rate limiting.
+
 ### Peka en Service Provider mot IdP:n
 
 Sätt SP:ns `SAML_ENTRY_SSO=http://localhost:3001/api/saml/idp/sso` och låt SP:n lita på IdP:ns cert (`SAML_IDP_PUBLIC_CERT`). En SP kan också konfigureras via `GET /api/saml/idp/metadata`. Appens egen SP-sida kan på så vis logga in mot den egna backend-IdP:n istället för den fristående `web-app-fake-sso-idp`.

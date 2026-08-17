@@ -72,6 +72,7 @@ const identityDetails = (identity: IdentitySummary, label = 'Aktiv testidentitet
 
 export function renderLogin(opts: {
   action: string;
+  csrfToken: string;
   navigation: PageNavigation;
   users: LoginUser[];
   enumerateUsers: boolean;
@@ -109,6 +110,7 @@ export function renderLogin(opts: {
       noticeHtml +
       errorHtml +
       `<form action="${htmlEscape(opts.action)}" method="POST">` +
+      `<input type="hidden" name="_csrf" value="${htmlEscape(opts.csrfToken)}" />` +
       `<fieldset name="credentials">${credentials}</fieldset>` +
       `<div class="actions"><button class="primary" type="submit"${hasUsers ? '' : ' disabled'}>${
         opts.target ? 'Logga in och fortsätt' : 'Logga in som testidentitet'
@@ -120,6 +122,7 @@ export function renderLogin(opts: {
 
 export function renderIdentitySession(opts: {
   identity: IdentitySummary;
+  csrfToken: string;
   navigation: PageNavigation;
   logoutAction: string;
   samlLoginUrl: string;
@@ -130,7 +133,9 @@ export function renderIdentitySession(opts: {
       `<p class="description">Testidentiteten används automatiskt när en ansluten applikation startar en SAML-inloggning.</p>` +
       identityDetails(opts.identity) +
       `<div class="actions"><a class="button primary" href="${htmlEscape(opts.samlLoginUrl)}">Starta lokalt SAML-test</a>` +
-      `<form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST"><button class="secondary" type="submit">Logga ut testidentitet</button></form></div>`,
+      `<form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST">` +
+      `<input type="hidden" name="_csrf" value="${htmlEscape(opts.csrfToken)}" />` +
+      `<button class="secondary" type="submit">Logga ut testidentitet</button></form></div>`,
     opts.navigation,
   );
 }

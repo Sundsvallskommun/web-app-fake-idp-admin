@@ -10,13 +10,6 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { capitalize } from 'underscore.string';
 
-const safeReturnPath = (path: string | string[] | undefined): string => {
-  if (typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')) {
-    return path;
-  }
-  return '/start';
-};
-
 export default function Login() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -39,7 +32,7 @@ export default function Login() {
     try {
       const response = await loginAdmin({ username, password });
       setUser(response.data.data);
-      await router.push(safeReturnPath(router.query.path));
+      await router.push('/start');
     } catch (error) {
       const code = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
       setErrorMessage(t(`login:errors.${code || 'UNKNOWN'}`));

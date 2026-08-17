@@ -1,6 +1,7 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import session from 'express-session';
 import request from 'supertest';
+import { csrfProtection } from '@middlewares/csrf.middleware';
 import type { UserWithAttributes } from './response-builder';
 import { IdpUserStore, registerIdpRoutes } from './idp.routes';
 import { createResponse } from './response-builder';
@@ -57,10 +58,23 @@ const createApp = () => {
       secret: 'test-secret',
       resave: false,
       saveUninitialized: false,
+      cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' },
     }),
   );
+  app.use(csrfProtection);
   registerIdpRoutes(app, usersService);
+  app.use((error: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+    res.status(error.status ?? 500).send(error.message);
+  });
   return app;
+};
+
+const csrfTokenFrom = (html: string): string => {
+  const token = html.match(/name="_csrf" value="([^"]+)"/)?.[1];
+  if (!token) {
+    throw new Error('Missing CSRF token in IdP page');
+  }
+  return token;
 };
 
 describe('Fake IdP test identity session', () => {
@@ -73,11 +87,18 @@ describe('Fake IdP test identity session', () => {
 
     const initialPage = await agent.get('/api/saml/idp/login').expect(200);
     expect(initialPage.text).toContain('Välj testidentitet');
+    const initialCsrfToken = csrfTokenFrom(initialPage.text);
 
-    await agent.post('/api/saml/idp/authenticate').type('form').send({ userid: identity.id }).expect(303).expect('Location', '/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: identity.id, _csrf: initialCsrfToken })
+      .expect(303)
+      .expect('Location', '/api/saml/idp/login');
 
     const activePage = await agent.get('/api/saml/idp/login').expect(200);
     expect(activePage.text).toContain('Inloggad som Test Person');
+    const activeCsrfToken = csrfTokenFrom(activePage.text);
 
     const samlResponse = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
     expect(samlResponse.text).toContain('value="signed-response"');
@@ -87,7 +108,12 @@ describe('Fake IdP test identity session', () => {
     const stillActivePage = await agent.get('/api/saml/idp/login').expect(200);
     expect(stillActivePage.text).toContain('Inloggad som Test Person');
 
-    await agent.post('/api/saml/idp/logout').expect(303).expect('Location', '/api/saml/idp/login?loggedout=1');
+    await agent
+      .post('/api/saml/idp/logout')
+      .type('form')
+      .send({ _csrf: activeCsrfToken })
+      .expect(303)
+      .expect('Location', '/api/saml/idp/login?loggedout=1');
 
     const loggedOutPage = await agent.get('/api/saml/idp/login?loggedout=1').expect(200);
     expect(loggedOutPage.text).toContain('Testidentiteten är utloggad');
@@ -96,5 +122,19 @@ describe('Fake IdP test identity session', () => {
     const nextSamlRequest = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
     expect(nextSamlRequest.text).toContain('Välj testidentitet');
     expect(nextSamlRequest.text).toContain('service-provider.test');
+  });
+
+  it('rejects an IdP identity change without a CSRF token', async () => {
+    const agent = request.agent(createApp());
+    await agent.get('/api/saml/idp/login').expect(200);
+
+    await agent.post('/api/saml/idp/authenticate').type('form').send({ userid: identity.id }).expect(403);
+  });
+
+  it('accepts the external SAML POST binding without an application CSRF token', async () => {
+    const response = await request(createApp()).post('/api/saml/idp/sso').type('form').send({ SAMLRequest: 'request' }).expect(200);
+
+    expect(response.text).toContain('Välj testidentitet');
+    expect(response.text).toContain('service-provider.test');
   });
 });

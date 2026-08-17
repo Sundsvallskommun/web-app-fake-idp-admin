@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from 'crypto';
 
 /**
- * SAML element ID: an underscore-prefixed md5 hex of a seed (ported from the
- * original fake-sso-idp `createId`). The leading `_` keeps it a valid xsd:ID.
+ * SAML element ID: an underscore-prefixed SHA-256 hex of a seed. The leading
+ * `_` keeps it a valid xsd:ID.
  */
-export const createId = (seed: string): string => `_${createHash('md5').update(seed).digest('hex')}`;
+export const createId = (seed: string): string => `_${createHash('sha256').update(seed).digest('hex')}`;
 
 /** Random 32-byte hex string used for the assertion's SessionIndex. */
 export const createSessionId = (): string => randomBytes(32).toString('hex');

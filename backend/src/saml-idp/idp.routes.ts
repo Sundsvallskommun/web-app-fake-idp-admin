@@ -1,7 +1,9 @@
 import { ADMIN_URL, BASE_URL_PREFIX, IDP_MOUNT_PATH, IDP_PATH_PREFIX, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
+import { generateCsrfToken } from '@middlewares/csrf.middleware';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import express, { NextFunction, Request, Response } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { buildIdpMetadata } from './idp-metadata';
 import { parseRequest } from './request-parser';
 import { createResponse, UserWithAttributes } from './response-builder';
@@ -16,6 +18,13 @@ const navigation: PageNavigation = {
   idpUrl: LOGIN_URL,
   adminUrl: ADMIN_URL,
 };
+
+const idpRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
 export interface IdpUserStore {
   getUser(id: string): Promise<UserWithAttributes | null>;
@@ -94,6 +103,7 @@ async function renderLoginPage(req: Request, usersService: IdpUserStore, options
 
   return renderLogin({
     action: AUTHENTICATE_ACTION,
+    csrfToken: generateCsrfToken(req),
     navigation,
     users,
     enumerateUsers: SAML_IDP_ENUMERATE_USERS,
@@ -112,6 +122,7 @@ async function renderIdpHome(req: Request, usersService: IdpUserStore): Promise<
 
   return renderIdentitySession({
     identity: user,
+    csrfToken: generateCsrfToken(req),
     navigation,
     logoutAction: LOGOUT_ACTION,
     samlLoginUrl: SAML_LOGIN_URL,
@@ -139,6 +150,7 @@ async function handleSso(
 export function registerIdpRoutes(app: express.Application, usersService: IdpUserStore = new UsersService()): void {
   const router = express.Router();
   router.use(idpCsp);
+  router.use(idpRateLimit);
 
   router.get(
     '/sso',

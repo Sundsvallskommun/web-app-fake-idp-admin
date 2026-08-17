@@ -23,6 +23,7 @@ import {
   SWAGGER_ENABLED,
 } from '@config';
 import errorMiddleware from '@middlewares/error.middleware';
+import { csrfProtection, generateCsrfToken } from '@middlewares/csrf.middleware';
 import { Strategy, VerifiedCallback } from '@node-saml/passport-saml';
 import { logger, stream } from '@utils/logger';
 import bodyParser from 'body-parser';
@@ -135,6 +136,7 @@ class App {
 
   constructor(Controllers: Function[]) {
     this.app = express();
+    this.app.set('trust proxy', 1);
     this.env = NODE_ENV || 'development';
     this.port = PORT || 3000;
     this.swaggerEnabled = SWAGGER_ENABLED || false;
@@ -178,6 +180,7 @@ class App {
       resave: false,
       saveUninitialized: false,
       store: adminSessionStore,
+      cookie: { httpOnly: true, sameSite: 'strict', secure: 'auto' },
     });
     const samlSessionMiddleware = session({
       // Browser cookies ignore ports, so keep the IdP/SP session name distinct
@@ -187,6 +190,7 @@ class App {
       resave: false,
       saveUninitialized: false,
       store: samlSessionStore,
+      cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' },
     });
 
     this.app.use((req, res, next) => {
@@ -219,6 +223,11 @@ class App {
       }
       return corsMiddleware(req, res, next);
     });
+
+    this.app.get(`${BASE_URL_PREFIX}/admin-auth/csrf`, (req, res) => {
+      res.send({ data: { token: generateCsrfToken(req) }, message: 'success' });
+    });
+    this.app.use(csrfProtection);
 
     const samlLoginUrl = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;
     this.app.get(`${BASE_URL_PREFIX}/saml/test`, (req, res) => {

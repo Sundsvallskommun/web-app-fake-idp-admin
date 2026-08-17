@@ -2,11 +2,13 @@ import { renderIdentitySession, renderLogin, renderSamlTest } from './templates'
 
 const users = [{ id: 'user-1', name: 'Test Person', username: 'test.person' }];
 const navigation = { idpUrl: '/api/saml/idp/login', adminUrl: '/start' };
+const csrfToken = 'csrf-token';
 
 describe('Fake IdP pages', () => {
   it('shows the target service and test identities for an active SAML request', () => {
     const html = renderLogin({
       action: '/api/saml/idp/authenticate',
+      csrfToken,
       navigation,
       target: { name: 'app.example.test', url: 'https://app.example.test/saml/callback' },
       users,
@@ -24,6 +26,7 @@ describe('Fake IdP pages', () => {
   it('allows selecting a test identity without an active SAML request', () => {
     const html = renderLogin({
       action: '/api/saml/idp/authenticate',
+      csrfToken,
       navigation,
       users,
       enumerateUsers: true,
@@ -37,6 +40,7 @@ describe('Fake IdP pages', () => {
   it('shows the active identity and separate logout action', () => {
     const html = renderIdentitySession({
       identity: users[0],
+      csrfToken,
       navigation,
       logoutAction: '/api/saml/idp/logout',
       samlLoginUrl: '/api/saml/login',
@@ -64,6 +68,7 @@ describe('Fake IdP pages', () => {
   it('disables identity selection when the database is empty', () => {
     const html = renderLogin({
       action: '/authenticate',
+      csrfToken,
       navigation,
       target: { name: 'app.example.test', url: 'https://app.example.test/callback' },
       users: [],
@@ -77,6 +82,7 @@ describe('Fake IdP pages', () => {
   it('escapes identity, target and navigation data rendered in the page', () => {
     const html = renderLogin({
       action: '/authenticate',
+      csrfToken,
       navigation: { idpUrl: '/login?a=1&b=2', adminUrl: 'https://admin.test/?q=<unsafe>' },
       target: { name: '<script>alert(1)</script>', url: 'https://example.test/?a=1&b=2' },
       users: [{ id: 'id"', name: '<b>Person</b>', username: 'test&person' }],
@@ -87,6 +93,7 @@ describe('Fake IdP pages', () => {
     expect(html).toContain('&lt;b&gt;Person&lt;/b&gt;');
     expect(html).toContain('test&amp;person');
     expect(html).toContain('q=&lt;unsafe&gt;');
+    expect(html).toContain('name="_csrf" value="csrf-token"');
     expect(html).not.toContain('<script>alert(1)</script>');
   });
 });

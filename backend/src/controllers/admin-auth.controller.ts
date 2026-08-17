@@ -3,8 +3,16 @@ import { HttpException } from '@exceptions/HttpException';
 import { UserApiResponse } from '@/responses/user.response';
 import { AdminAuthService } from '@services/admin-auth.service';
 import { Request } from 'express';
-import { Body, Controller, Post, Req, Res } from 'routing-controllers';
+import { rateLimit } from 'express-rate-limit';
+import { Body, Controller, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+
+const adminLoginRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
 const regenerateSession = (req: Request): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -26,6 +34,7 @@ export class AdminAuthController {
   private adminAuth = new AdminAuthService();
 
   @Post('/login')
+  @UseBefore(adminLoginRateLimit)
   @OpenAPI({ summary: 'Sign in to the admin panel with the configured operator account' })
   @ResponseSchema(UserApiResponse)
   async login(@Body() body: LoginAdminDto, @Req() req: Request, @Res() response: any) {
