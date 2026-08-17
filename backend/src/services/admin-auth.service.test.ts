@@ -1,4 +1,4 @@
-jest.mock('@config', () => ({
+vi.mock('@config', () => ({
   ADMIN_DISPLAY_NAME: 'Local Admin',
   ADMIN_PASSWORD: 'correct-password',
   ADMIN_USERNAME: 'admin',

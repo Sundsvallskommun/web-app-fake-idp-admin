@@ -1,5 +1,5 @@
 import { AdminUser } from '@data-contracts/backend/data-contracts';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 import { createEmptyUserForm, userFormToPayload, userToForm } from './user-form.model';
 import { SAML_BASIC_FORMAT, userAttributeDefinitions, XML_SCHEMA_STRING } from './user-form.schema';
 

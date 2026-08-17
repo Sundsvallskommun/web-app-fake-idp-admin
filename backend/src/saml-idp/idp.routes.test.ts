@@ -6,7 +6,7 @@ import type { UserWithAttributes } from './response-builder';
 import { IdpUserStore, registerIdpRoutes } from './idp.routes';
 import { createResponse } from './response-builder';
 
-jest.mock('@config', () => ({
+vi.mock('@config', () => ({
   ADMIN_URL: '/start',
   BASE_URL_PREFIX: '/api',
   IDP_MOUNT_PATH: '/api/saml/idp',
@@ -16,20 +16,20 @@ jest.mock('@config', () => ({
   SAML_IDP_ENUMERATE_USERS: true,
 }));
 
-jest.mock('@utils/logger', () => ({
-  logger: { info: jest.fn() },
+vi.mock('@utils/logger', () => ({
+  logger: { info: vi.fn() },
 }));
 
-jest.mock('./request-parser', () => ({
-  parseRequest: jest.fn(async () => ({
+vi.mock('./request-parser', () => ({
+  parseRequest: vi.fn(async () => ({
     destination: 'https://service-provider.test/saml/callback',
     inResponseTo: '_request-1',
     relayState: 'return-here',
   })),
 }));
 
-jest.mock('./response-builder', () => ({
-  createResponse: jest.fn(() => ({
+vi.mock('./response-builder', () => ({
+  createResponse: vi.fn(() => ({
     action: 'https://service-provider.test/saml/callback',
     samlResponse: 'signed-response',
     relayState: 'return-here',
@@ -46,9 +46,9 @@ const identity: UserWithAttributes = {
 };
 
 const usersService: IdpUserStore = {
-  getUser: jest.fn(async id => (id === identity.id ? identity : null)),
-  getUsers: jest.fn(async () => [identity]),
-  getUsersByUsername: jest.fn(async username => (username === identity.username ? [identity] : [])),
+  getUser: vi.fn(async id => (id === identity.id ? identity : null)),
+  getUsers: vi.fn(async () => [identity]),
+  getUsersByUsername: vi.fn(async username => (username === identity.username ? [identity] : [])),
 };
 
 const createApp = () => {
@@ -80,7 +80,7 @@ const csrfTokenFrom = (html: string): string => {
 
 describe('Fake IdP test identity session', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('keeps the selected identity across SAML requests until explicit logout', async () => {

@@ -9,7 +9,7 @@ describe('UserController admin session', () => {
         adminUser: { name: 'Local Admin', username: 'admin' },
       },
     } as unknown as Request;
-    const response = { send: jest.fn() };
+    const response = { send: vi.fn() };
 
     await new UserController().getMe(request, response);
 

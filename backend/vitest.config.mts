@@ -19,6 +19,10 @@ export default defineConfig({
     },
   },
   test: {
+    // Globaler på: testerna som kom in med feature/separate-idp-admin-flows och
+    // feature/structured-users-and-groups skrevs mot jest och förlitar sig på
+    // describe/it/expect/beforeEach utan import.
+    globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
     setupFiles: ['./vitest.setup.ts'],

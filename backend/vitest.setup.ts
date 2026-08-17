@@ -1,3 +1,4 @@
+/// <reference types="vitest/globals" />
 import { generateKeyPairSync } from 'node:crypto';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });

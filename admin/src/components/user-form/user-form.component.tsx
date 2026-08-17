@@ -6,7 +6,7 @@ import NextLink from 'next/link';
 import { useState } from 'react';
 import { Control, Controller, UseFormRegister, useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { emptyCustomAttribute, UserForm } from './user-form.model';
 import { userAttributeDefinitions, userPropertyDefinitions } from './user-form.schema';
 
