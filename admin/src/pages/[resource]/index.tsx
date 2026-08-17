@@ -14,7 +14,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const Exempelsida: React.FC = () => {
   const { t } = useTranslation();

@@ -1,8 +1,0 @@
-{
-    "baseUrl": "http://localhost:3003",
-    "env": {
-        "userEmail": "karin.andersson@example.com",
-        "userPassword": "password",
-        "apiUrl": "http://localhost:3001"
-    }
-}

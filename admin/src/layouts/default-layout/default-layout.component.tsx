@@ -5,7 +5,7 @@ import { Avatar, ColorSchemeMode, Icon, Logo, PopupMenu } from '@sk-web-gui/reac
 import { useTranslation } from 'next-i18next';
 import Head from 'next/head';
 import NextLink from 'next/link';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { ChevronRight, Sun, Moon, Monitor, Check } from 'lucide-react';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
 import { useShallow } from 'zustand/react/shallow';
@@ -32,7 +32,7 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
     contentElement?.focus();
   };
 
-  const colorSchemeIcons: Record<ColorSchemeMode, JSX.Element> = {
+  const colorSchemeIcons: Record<ColorSchemeMode, React.JSX.Element> = {
     light: <Sun />,
     dark: <Moon />,
     system: <Monitor />,

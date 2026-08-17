@@ -3,7 +3,7 @@ import { Card, Spinner } from '@sk-web-gui/react';
 import { useResource } from '@utils/use-resource';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 interface ResourceCardProps {
   resource: ResourceName;

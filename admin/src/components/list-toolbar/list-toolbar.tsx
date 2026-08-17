@@ -8,7 +8,7 @@ import Link from 'next/link';
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { useShallow } from 'zustand/react/shallow';
 
 interface ListToolbarProps {

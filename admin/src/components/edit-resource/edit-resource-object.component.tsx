@@ -7,7 +7,7 @@ import { fieldpathWithoutIndex } from '@utils/fieldpath-without-index';
 import { Minus } from 'lucide-react';
 import { FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { EditResourceArray } from './edit-resource-array.component';
 
 interface EditResourceObjectProps {

@@ -23,12 +23,12 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 module.exports = withBundleAnalyzer({
-  allowedDevOrigin: ['http://idp.test'],
+  allowedDevOrigins: ['idp.test'],
   turbopack: {},
   output: 'standalone',
   i18n,
   images: {
-    domains: [process.env.DOMAIN_NAME],
+    remotePatterns: process.env.DOMAIN_NAME ? [{ hostname: process.env.DOMAIN_NAME }] : [],
     formats: ['image/avif', 'image/webp'],
   },
   basePath: process.env.BASE_PATH,

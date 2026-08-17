@@ -3,7 +3,7 @@ import resources from '@config/resources';
 import { Fragment } from 'react';
 import { FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { EditResourceArray } from './edit-resource-array.component';
 import { EditResourceInput } from './edit-resource-input.component';
 import { EditResourceObject } from './edit-resource-object.component';

@@ -7,7 +7,7 @@ import Main from '@layouts/main/main.component';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const Start = () => {
   const { t } = useTranslation();

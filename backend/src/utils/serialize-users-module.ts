@@ -31,10 +31,7 @@ export function serializeUsersModule(users: UserWithAttributes[]): string {
     username: user.username,
     password: user.password,
     attributes: Object.fromEntries(
-      user.attributes.map(attribute => [
-        attribute.key,
-        { format: attribute.format, value: attribute.value, type: attribute.type },
-      ]),
+      user.attributes.map(attribute => [attribute.key, { format: attribute.format, value: attribute.value, type: attribute.type }]),
     ),
   }));
 

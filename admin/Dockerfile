@@ -1,11 +1,11 @@
 # Install dependencies only when needed
-FROM node:20-slim AS deps
+FROM node:24-slim AS deps
 WORKDIR /app
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # Rebuild the source code only when needed
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -39,7 +39,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN yarn build
 
 # Production image — Next standalone output
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -61,6 +61,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# Next 16.3 resolves this helper from its nested dependency at runtime, but the
+# standalone output tracer currently copies only the CommonJS files.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/next/node_modules/@swc/helpers ./node_modules/next/node_modules/@swc/helpers
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs

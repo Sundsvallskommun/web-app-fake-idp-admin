@@ -56,9 +56,9 @@ export class UsersService {
     const existing = await this.getUser(id);
     const storedByKey = new Map(existing?.attributes.map(attribute => [attribute.key, attribute.value]));
     return attributes.map(attribute =>
-      isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE ?
-        { ...attribute, value: storedByKey.get(attribute.key) ?? '' }
-      : attribute,
+      isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE
+        ? { ...attribute, value: storedByKey.get(attribute.key) ?? '' }
+        : attribute,
     );
   }
 

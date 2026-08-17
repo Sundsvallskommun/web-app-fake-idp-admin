@@ -32,7 +32,6 @@
       "@utils/*": ["src/utils/*"],
       "@middlewares/*": ["src/utils/middlewares/*"],
       "@public/*": ["public/*"],
-      "@jestRoot/*": ["jest/*"],
       "@data-contracts/*": ["src/data-contracts/*"]
     }
   }

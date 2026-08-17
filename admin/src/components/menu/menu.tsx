@@ -3,7 +3,7 @@ import { MenuIndex, MenuVertical } from '@sk-web-gui/react';
 import NextLink from 'next/link';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const Menu = () => {
   const [current, setCurrent] = useState<string>('');

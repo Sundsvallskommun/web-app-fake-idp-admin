@@ -37,12 +37,7 @@ export function parseUsersModule(source: string): ImportUser[] {
   }
 
   users.forEach((user, index) => {
-    if (
-      !user ||
-      typeof user.name !== 'string' ||
-      typeof user.username !== 'string' ||
-      typeof user.password !== 'string'
-    ) {
+    if (!user || typeof user.name !== 'string' || typeof user.username !== 'string' || typeof user.password !== 'string') {
       throw new Error(`user at index ${index} is missing a string name/username/password`);
     }
   });

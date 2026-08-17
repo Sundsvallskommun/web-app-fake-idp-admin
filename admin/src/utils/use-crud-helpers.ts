@@ -1,7 +1,7 @@
 import { ResourceResponse } from '@interfaces/resource';
 import { useSnackbar } from '@sk-web-gui/react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const useCrudHelper = (resource: string) => {
   const message = useSnackbar();

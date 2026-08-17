@@ -7,7 +7,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useEffect } from 'react';
 import { FieldError, FieldErrorsImpl, FieldValues, Merge, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { EditResourceObject } from './edit-resource-object.component';
 
 interface EditResourceArrayProps {

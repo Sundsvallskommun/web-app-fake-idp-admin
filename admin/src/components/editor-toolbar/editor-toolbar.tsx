@@ -6,7 +6,7 @@ import { Save, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 interface ToolbarProps {
   resource: ResourceName;

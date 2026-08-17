@@ -11,7 +11,7 @@ import { Check, Pencil } from 'lucide-react';
 import NextLink from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { useShallow } from 'zustand/react/shallow';
 
 interface ListResourcesProps {

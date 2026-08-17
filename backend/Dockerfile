@@ -1,5 +1,5 @@
 # Install dependencies only when needed
-FROM node:20-slim AS deps
+FROM node:24-slim AS deps
 # openssl is required by Prisma's query engine.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
@@ -7,7 +7,7 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # Rebuild the source code only when needed
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 # openssl must be present so `prisma generate` detects the correct engine target.
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
@@ -18,7 +18,7 @@ RUN yarn prisma:generate
 RUN yarn build
 
 # Production image
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 

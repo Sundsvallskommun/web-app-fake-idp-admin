@@ -15,7 +15,7 @@ import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 // Default SAML attribute metadata, used when adding a new attribute row.
 const SAML_FORMAT = 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic';

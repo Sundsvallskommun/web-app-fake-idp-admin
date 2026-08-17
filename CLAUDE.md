@@ -8,9 +8,9 @@ This is a multi-app starter template (Sundsvalls kommun "web-app-starter") with 
 
 - `backend/` — TypeScript + Express + `routing-controllers` API server. Acts as a BFF/proxy in front of WSO2 microservices, handles SAML auth + sessions, exposes a Swagger doc.
 - `frontend/` — Public-facing Next.js 16 / React 19 app.
-- `admin/` — Next.js 16 / React 18 admin UI with config-driven auto-CRUD (the most actively developed package; see below).
+- `admin/` — Next.js 16 / React 19 admin UI with config-driven auto-CRUD (the most actively developed package; see below).
 
-There is no root-level package manager — `cd` into the package you're working on. Node >= 20 LTS, Yarn.
+There is no root-level package manager — `cd` into the package you're working on. Node 24 LTS, Yarn.
 
 ## SAML IdP role
 
@@ -39,16 +39,17 @@ Run inside the relevant package directory.
 **admin / frontend (Next.js):**
 - `yarn dev` — dev server (admin defaults to `PORT=3002`, frontend `3000`)
 - `yarn build` / `yarn start`
-- `yarn lint` — `next lint --no-cache`
-- `yarn type-check` — `tsc --noEmit` (frontend only; admin uses `next build`/editor for types)
+- `yarn lint` — ESLint
+- `yarn type-check` — type-check application and Vitest/Playwright configs
 - `yarn generate:contracts` — regenerate API data-contracts from the backend's live Swagger (requires backend running; see below)
-- `yarn cypress` — open Cypress (frontend also has `cypress:headless`, `jest`, `jest:coverage`)
+- `yarn test` / `yarn test:watch` / `yarn test:coverage` — Vitest
+- Frontend only: `yarn test:e2e` / `yarn test:e2e:ui` — Playwright
 
-**frontend tests (jest):** `yarn jest` (watch), `yarn jest:coverage`. Run a single test: `yarn jest path/to/file.test.tsx -t "test name"`. Jest only collects from `src/services/**` and `src/components/**`, and `testRegex` excludes `.spec.` files (those are Cypress). admin has the same jest setup with a single example test under `src/services/__tests__`.
+**Frontend tests:** Vitest owns unit tests under `frontend/vitest/`. Playwright owns browser flows under `frontend/playwright/`; install its Chromium runtime once with `yarn playwright install chromium`.
 
 **backend:**
 - `yarn dev` — nodemon (defaults to port `3001` via docker mapping)
-- `yarn build` (`tsc && tsc-alias`), `yarn test` (jest), `yarn lint` / `yarn lint:fix`, `yarn type-check`
+- `yarn build` (`tsc && tsc-alias`), `yarn test` (Vitest), `yarn lint` / `yarn lint:fix`, `yarn type-check`
 - `yarn prisma:generate` / `yarn prisma:migrate` — DB setup; `yarn prisma:seed` — seed users from root `users.js`; `yarn create-admin` — interactive admin-user creation (see SAML IdP role above)
 - `yarn generate:contracts` — pull data models from the upstream WSO2 APIs listed in `src/config/api-config.ts`
 - Entry: `src/server.ts` → `App` (`src/app.ts`) wires middleware then mounts SAML SP routes, IdP routes, and routing-controllers at `BASE_URL_PREFIX` (`/api`), in that order.
@@ -99,7 +100,7 @@ Locale files live in `public/locales/<locale>/<namespace>.json` (default locale 
 
 ## Conventions
 
-- Path aliases (`@components/*`, `@interfaces/*`, `@utils/*`, `@config/*`, `@data-contracts/*`, etc.) are defined in each package's `tsconfig.json` and mirrored in `jest.config.js` `moduleNameMapper` — update both when adding one.
+- Path aliases (`@components/*`, `@interfaces/*`, `@utils/*`, `@config/*`, `@data-contracts/*`, etc.) are defined in each package's `tsconfig.json` and mirrored in its `vitest.config.mts` — update both when adding one.
 - `@typescript-eslint/no-explicit-any` is an **error** in admin; existing `any` usages carry explicit `eslint-disable` comments.
 - UI is built on the `@sk-web-gui` component library and Tailwind.
 - Line endings may differ between Windows/Linux checkouts — ignore pure EOL diffs.

@@ -13,7 +13,7 @@ import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useMemo, useRef, useState } from 'react';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const UsersListPage: React.FC = () => {
   const { t } = useTranslation();
