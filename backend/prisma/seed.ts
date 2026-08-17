@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { groupNamesFromAttributes, withoutGroupAttributes } from '../src/utils/group-claim';
 import path from 'path';
 
 const prisma = new PrismaClient();
@@ -22,6 +23,13 @@ async function main() {
 
   for (const user of users) {
     const attributes = user.attributes ?? {};
+    const submittedAttributes = Object.entries(attributes).map(([key, attr]) => ({
+      key,
+      format: attr.format ?? '',
+      value: attr.value ?? '',
+      type: attr.type ?? '',
+    }));
+    const legacyGroups = groupNamesFromAttributes(submittedAttributes);
     // Source `id`s are unreliable (duplicates in the test data), so we let the
     // DB assign a fresh cuid and import every user without dropping any.
     await prisma.user.create({
@@ -30,12 +38,10 @@ async function main() {
         username: user.username,
         password: user.password,
         attributes: {
-          create: Object.entries(attributes).map(([key, attr]) => ({
-            key,
-            format: attr.format ?? '',
-            value: attr.value ?? '',
-            type: attr.type ?? '',
-          })),
+          create: withoutGroupAttributes(submittedAttributes),
+        },
+        groups: {
+          connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
         },
       },
     });
@@ -45,7 +51,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch(e => {
     console.error(e);
     process.exit(1);
   })
