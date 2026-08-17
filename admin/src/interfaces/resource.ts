@@ -23,6 +23,7 @@ export type Resource<
   remove?: Remove;
   defaultValues?: TCreate;
   requiredFields?: Array<FieldPath<TCreate & TUpdate>>;
+  formFields?: Array<Extract<keyof (TCreate & TUpdate), string>>;
   /**
    * Explicit list-table columns. When set, these override the columns that are
    * otherwise auto-derived from the primitive fields of the data, and the

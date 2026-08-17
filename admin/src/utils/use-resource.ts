@@ -1,4 +1,5 @@
 import resources from '@config/resources';
+import { Resource, ResourceData } from '@interfaces/resource';
 import { ResourceName } from '@interfaces/resource-name';
 import 'dotenv';
 import { useCallback, useEffect } from 'react';
@@ -11,7 +12,7 @@ export const useResource = (resource: ResourceName) => {
     useShallow((state) => [state.resourceData, state.setData, state.setLoaded, state.setLoading])
   );
 
-  const getMany = resources?.[resource]?.getMany;
+  const getMany = (resources[resource] as Resource<ResourceData>).getMany;
   const { handleGetMany } = useCrudHelper(resource);
 
   const data = resourceData[resource]?.data ?? [];

@@ -18,9 +18,38 @@
     "format": "Format",
     "type": "Typ"
   },
+  "sections": {
+    "account": "Grunduppgifter",
+    "groups": "Grupper och behörigheter",
+    "known_attributes": "Kända identitetsattribut",
+    "custom_attributes": "Egna identitetsattribut"
+  },
+  "known_attributes_help": "Fälten kommer från det befintliga användarunderlaget. Tomma fält skickas inte som SAML-attribut.",
+  "custom_attributes_help": "Lägg till ett eget SAML-attribut när det saknas i schemat ovan.",
+  "groups_help": "Välj vilka dokumenterade grupper testidentiteten ska tillhöra. Mottagande system avgör om gruppen motsvarar en roll eller annan behörighet.",
+  "no_groups": "Det finns inga dokumenterade grupper än.",
+  "create_group": "Skapa den första gruppen",
+  "filter_groups": "Filtrera grupper",
+  "no_matching_groups": "Inga grupper matchar filtret.",
+  "known_attributes": {
+    "given_name": "Förnamn",
+    "surname": "Efternamn",
+    "citizen_identifier": "Personnummer",
+    "username": "Användarnamn",
+    "email": "E-postadress",
+    "uid_oid": "LDAP-användar-id (OID)",
+    "sn": "Efternamn (LDAP)",
+    "uid": "LDAP-användar-id",
+    "given_name_lowercase": "Förnamn, gemener",
+    "surname_uppercase": "Efternamn, versal nyckel",
+    "firstname": "Förnamn, äldre nyckel",
+    "org_tree": "Organisationsträd",
+    "user_id": "Användar-id, äldre nyckel"
+  },
   "add_attribute": "Lägg till attribut",
   "remove_attribute": "Ta bort attribut",
   "no_attributes": "Inga attribut än",
+  "no_custom_attributes": "Inga egna attribut",
   "import": {
     "button": "Importera testidentiteter",
     "success": "{{count}} testidentiteter importerade",

@@ -30,7 +30,7 @@ export const EditAssistant: React.FC = () => {
     router.push('/');
   }
 
-  const { create, update, getOne, defaultValues } = resources[resource as ResourceName];
+  const { create, update, getOne, defaultValues } = resources[resource as ResourceName] as Resource<FieldValues>;
   const { refresh } = useResource(resource as ResourceName);
 
   const { handleGetOne, handleCreate, handleUpdate } = useCrudHelper(resource as ResourceName);

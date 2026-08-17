@@ -42,6 +42,7 @@ const identity: UserWithAttributes = {
   username: 'test.person',
   password: 'test-password',
   attributes: [],
+  groups: [],
 };
 
 const usersService: IdpUserStore = {

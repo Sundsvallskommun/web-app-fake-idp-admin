@@ -3,6 +3,7 @@ import { ClientUser } from '@/interfaces/users.interface';
 import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
+import { GroupsService } from '@services/groups.service';
 import { UsersService } from '@services/users.service';
 import { maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
@@ -15,6 +16,13 @@ import { Request } from 'express';
 @UseBefore(authMiddleware)
 export class UserController {
   private users = new UsersService();
+  private groups = new GroupsService();
+
+  private async validateGroups(groupIds?: number[]) {
+    if (groupIds !== undefined && !(await this.groups.containsAll(groupIds))) {
+      throw new HttpException(400, 'One or more groups do not exist');
+    }
+  }
 
   @Get('/me')
   @OpenAPI({ summary: 'Return current user' })
@@ -72,6 +80,7 @@ export class UserController {
   @OpenAPI({ summary: 'Create a fake-IdP user' })
   @ResponseSchema(AdminUserResponse)
   async createUser(@Body() body: CreateUserDto, @Res() response: any) {
+    await this.validateGroups(body.groupIds);
     const data = await this.users.createUser(body);
     return response.send({ data: maskUser(data), message: 'success' });
   }
@@ -97,6 +106,7 @@ export class UserController {
     if (!(await this.users.getUser(id))) {
       throw new HttpException(404, 'User not found');
     }
+    await this.validateGroups(body.groupIds);
     const data = await this.users.updateUser(id, body);
     return response.send({ data: maskUser(data), message: 'success' });
   }

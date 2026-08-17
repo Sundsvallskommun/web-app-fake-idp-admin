@@ -17,7 +17,7 @@ interface EditResourceProps {
 
 export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const { t } = useTranslation();
-  const { requiredFields } = resources[resource];
+  const { formFields, requiredFields } = resources[resource] as Resource<FieldValues>;
 
   type CreateType = Parameters<NonNullable<Resource<FieldValues>['create']>>[0];
   type UpdateType = Parameters<NonNullable<Resource<FieldValues>['update']>>[1];
@@ -25,14 +25,15 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
 
   const { watch } = useFormContext<DataType>();
   const formdata = watch() as DataType;
+  const editableFields = formFields ?? Object.keys(formdata);
 
   return (
     <>
       <div className="flex flex-col gap-32 grow mb-32">
-        {Object.keys(formdata)
+        {editableFields
           .filter((key) => !defaultInformationFields.includes(key))
           .map((key, index) => {
-            const isRequired = requiredFields ? requiredFields.includes(key as (typeof requiredFields)[number]) : false;
+            const isRequired = requiredFields ? requiredFields.some((requiredField) => requiredField === key) : false;
 
             return (
               <Fragment key={`formc-${index}`}>
@@ -47,7 +48,7 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
           })}
       </div>
       <div className="flex flex-col gap-32 grow mb-32">
-        {Object.keys(formdata)
+        {editableFields
           .filter((key) => !defaultInformationFields.includes(key))
           .map((key, index) => {
             const type = typeof formdata[key];

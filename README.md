@@ -11,7 +11,7 @@ Systemet utgår ifrån [api-config.ts](./backend/src/config/api-config.ts)/backe
 
 ### Krav
 
-- Node 24 LTS
+- Node >= 20 LTS
 - Yarn
 
 ### Steg för steg
@@ -27,21 +27,6 @@ yarn install
 ```
 
 Om du behöver ett administrationsgränssnitt, se [Dokumentation om Admin](./admin/README.md).
-
-### Tester
-
-Enhetstester och backendens kontraktstester körs med Vitest:
-
-    cd backend && yarn test
-    cd frontend && yarn test
-    cd admin && yarn test
-
-Frontendens webbläsartester körs med Playwright. Installera Chromium en gång och
-kör sedan sviten:
-
-    cd frontend
-    yarn playwright install chromium
-    yarn test:e2e
 
 2. Skapa .env-fil för `frontend`
 
@@ -110,38 +95,12 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 2. Generera ett självsignerat nyckelpar och klistra in i `.env` (en rad vardera, med `\n` som radbrytning – se kommentarerna i `.env.example`):
 
    ```
-   openssl req -x509 -newkey rsa:2048 -sha256 -keyout idp.key -out idp.crt -days 365 -nodes -subj "/CN=fake-idp"
+   openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes -subj "/CN=fake-idp"
    awk 'NF{printf "%s\\n",$0}' idp.key   # -> SAML_IDP_PRIVATE_KEY
    awk 'NF{printf "%s\\n",$0}' idp.crt   # -> SAML_IDP_PUBLIC_CERT
    ```
 
    Detta **enda** nyckelpar används för båda rollerna: IdP:n signerar assertions med det, och SP:n både litar på certet och signerar sina egna AuthnRequests med det. Det behövs alltså inget separat SP-nyckelpar (`SAML_PRIVATE_KEY`/`SAML_PUBLIC_KEY` återanvänder IdP-nyckelparet i `docker-compose.yml`).
-
-### Node 24 och certifikatkompatibilitet
-
-Containrarna kör Node 24 LTS, som använder OpenSSL 3.5 med
-standardsäkerhetsnivå 2 för TLS. RSA-, DSA- och DH-nycklar kortare än 2048 bitar
-samt ECC-nycklar kortare än 224 bitar kan därför avvisas. Den dokumenterade
-RSA-2048/SHA-256-genereringen ovan fungerar med både Node 20 och Node 24.
-
-SAML-certifikatet i denna stack används för XML-signering och förtroende mellan
-IdP och SP; Node-processen terminerar inte TLS med certifikatet. För att inte
-bryta anslutna SP-appar behåller utfärdade assertions tills vidare det befintliga
-XML-signaturkontraktet RSA-SHA1. Ett kontraktstest verifierar att samma algoritm
-fortfarande kan signeras och verifieras under Node 24. Ett framtida byte till
-RSA-SHA256 ska samordnas med konsumerande SP-appar och göras separat.
-
-Kontrollera ett befintligt nyckelpar före uppgradering:
-
-    openssl pkey -in idp.key -check -noout
-    openssl x509 -in idp.crt -noout -dates -subject -fingerprint -sha256
-    openssl pkey -in idp.key -pubout -outform DER | openssl sha256
-    openssl x509 -in idp.crt -pubkey -noout | openssl pkey -pubin -outform DER | openssl sha256
-
-De två sista kommandona ska ge samma hash. För utgående HTTPS använder Node
-normalt sitt bundlade CA-register. Interna CA-certifikat ska tillföras med
-NODE_EXTRA_CA_CERTS=/path/to/ca.pem (och filen monteras i containern), inte
-genom att stänga av certifikatverifieringen.
 
 3. Starta stacken:
 
@@ -287,6 +246,13 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 - **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Skapa testidentiteter manuellt i admin-gränssnittet (http://localhost:7001) eller importera en `users.js`-fil på sidan `/users`. Importen ersätter hela uppsättningen testidentiteter.
 - **Datan överlever ombyggnader.** SQLite-databasen ligger på den namngivna Docker-volymen `backend-data` (`/app/data`). Den behålls vid `docker compose up --build` och `docker compose down`, och töms bara om du uttryckligen kör `docker compose down -v`.
 
+#### Datamodell för användare och grupper
+
+- `User` äger de fasta kontofälten (`name`, `username`, `password`). Övriga SAML-claims lagras som typade `Attribute`-rader. Adminformulärets kända claims definieras i ett gemensamt schema; okända eller egna claims bevaras som anpassade attribut.
+- `Group` är en dokumenterad gruppkatalog med namn och beskrivning. Medlemskap lagras som en många-till-många-relation mellan `User` och `Group`, så grupper kan läggas till eller tas bort från en användare utan att redigera kommaseparerad text.
+- En grupp är inte per definition en roll. Konsumerande system avgör om en grupp ger en applikationsroll, beskriver organisationstillhörighet eller bara används i testdata. Dokumentera den betydelsen i gruppens beskrivning.
+- Vid SAML-svar samt import/export av `users.js` adapteras relationen till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken.
+
 ### Noteringar
 
 - Övriga värden (CORS-origins, sessionssecret, WSO2-creds m.m.) har dugliga dev-defaults i `docker-compose.yml` och kan överskridas via root-`.env` (se `.env.example`).
@@ -321,7 +287,7 @@ Lägg till i `backend/.env.development.local` (se även `backend/.env.example.lo
 Generera ett självsignerat nyckelpar för test:
 
 ```
-openssl req -x509 -newkey rsa:2048 -sha256 -keyout idp.key -out idp.crt -days 365 -nodes -subj "/CN=fake-idp"
+openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes -subj "/CN=fake-idp"
 ```
 
 ### Endpoints

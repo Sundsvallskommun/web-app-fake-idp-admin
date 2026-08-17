@@ -27,12 +27,19 @@ export interface UserAttribute {
   type: string;
 }
 
+export interface UserGroup {
+  id: number;
+  name: string;
+  description: string;
+}
+
 export interface AdminUser {
   id: string;
   name: string;
   username: string;
   password: string;
   attributes: UserAttribute[];
+  groups: UserGroup[];
 }
 
 export interface AdminUserResponse {
@@ -42,6 +49,15 @@ export interface AdminUserResponse {
 
 export interface AdminUserListResponse {
   data: AdminUser[];
+  message: string;
+}
+
+export interface ImportUsersResult {
+  imported: number;
+}
+
+export interface ImportUsersResponse {
+  data: ImportUsersResult;
   message: string;
 }
 
@@ -57,6 +73,12 @@ export interface CreateUserDto {
   username: string;
   password: string;
   attributes?: AttributeDto[];
+  /** @uniqueItems true */
+  groupIds?: number[];
+}
+
+export interface ImportUsersDto {
+  content: string;
 }
 
 export interface UpdateUserDto {
@@ -64,4 +86,46 @@ export interface UpdateUserDto {
   username?: string;
   password?: string;
   attributes?: AttributeDto[];
+  /** @uniqueItems true */
+  groupIds?: number[];
+}
+
+export interface LoginAdminDto {
+  username: string;
+  password: string;
+}
+
+export interface AdminGroup {
+  id: number;
+  name: string;
+  description: string;
+  userCount: number;
+}
+
+export interface AdminGroupResponse {
+  data: AdminGroup;
+  message: string;
+}
+
+export interface AdminGroupListResponse {
+  data: AdminGroup[];
+  message: string;
+}
+
+export interface CreateGroupDto {
+  /**
+   * @minLength 1
+   * @pattern ^[^,]+$
+   */
+  name: string;
+  description: string;
+}
+
+export interface UpdateGroupDto {
+  /**
+   * @minLength 1
+   * @pattern ^[^,]+$
+   */
+  name?: string;
+  description?: string;
 }

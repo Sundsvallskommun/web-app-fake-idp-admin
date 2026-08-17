@@ -1,11 +1,17 @@
 import { HighlightedText } from '@components/highlighted-text/highlighted-text.component';
-import { AdminUser, CreateUserDto, UpdateUserDto } from '@data-contracts/backend/data-contracts';
+import {
+  AdminGroup,
+  AdminUser,
+  CreateGroupDto,
+  CreateUserDto,
+  UpdateGroupDto,
+  UpdateUserDto,
+} from '@data-contracts/backend/data-contracts';
 import { Resource } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
 import { createElement } from 'react';
 
-// `groups` and `citizenIdentifier` are not top-level fields — they're SAML
-// attributes. Returns '' (empty cell) when the user has no such attribute.
+// `citizenIdentifier` is not a top-level field — it is a SAML attribute.
 const getAttribute = (user: AdminUser, key: string) =>
   user.attributes?.find((attribute) => attribute.key === key)?.value ?? '';
 
@@ -38,11 +44,26 @@ const users: Resource<AdminUser> = {
     {
       property: 'groups',
       isColumnSortable: false,
-      renderColumn: (_value, item) => createElement(HighlightedText, null, getAttribute(item as AdminUser, 'groups')),
+      renderColumn: (_value, item) =>
+        createElement(HighlightedText, null, (item as AdminUser).groups.map((group) => group.name).join(',')),
     },
   ],
 };
 
-const resources = { users };
+const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
+  name: 'groups',
+  getOne: (id, params) => apiService.groupControllerGetGroup(Number(id), params),
+  getMany: apiService.groupControllerGetGroups,
+  create: ({ name, description }, params) => apiService.groupControllerCreateGroup({ name, description }, params),
+  update: (id, { name, description }, params) =>
+    apiService.groupControllerUpdateGroup(Number(id), { name, description }, params),
+  remove: (id, params) => apiService.groupControllerRemoveGroup(Number(id), params),
+  defaultValues: { name: '', description: '' },
+  requiredFields: ['name'],
+  formFields: ['name', 'description'],
+  columns: [{ property: 'name' }, { property: 'description' }, { property: 'userCount' }],
+};
+
+const resources = { users, groups };
 
 export default resources;
