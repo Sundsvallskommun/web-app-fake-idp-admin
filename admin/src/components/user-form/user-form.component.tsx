@@ -1,14 +1,13 @@
 import { AdminApplication, AdminGroup } from '@data-contracts/backend/data-contracts';
 import { Button } from '@components/ui/button';
-import { Checkbox } from '@components/ui/checkbox';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { PasswordInput } from '@components/password-input/password-input';
 import { ResourceError } from '@components/resource-error/resource-error.component';
+import { ResourcePicker } from './resource-picker.component';
 import { useResource } from '@utils/use-resource';
-import { Loader2, Plus, Search, Trash, X } from 'lucide-react';
+import { Loader2, Plus, Trash } from 'lucide-react';
 import NextLink from 'next/link';
-import { useState } from 'react';
 import { Control, Controller, UseFormRegister, useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { capitalize } from '@utils/capitalize';
@@ -39,14 +38,6 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
     refresh: refreshApplications,
   } = useResource('applications');
   const applications = applicationData as AdminApplication[];
-  const [groupQuery, setGroupQuery] = useState('');
-  const normalizedGroupQuery = groupQuery.trim().toLowerCase();
-  const visibleGroups = groups.filter(
-    (group) =>
-      !normalizedGroupQuery ||
-      group.name.toLowerCase().includes(normalizedGroupQuery) ||
-      group.description.toLowerCase().includes(normalizedGroupQuery)
-  );
 
   return (
     <>
@@ -95,74 +86,21 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
           </p>
         )}
         {groups.length > 0 && (
-          <>
-            <div className="relative max-w-80">
-              <Search
-                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
+          <Controller
+            control={control}
+            name="groupIds"
+            render={({ field }) => (
+              <ResourcePicker
+                items={groups}
+                value={field.value}
+                onChange={field.onChange}
+                idPrefix="group"
+                label={t('users:sections.groups')}
+                searchLabel={t('users:filter_groups')}
+                noMatchLabel={t('users:no_matching_groups')}
               />
-              <Input
-                type="search"
-                value={groupQuery}
-                onChange={(event) => setGroupQuery(event.target.value)}
-                placeholder={capitalize(t('users:filter_groups'))}
-                aria-label={capitalize(t('users:filter_groups'))}
-                className="pl-9 pr-9"
-              />
-              {groupQuery && (
-                <button
-                  type="button"
-                  onClick={() => setGroupQuery('')}
-                  aria-label={capitalize(t('common:clear'))}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-4" />
-                </button>
-              )}
-            </div>
-            {visibleGroups.length === 0 && <p className="text-muted-foreground">{t('users:no_matching_groups')}</p>}
-            <Controller
-              control={control}
-              name="groupIds"
-              render={({ field }) => {
-                // sk:s Checkbox.Group ägde värdelistan; Radix checkbox är enskild,
-                // så till/frånslag mot fältets array görs här.
-                const toggle = (groupId: number, checked: boolean) =>
-                  field.onChange(
-                    checked ? [...field.value, groupId] : field.value.filter((id: number) => id !== groupId)
-                  );
-
-                return (
-                  /* En kolumn på full bredd: beskrivningen är gruppens dokumentation
-                     och ska få plats att läsas, inte klämmas in på halv bredd. */
-                  <div
-                    role="group"
-                    aria-label={capitalize(t('users:sections.groups'))}
-                    className="flex flex-col gap-3 max-h-80 overflow-y-auto"
-                  >
-                    {visibleGroups.map((group) => (
-                      // min-w-0 + break-words: långa obrutna namn (URL:er, AD-namn)
-                      // ska radbrytas istället för att spränga radbredden.
-                      <div key={group.id} className="flex items-start gap-2 min-w-0">
-                        <Checkbox
-                          id={`group-${group.id}`}
-                          className="mt-1"
-                          checked={field.value.includes(group.id)}
-                          onCheckedChange={(checked) => toggle(group.id, checked === true)}
-                        />
-                        <Label htmlFor={`group-${group.id}`} className="flex flex-col font-normal min-w-0 break-words">
-                          <strong>{group.name}</strong>
-                          {group.description && (
-                            <span className="text-sm text-muted-foreground">{group.description}</span>
-                          )}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }}
-            />
-          </>
+            )}
+          />
         )}
       </section>
 
@@ -188,40 +126,17 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
           <Controller
             control={control}
             name="applicationIds"
-            render={({ field }) => {
-              const toggle = (applicationId: number, checked: boolean) =>
-                field.onChange(
-                  checked ? [...field.value, applicationId] : field.value.filter((id: number) => id !== applicationId)
-                );
-
-              return (
-                <div
-                  role="group"
-                  aria-label={capitalize(t('users:sections.applications'))}
-                  className="flex flex-col gap-3 max-h-80 overflow-y-auto"
-                >
-                  {applications.map((application) => (
-                    <div key={application.id} className="flex items-start gap-2 min-w-0">
-                      <Checkbox
-                        id={`application-${application.id}`}
-                        className="mt-1"
-                        checked={field.value.includes(application.id)}
-                        onCheckedChange={(checked) => toggle(application.id, checked === true)}
-                      />
-                      <Label
-                        htmlFor={`application-${application.id}`}
-                        className="flex flex-col font-normal min-w-0 break-words"
-                      >
-                        <strong>{application.name}</strong>
-                        {application.description && (
-                          <span className="text-sm text-muted-foreground">{application.description}</span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              );
-            }}
+            render={({ field }) => (
+              <ResourcePicker
+                items={applications}
+                value={field.value}
+                onChange={field.onChange}
+                idPrefix="application"
+                label={t('users:sections.applications')}
+                searchLabel={t('users:filter_applications')}
+                noMatchLabel={t('users:no_matching_applications')}
+              />
+            )}
           />
         )}
       </section>

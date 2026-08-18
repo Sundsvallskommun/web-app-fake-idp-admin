@@ -22,6 +22,8 @@ interface ListTableProps {
   columns: ResourceColumn[];
   data: Row[];
   pageSize?: number;
+  /** Sorteringen tabellen öppnas med. Användaren kan sortera om fritt därefter. */
+  defaultSort?: { property: string; desc?: boolean };
 }
 
 /**
@@ -29,9 +31,11 @@ interface ListTableProps {
  * sortering (med aria-sort), paginering, egna cell-renderare, sticky-kolumn och
  * visuellt dolda rubriker.
  */
-export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 15 }) => {
+export const ListTable: React.FC<ListTableProps> = ({ columns, data, pageSize = 15, defaultSort }) => {
   const { t } = useTranslation();
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(
+    defaultSort ? [{ id: defaultSort.property, desc: defaultSort.desc ?? false }] : []
+  );
 
   const tableColumns = useMemo<ColumnDef<Row>[]>(
     () =>

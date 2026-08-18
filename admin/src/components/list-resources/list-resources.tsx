@@ -25,7 +25,7 @@ interface ListResourcesProps {
 }
 
 export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers: _headers, data }) => {
-  const { update, create } = resources[resource];
+  const { update, create, defaultSort } = resources[resource];
   // Registret typar kolumnerna per resurs (ResourceColumn<AdminUser> osv.) så att
   // renderColumn-implementationerna typkontrolleras där de skrivs. Den här generiska
   // listan arbetar radtypslöst — typen raderas medvetet vid exakt en gräns.
@@ -183,6 +183,7 @@ export const ListResources: React.FC<ListResourcesProps> = ({ resource, headers:
         <ListTable
           pageSize={15}
           data={filteredData}
+          defaultSort={defaultSort}
           columns={[...highlightedHeaders, ...(update ? [editHeader] : [])]}
         />
       : <div className="flex flex-col items-start gap-3">

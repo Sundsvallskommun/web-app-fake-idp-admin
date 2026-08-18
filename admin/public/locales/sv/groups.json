@@ -7,6 +7,6 @@
     "id": "Id",
     "name": "Gruppnamn",
     "description": "Beskrivning och behörighet",
-    "userCount": "Antal testidentiteter"
+    "userCount": "Testidentiteter"
   }
 }

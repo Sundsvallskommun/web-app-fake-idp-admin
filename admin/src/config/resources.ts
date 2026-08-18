@@ -11,10 +11,56 @@ import {
   UpdateGroupDto,
   UpdateUserDto,
 } from '@data-contracts/backend/data-contracts';
-import { Resource } from '@interfaces/resource';
+import { Resource, ResourceColumn } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
 import { AppWindow, Boxes, Users } from 'lucide-react';
 import { createElement } from 'react';
+
+/** Så många medlemsbadges får plats innan resten läggs i en "+N"-badge. */
+const MEMBER_BADGE_LIMIT = 6;
+
+/**
+ * Medlemskolumnen för grupper och applikationer: visar VILKA testidentiteter
+ * som hör till raden, inte bara hur många. Sorteringsnyckeln är ändå `userCount`
+ * (numerisk), så listan kan öppnas med de mest använda överst utan att antalet
+ * behöver en egen kolumn.
+ */
+const memberColumn = <
+  T extends { userCount: number; users: { id: string; name: string; username: string }[] },
+>(): ResourceColumn<T> => ({
+  property: 'userCount',
+  renderColumn: (_value, item) => {
+    const members = item.users ?? [];
+    if (members.length === 0) {
+      return createElement('span', { className: 'text-muted-foreground' }, '–');
+    }
+    const shown = members.slice(0, MEMBER_BADGE_LIMIT);
+    const hidden = members.slice(MEMBER_BADGE_LIMIT);
+    return createElement(
+      'span',
+      { className: 'flex flex-wrap gap-1' },
+      ...shown.map((member) =>
+        createElement(
+          Badge,
+          { key: member.id, variant: 'outline', className: 'font-normal', title: member.username },
+          createElement(HighlightedText, null, member.name)
+        )
+      ),
+      hidden.length > 0 ?
+        createElement(
+          Badge,
+          {
+            key: 'rest',
+            variant: 'secondary',
+            className: 'font-normal',
+            title: hidden.map((member) => member.name).join(', '),
+          },
+          `+${hidden.length}`
+        )
+      : null
+    );
+  },
+});
 
 // `citizenIdentifier` is not a top-level field — it is a SAML attribute.
 const getAttribute = (user: AdminUser, key: string) =>
@@ -101,8 +147,11 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
       renderColumn: (value) =>
         createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
     },
-    { property: 'userCount' },
+    memberColumn<AdminGroup>(),
   ],
+  // Grupper som faktiskt används överst — de oanvända är sällan det man letar
+  // efter, och skillnaden syns direkt. Kolumnrubrikerna sorterar om fritt.
+  defaultSort: { property: 'userCount', desc: true },
 };
 
 // Anslutna testapplikationer. Ren verktygsmetadata (aldrig SAML-claims) som
@@ -128,8 +177,9 @@ const applications: Resource<AdminApplication, CreateApplicationDto, UpdateAppli
       renderColumn: (value) =>
         createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
     },
-    { property: 'userCount' },
+    memberColumn<AdminApplication>(),
   ],
+  defaultSort: { property: 'userCount', desc: true },
 };
 
 const resources = { users, groups, applications };

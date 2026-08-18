@@ -64,6 +64,7 @@ h1{font-size:1.5rem;line-height:1.25;margin:.35rem 0 .5rem;font-weight:700}
 .target-url{display:block;font-size:.78rem;color:hsl(var(--muted-foreground));overflow-wrap:anywhere}
 .identity{display:grid;grid-template-columns:minmax(110px,auto) 1fr;gap:8px 20px}
 .identity dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.identity .missing{font-weight:400;font-style:italic;color:hsl(var(--muted-foreground))}
 fieldset{border:0;margin:16px 0 0;padding:0;min-width:0}
 label{display:block;margin:12px 0 6px;font-weight:600;font-size:.9rem}
 input[type=text],input[type=password],input[type=search],select{width:100%;min-height:40px;padding:8px 12px;border:1px solid hsl(var(--input));border-radius:calc(var(--radius) - 2px);background:transparent;color:inherit;font:inherit;font-size:.925rem}
@@ -83,6 +84,17 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,.i
 .io-apps{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .badge{padding:1px 8px;border:1px solid hsl(var(--border));border-radius:9999px;background:hsl(var(--secondary));color:hsl(var(--secondary-foreground));font-size:.7rem;font-weight:600;white-space:nowrap}
 .count{margin:8px 0 0;color:hsl(var(--muted-foreground));font-size:.8rem}
+.disclosure{margin:18px 0 0;border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);background:hsl(var(--card))}
+.disclosure summary{display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;font-weight:600;font-size:.925rem;list-style:none}
+.disclosure summary::-webkit-details-marker{display:none}
+.disclosure summary::before{content:'';width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s ease;flex:none;margin:0 2px}
+.disclosure[open] summary::before{transform:rotate(45deg)}
+.disclosure summary:hover{background:hsl(var(--muted))}
+.disclosure summary .badge{margin-left:auto}
+.group-list{margin:0;padding:0 14px 12px;list-style:none;display:flex;flex-direction:column;gap:10px;border-top:1px solid hsl(var(--border));padding-top:12px}
+.group-name{display:block;font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
+.group-desc{display:block;color:hsl(var(--muted-foreground));font-size:.85rem}
+.group-empty{margin:18px 0 0;color:hsl(var(--muted-foreground));font-size:.9rem}
 .empty-filter{margin:14px 0 0;padding:12px;border:1px dashed hsl(var(--border));border-radius:calc(var(--radius) - 2px);color:hsl(var(--muted-foreground));font-size:.9rem}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:20px}
 .inline-form{display:inline-flex;margin:0}
@@ -94,6 +106,11 @@ button,.button{display:inline-flex;align-items:center;justify-content:center;min
 .secondary:hover{opacity:.85}
 .error,.notice{padding:10px 14px;margin:16px 0 0;border:1px solid;border-radius:calc(var(--radius) - 2px);font-size:.9rem}
 .error{color:hsl(var(--destructive));border-color:hsl(var(--destructive))}
+.error strong{display:block;margin-bottom:4px}
+.error-code{display:block;margin-top:6px;font-size:.78rem;opacity:.85}
+.steps{margin:18px 0 0;padding:14px 18px 14px 32px;border:1px solid hsl(var(--border));border-radius:calc(var(--radius) - 2px);background:hsl(var(--muted));color:hsl(var(--muted-foreground));font-size:.875rem}
+.steps li+li{margin-top:6px}
+.steps-title{margin:0 0 6px;font-weight:600;font-size:.875rem;color:hsl(var(--foreground))}
 .notice{border-color:hsl(var(--border));background:hsl(var(--muted))}
 [hidden]{display:none!important}
 @media(max-width:520px){.surface{padding:18px 16px}.theme-toggle .theme-mode span{display:none}.actions,.actions>*{width:100%}.inline-form button{width:100%}.io-apps{display:none}}`;
@@ -173,12 +190,47 @@ export interface LoginTarget {
 
 export interface IdentitySummary {
   name: string;
-  username: string;
+  /** Kan saknas: den lokala test-SP:n läser den ur assertionen, som inte måste innehålla den. */
+  username?: string;
 }
 
+/** Dokumenterad grupp som testidentiteten tillhör. */
+export interface IdentityGroup {
+  name: string;
+  description?: string;
+}
+
+/**
+ * Grupperna som testsessionen skickar med i SAML-svaret, hopfällda bakom en
+ * <details> — namnet räcker sällan för att avgöra vad gruppen ger, så
+ * beskrivningen (gruppens dokumentation i adminpanelen) visas under den.
+ */
+const identityGroups = (groups: IdentityGroup[]): string => {
+  if (groups.length === 0) {
+    return `<p class="group-empty">Testidentiteten tillhör inga grupper.</p>`;
+  }
+
+  return (
+    `<details class="disclosure"><summary>Grupper och behörigheter<span class="badge">${groups.length}</span></summary>` +
+    `<ul class="group-list">` +
+    groups
+      .map(
+        group =>
+          `<li><span class="group-name">${htmlEscape(group.name)}</span>` +
+          (group.description ? `<span class="group-desc">${htmlEscape(group.description)}</span>` : '') +
+          `</li>`,
+      )
+      .join('') +
+    `</ul></details>`
+  );
+};
+
+/** Tomt värde ska säga att uppgiften saknas — inte renderas som "undefined". */
+const identityValue = (value?: string): string => (value ? htmlEscape(value) : `<span class="missing">saknas i SAML-svaret</span>`);
+
 const identityDetails = (identity: IdentitySummary, label = 'Aktiv testidentitet'): string =>
-  `<dl class="identity"><dt>${htmlEscape(label)}</dt><dd>${htmlEscape(identity.name)}</dd>` +
-  `<dt>Användarnamn</dt><dd>${htmlEscape(identity.username)}</dd></dl>`;
+  `<dl class="identity"><dt>${htmlEscape(label)}</dt><dd>${identityValue(identity.name)}</dd>` +
+  `<dt>Användarnamn</dt><dd>${identityValue(identity.username)}</dd></dl>`;
 
 /**
  * Klientfiltret: fritextsök på namn/användarnamn + applikationsfilter.
@@ -304,6 +356,7 @@ export function renderLogin(opts: {
 
 export function renderIdentitySession(opts: {
   identity: IdentitySummary;
+  groups?: IdentityGroup[];
   csrfToken: string;
   navigation: PageNavigation;
   logoutAction: string;
@@ -314,6 +367,7 @@ export function renderIdentitySession(opts: {
       `<h1>Inloggad som ${htmlEscape(opts.identity.name)}</h1>` +
       `<p class="description">Testidentiteten används automatiskt när en ansluten applikation startar en SAML-inloggning.</p>` +
       identityDetails(opts.identity) +
+      identityGroups(opts.groups ?? []) +
       `<div class="actions"><a class="button primary" href="${htmlEscape(opts.samlLoginUrl)}">Starta lokalt SAML-test</a>` +
       `<form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST">` +
       `<input type="hidden" name="_csrf" value="${htmlEscape(opts.csrfToken)}" />` +
@@ -322,15 +376,59 @@ export function renderIdentitySession(opts: {
   );
 }
 
-export function renderSamlTest(opts: { identity?: IdentitySummary; navigation: PageNavigation; samlLoginUrl: string; error?: string }): string {
-  const errorHtml = opts.error ? `<p class="error" role="alert">SAML-inloggningen misslyckades: ${htmlEscape(opts.error)}</p>` : '';
+/** Attributen den lokala test-SP:n kräver av en assertion (se app.ts). */
+const REQUIRED_TEST_ATTRIBUTES = 'givenName, surname och citizenIdentifier';
+
+/**
+ * Översätter felkoden från SAML-callbacken till något en operatör kan agera på.
+ * Koden visas fortfarande i klartext — den är det som går att söka på i loggarna.
+ */
+const samlTestError = (error: string, missingAttributes?: string[]): string => {
+  const explanations: Record<string, string> = {
+    SAML_MISSING_ATTRIBUTES:
+      (missingAttributes?.length
+        ? `Testidentiteten saknar attributen ${htmlEscape(missingAttributes.join(', '))}. `
+        : 'Testidentiteten saknar attribut som testapplikationen kräver. ') +
+      `Den här testapplikationen kräver ${REQUIRED_TEST_ATTRIBUTES} — fyll i dem under "Kända identitetsattribut" på testidentiteten i adminpanelen och testa igen. ` +
+      'Inloggningen i sig fungerade: assertion signerades och togs emot. Anslutna applikationer kan kräva andra attribut än den här.',
+    SAML_MISSING_PROFILE: 'Svaret från IdP:n innehöll ingen identitet.',
+    NO_USER: 'Svaret togs emot men ingen identitet kunde skapas ur det.',
+    SAML_UNKNOWN_ERROR: 'Inloggningen avbröts utan närmare orsak. Kontrollera backendens logg.',
+  };
+  const explanation = explanations[error] ?? 'Kontrollera backendens logg för detaljer.';
+
+  return (
+    `<p class="error" role="alert"><strong>SAML-inloggningen misslyckades</strong>${explanation}` +
+    `<span class="error-code">Felkod: ${htmlEscape(error)}</span></p>`
+  );
+};
+
+const SAML_TEST_DESCRIPTION =
+  'Det här är backendens egen testapplikation (Service Provider). Den kör ett riktigt SAML-flöde mot den här IdP:n och visar vilka uppgifter applikationen fick tillbaka — ett sätt att kontrollera signering, attribut och session utan att koppla in en riktig applikation.';
+
+const SAML_TEST_STEPS =
+  `<div class="steps"><p class="steps-title">Så går testet till</p><ol>` +
+  `<li>Du skickas till IdP:ns inloggning — eller vidare direkt om en testidentitet redan är vald.</li>` +
+  `<li>IdP:n signerar en SAML-assertion och postar tillbaka den hit.</li>` +
+  `<li>Sidan visar identiteten som testapplikationen tog emot.</li>` +
+  `</ol></div>`;
+
+export function renderSamlTest(opts: {
+  identity?: IdentitySummary;
+  navigation: PageNavigation;
+  samlLoginUrl: string;
+  error?: string;
+  missingAttributes?: string[];
+}): string {
+  const errorHtml = opts.error ? samlTestError(opts.error, opts.missingAttributes) : '';
 
   if (!opts.identity) {
     return page(
       `<p class="context">Lokal testapplikation</p>` +
         `<h1>Testa SAML-inloggning</h1>` +
-        `<p class="description">Starta ett lokalt SAML-flöde och kontrollera vilken testidentitet som tas emot.</p>` +
+        `<p class="description">${SAML_TEST_DESCRIPTION}</p>` +
         errorHtml +
+        SAML_TEST_STEPS +
         `<div class="actions"><a class="button primary" href="${htmlEscape(opts.samlLoginUrl)}">Starta SAML-test</a>` +
         `<a class="button secondary" href="${htmlEscape(opts.navigation.idpUrl)}">Öppna testsession</a></div>`,
       opts.navigation,

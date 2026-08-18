@@ -62,4 +62,9 @@ export type Resource<
    * Labels fall back to the `<resource>:properties.<property>` translation.
    */
   columns?: ResourceColumn<T>[];
+  /**
+   * Sorteringen listan öppnas med. `property` måste matcha en kolumns
+   * `property` — annars ignoreras den av tabellen.
+   */
+  defaultSort?: { property: string; desc?: boolean };
 };

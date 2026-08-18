@@ -7,6 +7,6 @@
   "properties": {
     "name": "applikationsnamn",
     "description": "beskrivning",
-    "userCount": "antal testidentiteter"
+    "userCount": "testidentiteter"
   }
 }

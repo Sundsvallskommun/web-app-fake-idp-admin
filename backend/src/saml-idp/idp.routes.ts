@@ -141,6 +141,7 @@ async function renderIdpHome(req: Request, usersService: IdpUserStore): Promise<
 
   return renderIdentitySession({
     identity: user,
+    groups: user.groups ?? [],
     csrfToken: generateCsrfToken(req),
     navigation,
     logoutAction: LOGOUT_ACTION,

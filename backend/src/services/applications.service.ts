@@ -1,8 +1,12 @@
 import { CreateApplicationDto, UpdateApplicationDto } from '@dtos/application.dto';
 import prisma from '@utils/prisma';
 
-const withUserCount = {
-  include: { _count: { select: { users: true } } },
+/** Samma medlemslista som grupperna — se kommentaren i groups.service.ts. */
+const withUsers = {
+  include: {
+    _count: { select: { users: true } },
+    users: { select: { id: true, name: true, username: true }, orderBy: { name: 'asc' as const } },
+  },
 } as const;
 
 const toApplication = <T extends { _count: { users: number } }>(application: T) => {
@@ -12,12 +16,12 @@ const toApplication = <T extends { _count: { users: number } }>(application: T) 
 
 export class ApplicationsService {
   public async getApplications() {
-    const applications = await prisma.application.findMany({ ...withUserCount, orderBy: { name: 'asc' } });
+    const applications = await prisma.application.findMany({ ...withUsers, orderBy: { name: 'asc' } });
     return applications.map(toApplication);
   }
 
   public async getApplication(id: number) {
-    const application = await prisma.application.findUnique({ where: { id }, ...withUserCount });
+    const application = await prisma.application.findUnique({ where: { id }, ...withUsers });
     return application && toApplication(application);
   }
 
@@ -33,7 +37,7 @@ export class ApplicationsService {
   public async createApplication(data: CreateApplicationDto) {
     const application = await prisma.application.create({
       data: { name: data.name.trim(), description: data.description.trim() },
-      ...withUserCount,
+      ...withUsers,
     });
     return toApplication(application);
   }
@@ -45,7 +49,7 @@ export class ApplicationsService {
         ...(data.name === undefined ? {} : { name: data.name.trim() }),
         ...(data.description === undefined ? {} : { description: data.description.trim() }),
       },
-      ...withUserCount,
+      ...withUsers,
     });
     return toApplication(application);
   }

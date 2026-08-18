@@ -85,5 +85,11 @@
   },
   "applications_help": "Markera vilka anslutna applikationer testidentiteten används med. Styr applikationsfiltret i IdP-testinloggningen — påverkar aldrig SAML-svaret.",
   "no_applications": "Det finns inga applikationer än.",
-  "create_application": "Skapa den första applikationen"
+  "create_application": "Skapa den första applikationen",
+  "filter_applications": "Filtrera applikationer",
+  "no_matching_applications": "Inga applikationer matchar filtret.",
+  "picker": {
+    "selected": "Valda ({{count}})",
+    "other": "Övriga ({{count}})"
+  }
 }

@@ -108,11 +108,18 @@ export interface LoginAdminDto {
   password: string;
 }
 
+export interface GroupMember {
+  id: string;
+  name: string;
+  username: string;
+}
+
 export interface AdminGroup {
   id: number;
   name: string;
   description: string;
   userCount: number;
+  users: GroupMember[];
 }
 
 export interface AdminGroupResponse {
@@ -143,11 +150,18 @@ export interface UpdateGroupDto {
   description?: string;
 }
 
+export interface ApplicationMember {
+  id: string;
+  name: string;
+  username: string;
+}
+
 export interface AdminApplication {
   id: number;
   name: string;
   description: string;
   userCount: number;
+  users: ApplicationMember[];
 }
 
 export interface AdminApplicationResponse {

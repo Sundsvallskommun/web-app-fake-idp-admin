@@ -101,11 +101,22 @@ const samlStrategy = new Strategy(
     }
     const { givenName, surname, citizenIdentifier, username } = profile;
 
-    if (!givenName || !surname || !citizenIdentifier) {
-      return done({
-        name: 'SAML_MISSING_ATTRIBUTES',
-        message: 'Missing profile attributes',
-      });
+    // The local test SP demands the same three attributes the real Sundsvall
+    // service providers do. Naming the missing ones turns an opaque error code
+    // into something the test page can tell the operator to go and fill in.
+    const missingAttributes = Object.entries({ givenName, surname, citizenIdentifier })
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingAttributes.length > 0) {
+      // Object.assign, not a literal: the callback's `Error` type has no room for
+      // the extra field, and the login callback below forwards it to the test page.
+      return done(
+        Object.assign(new Error(`Missing profile attributes: ${missingAttributes.join(', ')}`), {
+          name: 'SAML_MISSING_ATTRIBUTES',
+          missingAttributes,
+        }),
+      );
     }
 
     try {
@@ -247,6 +258,13 @@ class App {
     this.app.get(`${BASE_URL_PREFIX}/saml/test`, (req, res) => {
       const user = req.user as User | undefined;
       const error = typeof req.query.failMessage === 'string' ? req.query.failMessage : undefined;
+      const missingAttributes =
+        typeof req.query.missingAttributes === 'string'
+          ? req.query.missingAttributes
+              .split(',')
+              .map(attribute => attribute.trim())
+              .filter(Boolean)
+          : undefined;
 
       res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
       res.send(
@@ -255,6 +273,7 @@ class App {
           navigation: { idpUrl: `${IDP_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL },
           samlLoginUrl,
           error,
+          missingAttributes,
         }),
       );
     });
@@ -377,6 +396,11 @@ class App {
             queries.append('failMessage', err.name);
           } else {
             queries.append('failMessage', 'SAML_UNKNOWN_ERROR');
+          }
+          // Extra detail, never a replacement: `failMessage` keeps its exact
+          // codes so existing consumers of the failure redirect are unaffected.
+          if (Array.isArray(err?.missingAttributes) && err.missingAttributes.length > 0) {
+            queries.append('missingAttributes', err.missingAttributes.join(','));
           }
           failureRedirect.search = queries.toString();
           res.redirect(failureRedirect.toString());

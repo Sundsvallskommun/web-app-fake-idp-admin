@@ -86,6 +86,51 @@ describe('Fake IdP pages', () => {
     expect(html).toContain('Starta lokalt SAML-test');
   });
 
+  it('lists the groups of the active identity, with their documentation', () => {
+    const html = renderIdentitySession({
+      identity: users[0],
+      groups: [{ name: 'kundtjanst', description: 'Läsbehörighet i ärendeöversikten' }, { name: 'handlaggare' }],
+      csrfToken,
+      navigation,
+      logoutAction: '/api/saml/idp/logout',
+      samlLoginUrl: '/api/saml/login',
+    });
+
+    expect(html).toContain('Grupper och behörigheter');
+    expect(html).toContain('kundtjanst');
+    expect(html).toContain('Läsbehörighet i ärendeöversikten');
+    expect(html).toContain('handlaggare');
+  });
+
+  it('says so when the active identity has no groups', () => {
+    const html = renderIdentitySession({
+      identity: users[0],
+      groups: [],
+      csrfToken,
+      navigation,
+      logoutAction: '/api/saml/idp/logout',
+      samlLoginUrl: '/api/saml/login',
+    });
+
+    expect(html).toContain('Testidentiteten tillhör inga grupper.');
+    expect(html).not.toContain('<details');
+  });
+
+  it('escapes group names and descriptions on the session page', () => {
+    const html = renderIdentitySession({
+      identity: users[0],
+      groups: [{ name: '<b>grupp</b>', description: 'a & b' }],
+      csrfToken,
+      navigation,
+      logoutAction: '/api/saml/idp/logout',
+      samlLoginUrl: '/api/saml/login',
+    });
+
+    expect(html).toContain('&lt;b&gt;grupp&lt;/b&gt;');
+    expect(html).toContain('a &amp; b');
+    expect(html).not.toContain('<b>grupp</b>');
+  });
+
   it('shows the identity received by the local SAML test application', () => {
     const html = renderSamlTest({
       identity: users[0],
@@ -97,6 +142,39 @@ describe('Fake IdP pages', () => {
     expect(html).toContain('Mottagen identitet');
     expect(html).toContain('Test Person');
     expect(html).toContain('Hantera testsession');
+  });
+
+  it('explains a failed local SAML test and names the missing attributes', () => {
+    const html = renderSamlTest({
+      navigation,
+      samlLoginUrl: '/api/saml/login',
+      error: 'SAML_MISSING_ATTRIBUTES',
+      missingAttributes: ['surname', 'citizenIdentifier'],
+    });
+
+    expect(html).toContain('SAML-inloggningen misslyckades');
+    expect(html).toContain('surname, citizenIdentifier');
+    expect(html).toContain('Kända identitetsattribut');
+    expect(html).toContain('Felkod: SAML_MISSING_ATTRIBUTES');
+  });
+
+  it('falls back to the raw code for an unknown failure and always explains the test', () => {
+    const html = renderSamlTest({ navigation, samlLoginUrl: '/api/saml/login', error: 'WAT' });
+
+    expect(html).toContain('Felkod: WAT');
+    expect(html).toContain('Så går testet till');
+    expect(html).toContain('Service Provider');
+  });
+
+  it('says that a value is missing instead of rendering an empty attribute', () => {
+    const html = renderSamlTest({
+      identity: { name: 'Test Person' },
+      navigation,
+      samlLoginUrl: '/api/saml/login',
+    });
+
+    expect(html).toContain('saknas i SAML-svaret');
+    expect(html).not.toContain('undefined');
   });
 
   it('disables identity selection when the database is empty', () => {

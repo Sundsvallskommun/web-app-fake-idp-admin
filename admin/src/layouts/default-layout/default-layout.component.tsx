@@ -3,11 +3,11 @@ import { Logo } from '@components/logo/logo';
 import { LogoMark } from '@components/logo/logo-mark';
 import { ModeToggle } from '@components/mode-toggle/mode-toggle';
 import { Avatar, AvatarFallback } from '@components/ui/avatar';
+import { Button } from '@components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@components/ui/dropdown-menu';
 import {
@@ -23,6 +23,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from '@components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip';
 import { useUserStore } from '@services/user-service/user-service';
 import { apiURL } from '@utils/api-url';
 import { useTranslation } from 'next-i18next';
@@ -106,13 +107,6 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="top" align="start" className="w-(--radix-dropdown-menu-trigger-width)">
                     <DropdownMenuItem asChild>
-                      <a href={apiURL('/saml/idp/login')} target="_blank" rel="noreferrer">
-                        <ExternalLink className="size-4" />
-                        IdP-testsession
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
                       <NextLink href="/logout">
                         <LogOut className="size-4" />
                         {capitalize(t('common:logout'))}
@@ -132,7 +126,26 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
         <SidebarInset className="max-h-svh overflow-hidden">
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
-            <div className="ml-auto">
+            {/* IdP-testsessionen låg tidigare i användarmenyn längst ned till
+                vänster. Den hör hemma här: IdP-sidorna har en "Administration"-knapp
+                på samma plats, så vägen fram och tillbaka ser likadan ut. */}
+            <div className="ml-auto flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" asChild>
+                    <a
+                      href={apiURL('/saml/idp/login')}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={capitalize(t('layout:idp_session'))}
+                    >
+                      <ExternalLink className="size-4" />
+                      <span className="hidden sm:inline">{capitalize(t('layout:idp_session'))}</span>
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t('layout:idp_session_help')}</TooltipContent>
+              </Tooltip>
               <ModeToggle />
             </div>
           </header>
