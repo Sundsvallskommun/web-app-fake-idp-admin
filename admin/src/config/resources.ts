@@ -1,4 +1,5 @@
 import { HighlightedText } from '@components/highlighted-text/highlighted-text.component';
+import { Badge } from '@components/ui/badge';
 import {
   AdminApplication,
   AdminGroup,
@@ -53,6 +54,24 @@ const users: Resource<AdminUser> = {
           HighlightedText,
           null,
           item.groups.map((group) => group.name).join(',')
+        ),
+    },
+    {
+      property: 'applications',
+      isColumnSortable: false,
+      // Badges som på IdP-testinloggningen. HighlightedText inuti varje badge så
+      // fritextfiltret markerar träffar även här.
+      renderColumn: (_value, item) =>
+        createElement(
+          'span',
+          { className: 'flex flex-wrap gap-1' },
+          ...item.applications.map((application) =>
+            createElement(
+              Badge,
+              { key: application.id, variant: 'secondary', className: 'font-normal' },
+              createElement(HighlightedText, null, application.name)
+            )
+          )
         ),
     },
   ],

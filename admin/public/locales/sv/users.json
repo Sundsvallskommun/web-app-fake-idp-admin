@@ -10,7 +10,8 @@
     "password": "Lösenord",
     "attributes": "Attribut",
     "citizenIdentifier": "Personnummer",
-    "groups": "Grupper"
+    "groups": "Grupper",
+    "applications": "applikationer"
   },
   "attribute": {
     "key": "Nyckel",
