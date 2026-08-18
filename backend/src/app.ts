@@ -234,6 +234,13 @@ class App {
     this.app.get(`${BASE_URL_PREFIX}/admin-auth/csrf`, (req, res) => {
       res.send({ data: { token: generateCsrfToken(req) }, message: 'success' });
     });
+    // CSRF-invarianten: varje state-ändrande route registreras EFTER den här
+    // raden. Skyddet är csrf-sync (synchronizer tokens; csurf är deprecerat) —
+    // CodeQL:s js/missing-token-validation känner bara igen csurf/lusca och
+    // flaggar därför cookie-parsern ovan som falsk positiv. Endast de två
+    // SAML-POST-bindningarna undantas (allowlist i csrf.middleware.ts):
+    // SAML HTTP-POST är cross-site per protokoll och skyddas av signerade
+    // assertions + InResponseTo istället för tokens.
     this.app.use(csrfProtection);
 
     const samlLoginUrl = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;

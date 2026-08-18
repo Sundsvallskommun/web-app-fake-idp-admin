@@ -62,6 +62,8 @@ const createApp = () => {
       cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' },
     }),
   );
+  // Samma csrf-sync-skydd som produktionsappen (CodeQL känner inte igen
+  // biblioteket och kan flagga testharnessens cookie-parser — falsk positiv).
   app.use(csrfProtection);
   registerIdpRoutes(app, usersService);
   // Express kräver arity 4 för felhanterare — _next måste stå kvar oanvänd.
