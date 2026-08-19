@@ -24,8 +24,8 @@ const IDP_ADDRESS = '127.0.0.1';
 
 const ENVELOPED_SIGNATURE = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 const EXC_C14N = 'http://www.w3.org/2001/10/xml-exc-c14n#';
-const RSA_SHA1 = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
-const SHA1 = 'http://www.w3.org/2000/09/xmldsig#sha1';
+const RSA_SHA256 = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+const SHA256 = 'http://www.w3.org/2001/04/xmlenc#sha256';
 
 /**
  * Sign the Assertion in-place (enveloped, exclusive-c14n, SHA-1) and insert the
@@ -39,13 +39,13 @@ function sign(xml: string): string {
   const assertionXpath = "/*[local-name()='Response']/*[local-name()='Assertion']";
   const sig = new SignedXml({
     privateKey: normalizePem(SAML_IDP_PRIVATE_KEY),
-    signatureAlgorithm: RSA_SHA1,
+    signatureAlgorithm: RSA_SHA256,
     canonicalizationAlgorithm: EXC_C14N,
   });
   sig.addReference({
     xpath: assertionXpath,
     transforms: [ENVELOPED_SIGNATURE, EXC_C14N],
-    digestAlgorithm: SHA1,
+    digestAlgorithm: SHA256,
   });
   sig.computeSignature(xml, {
     prefix: 'ds',
@@ -64,7 +64,9 @@ export function createResponse(request: ParsedAuthnRequest, user: UserWithAttrib
   const notOnOrAfter = new Date(now.getTime() + ASSERTION_TTL_MINUTES * 60 * 1000).toISOString();
 
   const entity = SAML_IDP_ENTITY_ID;
-  const audience = SAML_SP_AUDIENCE || SAML_ISSUER;
+  // Use the SP's own entity ID (from AuthnRequest Issuer) so assertions work for any
+  // SP — including Keycloak, which validates that <Audience> matches its realm URL.
+  const audience = request.issuer || SAML_SP_AUDIENCE || SAML_ISSUER;
   const sessionIndex = createSessionId();
 
   const xml = buildResponseXml({

@@ -9,6 +9,8 @@ export interface ParsedAuthnRequest {
   destination: string;
   /** The AuthnRequest ID, echoed back as the Response's InResponseTo. */
   inResponseTo: string;
+  /** The SP's entity ID (Issuer element). Used as assertion Audience so any SP gets a correctly-scoped assertion. */
+  issuer?: string;
   /** Opaque value the SP wants returned alongside the Response. */
   relayState?: string;
 }
@@ -34,9 +36,13 @@ export async function parseRequest(source: { SAMLRequest?: string; RelayState?: 
     throw new Error('Could not parse SAMLRequest XML');
   }
 
+  const issuerEl = doc.getElementsByTagNameNS('urn:oasis:names:tc:SAML:2.0:assertion', 'Issuer')[0];
+  const issuer = issuerEl?.textContent?.trim() || root.getAttribute('Issuer') || undefined;
+
   return {
     destination: root.getAttribute('AssertionConsumerServiceURL') || '',
     inResponseTo: root.getAttribute('ID') || '',
+    issuer: issuer || undefined,
     relayState: source.RelayState,
   };
 }

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medarbetarportalen — TEST</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #222; min-height: 100vh; }
+    .banner { background: #c0392b; color: white; text-align: center; padding: 10px; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; }
+    .container { max-width: 460px; margin: 60px auto; padding: 0 20px; }
+    .card { background: white; border-radius: 10px; padding: 40px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+    .logo { font-size: 13px; font-weight: 700; color: #2c5f2e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .logo-name { font-size: 20px; font-weight: 700; color: #2c5f2e; margin-bottom: 28px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .desc { color: #666; font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+    .btn { display: block; width: 100%; padding: 14px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn-ad { background: #2c5f2e; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-ad:hover { background: #1e3f20; }
+    .btn-logout { background: #eee; color: #444; margin-top: 24px; }
+    .btn-logout:hover { background: #ddd; }
+    .ad-note { text-align: center; color: #aaa; font-size: 12px; margin-top: 10px; }
+    .profile-greeting { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .info-label { color: #888; }
+    .info-value { font-weight: 600; text-align: right; }
+    .badge { background: #eaf4eb; color: #2c5f2e; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+    .error { color: #c0392b; margin-top: 16px; font-size: 13px; background: #fdf0ef; padding: 10px 14px; border-radius: 6px; }
+    .loading { text-align: center; color: #999; padding: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="banner">⚠ TESTMILJÖ — Lokal Keycloak, ingen riktig AD-koppling</div>
+  <div class="container">
+    <div id="app" class="card">
+      <div class="loading">Laddar...</div>
+    </div>
+  </div>
+
+  <script>
+    const KC_URL    = 'http://localhost:7080';
+    const REALM     = 'employees';
+    const CLIENT_ID = 'employee-app';
+    const REDIRECT_URI = window.location.origin + '/';
+
+    const AUTH_URL   = `${KC_URL}/realms/${REALM}/protocol/openid-connect/auth`;
+    const TOKEN_URL  = `${KC_URL}/realms/${REALM}/protocol/openid-connect/token`;
+    const LOGOUT_URL = `${KC_URL}/realms/${REALM}/protocol/openid-connect/logout`;
+
+    const rnd = n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,''); };
+    const sha256b64 = async s => { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,''); };
+    const parseJwt = t => { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch { return {}; } };
+
+    async function login() {
+      const verifier = rnd(48), state = rnd(16);
+      const challenge = await sha256b64(verifier);
+      sessionStorage.setItem('cv', verifier);
+      sessionStorage.setItem('st', state);
+      const p = new URLSearchParams({ response_type: 'code', client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI, scope: 'openid employee-attributes',
+        state, code_challenge: challenge, code_challenge_method: 'S256' });
+      location.href = `${AUTH_URL}?${p}`;
+    }
+
+    function logout() {
+      const t = JSON.parse(sessionStorage.getItem('tok') || '{}');
+      sessionStorage.clear();
+      const p = new URLSearchParams({ post_logout_redirect_uri: REDIRECT_URI, client_id: CLIENT_ID });
+      if (t.id_token) p.set('id_token_hint', t.id_token);
+      location.href = `${LOGOUT_URL}?${p}`;
+    }
+
+    function renderLogin(err) {
+      document.getElementById('app').innerHTML = `
+        <div class="logo">Sundsvalls kommun</div>
+        <div class="logo-name">Medarbetarportalen</div>
+        <h1>Logga in</h1>
+        <p class="desc">Logga in med ditt kommunala AD-konto för att nå interna tjänster.</p>
+        <button class="btn btn-ad" onclick="login()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="white"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+          Logga in med AD-konto
+        </button>
+        <div class="ad-note">Lokalt: Keycloak-användare (ingen riktig AD-koppling)</div>
+        ${err ? `<div class="error">${err}</div>` : ''}
+      `;
+    }
+
+    function renderProfile(c) {
+      const name = [c.given_name, c.family_name].filter(Boolean).join(' ') || c.preferred_username;
+      const roles = Array.isArray(c.roles) ? c.roles.join(', ') : (c.roles || '—');
+      const rows = [
+        ['E-post', c.email || '—'],
+        ['AD-roller', `<strong>${roles}</strong>`],
+        ['Inloggad via', '<span class="badge">OpenLDAP → Keycloak (simulerat AD)</span>'],
+      ];
+      document.getElementById('app').innerHTML = `
+        <div class="logo">Sundsvalls kommun</div>
+        <div class="logo-name">Medarbetarportalen</div>
+        <div class="profile-greeting">Välkommen, ${name}!</div>
+        ${rows.map(([l,v]) => `<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join('')}
+        <button class="btn btn-logout" onclick="logout()">Logga ut</button>
+      `;
+    }
+
+    async function main() {
+      const p = new URLSearchParams(location.search);
+      const code = p.get('code'), state = p.get('state'), error = p.get('error');
+
+      if (error) { history.replaceState({}, '', '/'); renderLogin(p.get('error_description') || error); return; }
+
+      if (code) {
+        const verifier = sessionStorage.getItem('cv'), saved = sessionStorage.getItem('st');
+        history.replaceState({}, '', '/');
+        if (state !== saved) { renderLogin('Säkerhetsfel: ogiltigt state.'); return; }
+        try {
+          const r = await fetch(TOKEN_URL, { method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'authorization_code', client_id: CLIENT_ID,
+              redirect_uri: REDIRECT_URI, code, code_verifier: verifier }) });
+          if (!r.ok) throw new Error(await r.text());
+          const tok = await r.json();
+          sessionStorage.setItem('tok', JSON.stringify({ id_token: tok.id_token }));
+          renderProfile(parseJwt(tok.id_token));
+        } catch(e) { renderLogin('Inloggning misslyckades: ' + e.message); }
+        return;
+      }
+
+      const stored = JSON.parse(sessionStorage.getItem('tok') || 'null');
+      if (stored) {
+        const c = parseJwt(stored.id_token);
+        if (c.exp > Date.now() / 1000) { renderProfile(c); return; }
+        sessionStorage.clear();
+      }
+
+      renderLogin();
+    }
+
+    main().catch(e => { document.getElementById('app').innerHTML = `<div class="error">Fel: ${e.message}</div>`; });
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+dn: cn=IT,ou=groups,dc=sundsvall,dc=se
+objectClass: top
+objectClass: groupOfNames
+cn: IT
+member: uid=anna.svensson,ou=users,dc=sundsvall,dc=se
+
+dn: cn=HR,ou=groups,dc=sundsvall,dc=se
+objectClass: top
+objectClass: groupOfNames
+cn: HR
+member: uid=erik.lindgren,ou=users,dc=sundsvall,dc=se
+
+dn: cn=Administrators,ou=groups,dc=sundsvall,dc=se
+objectClass: top
+objectClass: groupOfNames
+cn: Administrators
+member: uid=anna.svensson,ou=users,dc=sundsvall,dc=se

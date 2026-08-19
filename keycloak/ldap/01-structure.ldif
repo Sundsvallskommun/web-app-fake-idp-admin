@@ -1,0 +1,9 @@
+dn: ou=users,dc=sundsvall,dc=se
+objectClass: top
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=sundsvall,dc=se
+objectClass: top
+objectClass: organizationalUnit
+ou: groups

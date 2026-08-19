@@ -41,11 +41,11 @@ Redigera `.env` för behov, för utveckling bör exempelvärdet fungera.
 
 ```
 cd backend
-cp .env.example.local .env.development.local
-cp .env.example.local .env.test.local
+cp .env.example.kommuninvanare .env.development.kommuninvanare
+cp .env.example.kommuninvanare .env.test.kommuninvanare
 ```
 
-redigera `.env.development.local` för behov. URLer, nycklar och cert behöver fyllas i korrekt.
+redigera `.env.development.kommuninvanare` för behov. URLer, nycklar och cert behöver fyllas i korrekt.
 
 - `CLIENT_KEY` och `CLIENT_SECRET` måste fyllas i för att APIerna ska fungera, du måste ha en applikation från WSO2-portalen som abonnerar på de microtjänster du anropar
 - `SAML_ENTRY_SSO` behöver pekas till en SAML IDP
@@ -79,10 +79,10 @@ Det finns två separata sätt att köra appen, med varsin uppsättning miljöfil
 
 | Sätt att köra | Läser miljövariabler från | Innehåll |
 |---|---|---|
-| `yarn dev` (per paket) | `backend/.env.development.local`, `admin/.env`, osv. (via dotenv) | All konfiguration för utvecklingsläge |
+| `yarn dev` (per paket) | `backend/.env.development.kommuninvanare`, `admin/.env`, osv. (via dotenv) | All konfiguration för utvecklingsläge |
 | `docker compose` | Inline i `docker-compose.yml` + **root** `.env` (endast för `${VAR}`-interpolering) | Stacken är självkonfigurerande; root-`.env` håller **hemligheten** (nyckelparet) samt domän/port-konfig (`BASE_URL` + `*_PORT`) |
 
-Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser aldrig root-`.env`. Den enda hemlighet Docker behöver är ett självsignerat nyckelpar.
+Docker läser alltså **aldrig** `*.env.*.kommuninvanare`-filerna, och `yarn dev` läser aldrig root-`.env`. Den enda hemlighet Docker behöver är ett självsignerat nyckelpar.
 
 ### Steg för steg
 
@@ -92,17 +92,9 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
    cp .env.example .env
    ```
 
-2. Generera ett självsignerat nyckelpar och klistra in i `.env` (en rad vardera, med `\n` som radbrytning – se kommentarerna i `.env.example`):
+   `.env.example` innehåller redan ett **inbakat dev-keypair** – du behöver inte generera ett eget för lokal utveckling. Om du vill byta till ett eget keypair, se kommentarerna i `.env.example` (du måste då även uppdatera `signingCertificate` i `keycloak/realm-export.json`).
 
-   ```
-   openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes -subj "/CN=fake-idp"
-   awk 'NF{printf "%s\\n",$0}' idp.key   # -> SAML_IDP_PRIVATE_KEY
-   awk 'NF{printf "%s\\n",$0}' idp.crt   # -> SAML_IDP_PUBLIC_CERT
-   ```
-
-   Detta **enda** nyckelpar används för båda rollerna: IdP:n signerar assertions med det, och SP:n både litar på certet och signerar sina egna AuthnRequests med det. Det behövs alltså inget separat SP-nyckelpar (`SAML_PRIVATE_KEY`/`SAML_PUBLIC_KEY` återanvänder IdP-nyckelparet i `docker-compose.yml`).
-
-3. Starta stacken:
+2. Starta stacken:
 
    ```
    docker compose up --build
@@ -110,12 +102,65 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 
 ### Portar och adresser
 
-| Tjänst | URL |
-|---|---|
-| Admin-gränssnitt | http://localhost:7001 |
-| Backend-API | http://localhost:7000/api |
-| Swagger | http://localhost:7000/api/api-docs |
-| IdP-inloggningssida | http://localhost:7000/api/saml/idp/login |
+| Tjänst | URL | Inlogg |
+|---|---|---|
+| **Fake IdP admin** | http://kommuninvanarehost:7001 | Skapa via `yarn create-admin` |
+| **Backend-API** | http://kommuninvanarehost:7000/api | — |
+| Swagger | http://kommuninvanarehost:7000/api/api-docs | — |
+| IdP-inloggningssida | http://kommuninvanarehost:7001/api/saml/idp/login | fake-IdP-användare |
+| IdP-metadata (SAML) | http://kommuninvanarehost:7001/api/saml/idp/metadata | — |
+| **Keycloak admin** | http://kommuninvanarehost:7080/admin | admin / admin |
+| Keycloak sessioner — invånare | http://kommuninvanarehost:7080/admin → realm **kommuninvanare** → Sessions | — |
+| Keycloak sessioner — anställda | http://kommuninvanarehost:7080/admin → realm **employees** → Sessions | — |
+| OIDC discovery — invånare | http://kommuninvanarehost:7080/realms/kommuninvanare/.well-known/openid-configuration | — |
+| OIDC discovery — anställda | http://kommuninvanarehost:7080/realms/employees/.well-known/openid-configuration | — |
+| **Medborgarportalen** (BankID-test) | http://kommuninvanarehost:7090 | testuser / test123 (via fake IdP) |
+| **Medarbetarportalen** (AD-test) | http://kommuninvanarehost:7091 | anna.svensson / test123 |
+
+### Testa BankID-inloggningsflödet
+
+Stacken innehåller en enkel medborgarsida (`citizen-app/`) som simulerar en kommunal e-tjänst. Den testar hela kedjan:
+
+```
+Medborgarsida → Keycloak (OIDC) → Fake IdP (simulerar Mobility Guard/BankID) → inloggad
+```
+
+**1. Skapa en testanvändare** (behövs bara en gång — datan överlever omstarter):
+
+```bash
+docker compose exec backend node --input-type=commonjs -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const FMT = 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic';
+prisma.user.create({ data: {
+  name: 'Test User', username: 'testuser', password: 'test123',
+  attributes: { create: [
+    { key: 'givenName',          format: FMT, value: 'Test',                type: 'xs:string' },
+    { key: 'surname',            format: FMT, value: 'User',                type: 'xs:string' },
+    { key: 'email',              format: FMT, value: 'testuser@example.com', type: 'xs:string' },
+    { key: 'citizenIdentifier',  format: FMT, value: '199001011234',         type: 'xs:string' },
+    { key: 'username',           format: FMT, value: 'testuser',             type: 'xs:string' },
+    { key: 'groups',             format: FMT, value: 'admin',                type: 'xs:string' },
+  ]}
+}}).then(u => console.log('Skapad:', u.username)).finally(() => prisma.\$disconnect());
+"
+```
+
+**2. Öppna medborgarsidan:**
+
+```
+http://kommuninvanarehost:7090
+```
+
+**3. Klicka "Logga in med BankID"** → går direkt till fake-IdP:ens inloggningsformulär (ingen Keycloak-mellansida).
+
+**4. Välj `testuser` i listan** (eller skriv in `testuser` / `test123`) → klicka Logga in.
+
+**5. Du är inloggad** — sidan visar namn, personnummer och grupp från JWT:n.
+
+**Verifiera i Keycloak:** `http://kommuninvanarehost:7080/admin` → realm **kommuninvanare** → **Sessions** — där syns den aktiva sessionen.
+
+**Byta till riktig Mobility Guard (staging/prod):** uppdatera `singleSignOnServiceUrl` och `signingCertificate` i `keycloak/realm-export.json`. Medborgarsidan och Keycloak ändras inte.
 
 (Frontend på port 7002 ligger utkommenterad i `docker-compose.yml` – avkommentera tjänsten för att aktivera den.)
 
@@ -123,7 +168,7 @@ Domän och portar är konfigurerbara från root-`.env` och kan ändras **oberoen
 
 | Variabel | Default | Styr |
 |---|---|---|
-| `BASE_URL` | `http://localhost` | Protokoll + värdnamn (utan port, utan avslutande `/`) |
+| `BASE_URL` | `http://kommuninvanarehost` | Protokoll + värdnamn (utan port, utan avslutande `/`) |
 | `BACKEND_PORT` | `7000` | Backendens publicerade host-port |
 | `ADMIN_PORT` | `7001` | Adminens publicerade host-port |
 | `FRONTEND_PORT` | `7002` | Frontendens publicerade host-port |
@@ -171,7 +216,7 @@ Vill du köra Apache istället för den medföljande nginx-proxyn gäller samma 
 
 ```apache
 <VirtualHost *:80>
-    ServerName localhost
+    ServerName kommuninvanarehost
 
     ProxyPreserveHost On
     ProxyRequests Off
@@ -229,7 +274,7 @@ docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d 
 
 Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-party. Det är ren HTTP, så sätt **inte** `X-Forwarded-Proto https` – cookies är icke-`Secure` by design, vilket är rätt här. Verifiera efteråt att `…/idp2/api/saml/idp/metadata` anger `SingleSignOnService` på `http://172.16.124.2/idp2/api/saml/idp/sso` (utan `:7101`), och att adminens nätverksanrop går till `http://172.16.124.2/idp2/api/...`.
 
-**`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`localhost`) istället för klientens, så du hamnar på `http://localhost/idp2/admin/`. Backend påverkas inte (den bygger sina SAML-URL:er från `PUBLIC_ORIGIN`). Behöver en annan app i samma vhost se `localhost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
+**`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`kommuninvanarehost`) istället för klientens, så du hamnar på `http://kommuninvanarehost/idp2/admin/`. Backend påverkas inte (den bygger sina SAML-URL:er från `PUBLIC_ORIGIN`). Behöver en annan app i samma vhost se `kommuninvanarehost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
 
 ### Användardata: import och persistens
 
@@ -241,7 +286,7 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
     # mot Docker-stacken:
     docker compose exec backend yarn create-admin
     ```
-  - Skapa fler användare manuellt i admin-gränssnittet (http://localhost:7001).
+  - Skapa fler användare manuellt i admin-gränssnittet (http://kommuninvanarehost:7001).
   - **Importera en `users.js`-fil:** på användarsidan (`/users`) finns knappen **Importera användare**. Välj din `users.js` (samma format som seed-filen, dvs. en CommonJS-modul som exporterar `{ users }`) så **ersätts hela användartabellen** med filens innehåll.
 - **Datan överlever ombyggnader.** SQLite-databasen ligger på den namngivna Docker-volymen `backend-data` (`/app/data`). Den behålls vid `docker compose up --build` och `docker compose down`, och töms bara om du uttryckligen kör `docker compose down -v`.
 
@@ -249,16 +294,38 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 
 - Övriga värden (CORS-origins, sessionssecret, WSO2-creds m.m.) har dugliga dev-defaults i `docker-compose.yml` och kan överskridas via root-`.env` (se `.env.example`).
 
+## Keycloak – OIDC identity broker
+
+Stacken inkluderar Keycloak som fungerar som OIDC-broker mot fake-IdP:en. Det ger det flöde som används i produktion med Mobility Guard:
+
+```
+App (OIDC) → Keycloak → Fake IdP (SAML, simulerar Mobility Guard/BankID) → inloggad
+```
+
+Realm `kommuninvanare` importeras automatiskt vid första start med fake-IdP:en förkonfigurerad. Det finns en inbyggd test-OIDC-klient (`kommuninvanare-test-client`) och ett `citizen-attributes` client scope som för med sig `citizenIdentifier`, `groups` och `municipalityUsername` i tokens.
+
+### Ansluta en app mot Keycloak (OIDC)
+
+OIDC discovery-URL: `http://kommuninvanarehost:7080/realms/kommuninvanare/.well-known/openid-configuration`
+
+Registrera din klient i Keycloak admin-UI (`http://kommuninvanarehost:7080`, inlogg admin/admin) under realm `kommuninvanare` → Clients → Create. Välj `openid-connect`, konfigurera redirect-URI:er och välj om klienten ska vara publik eller konfidentiell.
+
+### Byta till riktig Mobility Guard (staging/prod)
+
+Uppdatera `singleSignOnServiceUrl` i `keycloak/realm-export.json` till Mobility Guards SSO-URL och byt `signingCertificate` till Mobility Guards cert. Appen som ansluter ändras inte – den pekar alltid på Keycloak.
+
+> **OBS:** `keycloak/realm-export.json` importeras **bara vid första start** (tom databas). Vid ändring: `docker compose down -v keycloak && docker compose up keycloak`
+
 ## SAML IdP
 
 Förutom att agera SAML Service Provider (logga in användare i appen) kan backend även agera fejk-**Identity Provider**: den utfärdar signerade SAML-assertions för användarna i Prisma-databasen och kan därmed ersätta den fristående `web-app-fake-sso-idp`. IdP-endpointerna ligger under `/api/saml/idp/*` (modul: `backend/src/saml-idp/`).
 
 ### Miljövariabler
 
-Lägg till i `backend/.env.development.local` (se även `backend/.env.example.local`). Värden för nycklar/cert anges på en rad med `\n` som radbrytning, precis som övriga SAML-värden.
+Lägg till i `backend/.env.development.kommuninvanare` (se även `backend/.env.example.kommuninvanare`). Värden för nycklar/cert anges på en rad med `\n` som radbrytning, precis som övriga SAML-värden.
 
 - `SAML_IDP_PRIVATE_KEY` — privat nyckel som IdP:n signerar assertions med. **Krävs.**
-- `SAML_IDP_ENTITY_ID` — IdP:ns entityID/Issuer, t.ex. `http://localhost:3001/api/saml/idp/metadata`. Används även för att bygga SSO-URL:en i metadata.
+- `SAML_IDP_ENTITY_ID` — IdP:ns entityID/Issuer, t.ex. `http://kommuninvanarehost:3001/api/saml/idp/metadata`. Används även för att bygga SSO-URL:en i metadata.
 - `SAML_SP_AUDIENCE` — Audience/SPNameQualifier i utfärdade assertions. Faller tillbaka till `SAML_ISSUER` om tom.
 - `SAML_IDP_ENUMERATE_USERS` — `true` visar en användarlista på inloggningssidan, `false` kräver användarnamn/lösenord.
 - `SAML_IDP_PUBLIC_CERT` — (återanvänds) IdP:ns publika cert som motsvarar `SAML_IDP_PRIVATE_KEY`; det är detta cert som Service Providern måste lita på.
@@ -280,7 +347,7 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 
 ### Peka en Service Provider mot IdP:n
 
-Sätt SP:ns `SAML_ENTRY_SSO=http://localhost:3001/api/saml/idp/sso` och låt SP:n lita på IdP:ns cert (`SAML_IDP_PUBLIC_CERT`). En SP kan också konfigureras via `GET /api/saml/idp/metadata`. Appens egen SP-sida kan på så vis logga in mot den egna backend-IdP:n istället för den fristående `web-app-fake-sso-idp`.
+Sätt SP:ns `SAML_ENTRY_SSO=http://kommuninvanarehost:3001/api/saml/idp/sso` och låt SP:n lita på IdP:ns cert (`SAML_IDP_PUBLIC_CERT`). En SP kan också konfigureras via `GET /api/saml/idp/metadata`. Appens egen SP-sida kan på så vis logga in mot den egna backend-IdP:n istället för den fristående `web-app-fake-sso-idp`.
 
 ### Köra IdP:n under en sub-path (t.ex. `foobar.com/myidp`)
 
@@ -317,7 +384,7 @@ Ovanstående gäller backend-nivån (relevant vid `yarn dev` eller när backend 
 
 För språkstöd används [next-i18next](https://github.com/i18next/next-i18next).
 
-Placera dina språkfiler i `frontend/public/locales/<locale>/<namespace>.json`.
+Placera dina språkfiler i `frontend/public/kommuninvanarees/<kommuninvanaree>/<namespace>.json`.
 
 För ytterligare information om språkstöd i `admin` se [Dokumentation om Admin](./admin/README.md)
 
@@ -325,9 +392,9 @@ För att det ska fungera med **Next.js** och **SSR** måste du skicka med språk
 Det gör du genom att lägga till följande till dina page-komponenter (behövs ej i subkomponenter).
 
 ```
-export const getServerSideProps = async ({ locale }) => ({
+export const getServerSideProps = async ({ kommuninvanaree }) => ({
   props: {
-    ...(await serverSideTranslations(locale, [<namespaces>])),
+    ...(await serverSideTranslations(kommuninvanaree, [<namespaces>])),
   },
 });
 ```
@@ -335,14 +402,14 @@ export const getServerSideProps = async ({ locale }) => ({
 För att lägga till ett ytterligare spåk, skapa en mapp med språkets namn, och lägg sedan till språket i `next-i18next.config.js`.
 
 **Exempel för tyska:**
-Skapa `frontend/public/locales/de/common.json`.
+Skapa `frontend/public/kommuninvanarees/de/common.json`.
 Ändra next-i18next.config.js:
 
 ```
 module.exports = {
   i18n: {
     defaultLocale: 'sv',
-    locales: ['sv', 'de'],
+    kommuninvanarees: ['sv', 'de'],
   },
  ...
 };

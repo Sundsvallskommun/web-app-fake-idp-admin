@@ -1,0 +1,198 @@
+{
+  "realm": "kommuninvanare",
+  "displayName": "Kommuninvånare — Sundsvalls kommun",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": true,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+
+  "identityProviders": [
+    {
+      "alias": "fake-idp",
+      "displayName": "Fake IdP (simulerar Mobility Guard / BankID)",
+      "providerId": "saml",
+      "enabled": true,
+      "updateProfileFirstLoginMode": "off",
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "singleSignOnServiceUrl": "http://localhost:7001/api/saml/idp/sso",
+        "singleLogoutServiceUrl": "http://localhost:7001/api/saml/idp/logout",
+        "nameIDPolicyFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+        "principalType": "SUBJECT",
+        "signatureAlgorithm": "RSA_SHA256",
+        "postBindingAuthnRequest": "false",
+        "postBindingResponse": "true",
+        "postBindingLogout": "false",
+        "wantAuthnRequestsSigned": "false",
+        "wantAssertionsSigned": "true",
+        "wantAssertionsEncrypted": "false",
+        "validateSignature": "true",
+        "signingCertificate": "MIICqjCCAZICCQCCB+O5X9MSfDANBgkqhkiG9w0BAQsFADAXMRUwEwYDVQQDDAxmYWtlLWlkcC1kZXYwHhcNMjYwODE4MTE0OTUzWhcNMzYwODE1MTE0OTUzWjAXMRUwEwYDVQQDDAxmYWtlLWlkcC1kZXYwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC59yOT/gfPvnZx07iz50+jH95AzuS4WoRgJhmIuLZWW92bMNUF3YTdMZ/vE7XCaxFt1CoPBo/8hNrbPOehT3kRO7H0TGm0UYyJE4iZiSPebnFWYa41SXvkPMDn9bhfZJh2lLq9gGriknDm9JZ8R+vEVqUnubKxKjuRX+hxmSh7tecG2zyCu594E4A7i41OVvWXTYpyAnzLQ4aAeny3TfgfsN1UUAYDKyyZ7I5aZCBMyigk3Y7SIzEU9B/cJ3apWPp37Ej2BzhXEfIDaVuhbZhdRsv/c1at4ExhrxuNNKhm8yTnnK/J/os4ZtGPgfB1BooIhxaVhTlIM2FX6/Mmo0AbAgMBAAEwDQYJKoZIhvcNAQELBQADggEBALehiY4SvXj6HuFBdYb1tQZALBd1SohdStR/Tug+/j2mZ5KxiG+6V91Zpidd5iL8LdMBrnhTQXPPT0C+2dAli3b+lrg6FpV23wnmTrKntB/TisjuSnHDYoZpRF95RvIVFWz6Wd50eLJ584IJ8nUZUzvBXiFvOC3bbmn2Efif0fJEPVu0kyWnSp3xViDjvd5nhErEdtDfE6UZwtizMy8Ykce5BmyhlTF6+AI7D6qnGkNgGw1GDKDRV6/3C5RN58eHVI50kCKGF/3AvDlDMqV5AoMr1T2WCb4wZshwJcwRKA+AtUCjw8zJj8vb54S6g6oYqonc5Y/JwhaunL7m7BFJpDQ=",
+        "allowCreate": "true",
+        "syncMode": "IMPORT"
+      }
+    }
+  ],
+
+  "identityProviderMappers": [
+    {
+      "name": "email",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "email",
+        "user.attribute": "email"
+      }
+    },
+    {
+      "name": "given-name",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "givenName",
+        "user.attribute": "firstName"
+      }
+    },
+    {
+      "name": "surname",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "surname",
+        "user.attribute": "lastName"
+      }
+    },
+    {
+      "name": "citizenIdentifier",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "citizenIdentifier",
+        "user.attribute": "citizenIdentifier"
+      }
+    },
+    {
+      "name": "username",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "username",
+        "user.attribute": "username"
+      }
+    },
+    {
+      "name": "groups",
+      "identityProviderAlias": "fake-idp",
+      "identityProviderMapper": "saml-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "attribute.name": "groups",
+        "user.attribute": "groups"
+      }
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "citizen-app",
+      "name": "Medborgarportalen (test)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:7090/*"],
+      "webOrigins": ["http://localhost:7090"],
+      "protocol": "openid-connect",
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "defaultClientScopes": ["citizen-attributes"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "local-test-client",
+      "name": "Local Test Client",
+      "description": "Dev OIDC-klient — byt ut mot riktiga klienter i Keycloak-admin",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "protocol": "openid-connect"
+    }
+  ],
+
+  "clientScopes": [
+    {
+      "name": "citizen-attributes",
+      "description": "Sundsvall-specifika SAML-attribut från fake-IdP / Mobility Guard",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "citizenIdentifier",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "citizenIdentifier",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "citizenIdentifier",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "groups-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "username-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "municipalityUsername",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+
+  "defaultDefaultClientScopes": [
+    "citizen-attributes"
+  ]
+}

@@ -1,0 +1,23 @@
+dn: uid=anna.svensson,ou=users,dc=sundsvall,dc=se
+objectClass: top
+objectClass: inetOrgPerson
+uid: anna.svensson
+cn: Anna Svensson
+sn: Svensson
+givenName: Anna
+mail: anna.svensson@sundsvall.se
+userPassword: test123
+title: Systemutvecklare
+departmentNumber: IT
+
+dn: uid=erik.lindgren,ou=users,dc=sundsvall,dc=se
+objectClass: top
+objectClass: inetOrgPerson
+uid: erik.lindgren
+cn: Erik Lindgren
+sn: Lindgren
+givenName: Erik
+mail: erik.lindgren@sundsvall.se
+userPassword: test123
+title: HR-specialist
+departmentNumber: HR
