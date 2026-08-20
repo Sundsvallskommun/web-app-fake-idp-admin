@@ -2,6 +2,7 @@ import { ADMIN_URL, BASE_URL_PREFIX, IDP_MOUNT_PATH, IDP_PATH_PREFIX, IDP_PUBLIC
 import { generateCsrfToken } from '@middlewares/csrf.middleware';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
+import { isValidUrl } from '@utils/util';
 import express, { NextFunction, Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { buildIdpMetadata } from './idp-metadata';
@@ -131,6 +132,18 @@ async function renderLoginPage(req: Request, usersService: IdpUserStore, options
     notice: options?.notice,
   });
 }
+async function endIdentitySession(req: Request, res: Response): Promise<void> {
+  delete req.session.idpIdentityId;
+  await saveSession(req);
+
+  const relayState = req.query.RelayState;
+  if (typeof relayState === 'string' && isValidUrl(relayState)) {
+    res.redirect(303, relayState);
+    return;
+  }
+
+  res.redirect(303, `${LOGIN_URL}?loggedout=1`);
+}
 
 async function renderIdpHome(req: Request, usersService: IdpUserStore): Promise<string> {
   const user = await selectedIdentity(req, usersService);
@@ -201,14 +214,8 @@ export function registerIdpRoutes(app: express.Application, usersService: IdpUse
     }),
   );
 
-  router.post(
-    '/logout',
-    wrap(async (req, res) => {
-      delete req.session.idpIdentityId;
-      await saveSession(req);
-      res.redirect(303, `${LOGIN_URL}?loggedout=1`);
-    }),
-  );
+  router.get('/logout', wrap(endIdentitySession));
+  router.post('/logout', wrap(endIdentitySession));
 
   router.get(
     '/login',

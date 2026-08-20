@@ -8,6 +8,8 @@ import { createResponse } from './response-builder';
 
 vi.mock('@config', () => ({
   ADMIN_URL: '/start',
+  // Krävs av @utils/util som idp.routes importerar isValidUrl från.
+  API_BASE_URL: 'https://api.test',
   BASE_URL_PREFIX: '/api',
   IDP_MOUNT_PATH: '/api/saml/idp',
   IDP_PATH_PREFIX: '',
@@ -141,5 +143,52 @@ describe('Fake IdP test identity session', () => {
 
     expect(response.text).toContain('Välj testidentitet');
     expect(response.text).toContain('service-provider.test');
+  });
+
+  describe('GET /logout (external Service Providers)', () => {
+    // Externa SP:er kan inte hålla en synchronizer-token — GET måste därför fungera
+    // utan CSRF och kunna skicka webbläsaren tillbaka via RelayState.
+    const selectIdentity = async (agent: ReturnType<typeof request.agent>) => {
+      const page = await agent.get('/api/saml/idp/login').expect(200);
+      await agent
+        .post('/api/saml/idp/authenticate')
+        .type('form')
+        .send({ userid: identity.id, _csrf: csrfTokenFrom(page.text) })
+        .expect(303);
+    };
+
+    it('clears the selected identity without a CSRF token', async () => {
+      const agent = request.agent(createApp());
+      await selectIdentity(agent);
+      expect((await agent.get('/api/saml/idp/login').expect(200)).text).toContain('Inloggad som Test Person');
+
+      await agent.get('/api/saml/idp/logout').expect(303).expect('Location', '/api/saml/idp/login?loggedout=1');
+
+      const nextSamlRequest = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
+      expect(nextSamlRequest.text).toContain('Välj testidentitet');
+      expect(nextSamlRequest.text).not.toContain('value="signed-response"');
+    });
+
+    it('redirects back to an absolute RelayState', async () => {
+      const agent = request.agent(createApp());
+      await selectIdentity(agent);
+
+      await agent
+        .get('/api/saml/idp/logout')
+        .query({ RelayState: 'https://service-provider.test/bye' })
+        .expect(303)
+        .expect('Location', 'https://service-provider.test/bye');
+    });
+
+    it('falls back to the IdP login page for a non-absolute RelayState', async () => {
+      const agent = request.agent(createApp());
+      await selectIdentity(agent);
+
+      await agent
+        .get('/api/saml/idp/logout')
+        .query({ RelayState: '/not-absolute' })
+        .expect(303)
+        .expect('Location', '/api/saml/idp/login?loggedout=1');
+    });
   });
 });

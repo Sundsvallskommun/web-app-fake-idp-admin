@@ -326,6 +326,7 @@ class App {
               return next(err);
             }
             delete req.session.idpRequest;
+            delete req.session.idpIdentityId;
             req.session.save(saveErr => {
               if (saveErr) {
                 return next(saveErr);
