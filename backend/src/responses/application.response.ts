@@ -1,4 +1,4 @@
-import ApiResponse from '@/interfaces/api-service.interface';
+import ApiResponse from '@/interfaces/api-response.interface';
 import { Type } from 'class-transformer';
 import { IsArray, IsNumber, IsString, ValidateNested } from 'class-validator';
 

@@ -64,7 +64,6 @@ test('personnummer är maskerat tills ögat används', async ({ page }) => {
   await page.locator('#user-password').fill('test-password');
   await page.locator('#known-citizenIdentifier').fill(citizenIdentifier);
   await page.getByRole('button', { name: 'Spara' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'OK' }).click();
   await page.waitForURL(/\/users\/(?!new$)[^/]+$/);
 
   const citizenIdentifierInput = page.locator('#known-citizenIdentifier');
@@ -81,6 +80,9 @@ test('personnummer är maskerat tills ögat används', async ({ page }) => {
   await expect(citizenIdentifierInput).toHaveValue(citizenIdentifier);
 
   await page.getByRole('button', { name: 'Ta bort' }).click();
+  const removeDialog = page.getByRole('alertdialog');
+  await expect(removeDialog).toBeVisible();
+  await removeDialog.getByRole('button', { name: 'Ta bort' }).click();
   await page.waitForURL('**/users');
 });
 

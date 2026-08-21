@@ -6,10 +6,11 @@
   "properties": {
     "id": "Id",
     "name": "Gruppnamn",
-    "description": "Beskrivning och behörighet",
+    "description": "Beskrivning och avsedd användning",
     "applicationIds": "Applikationer",
     "applications": "Applikationer",
     "userCount": "Testidentiteter"
   },
-  "applicationIds_help": "Välj vilka applikationer medlemskap i gruppen ger access till. Kopplingen är valfri och påverkar inte gruppens SAML-claim."
+  "applicationIds_help": "Välj vilka applikationer medlemskap i gruppen ger access till. Kopplingen är valfri och påverkar inte gruppens SAML-claim.",
+  "remove_confirm": "Gruppen {{name}} tas bort permanent och kopplingen för {{count}} testidentiteter försvinner. Mottagande system avgör själv hur gruppvärdet används."
 }

@@ -47,7 +47,15 @@ export class CreateUserDto {
 }
 
 export class ImportUsersDto {
-  // Raw text of an uploaded `users.js` (a CommonJS module exporting `{ users }`).
+  // Raw text of a versioned JSON backup or a legacy users.js file.
+  @IsString()
+  content: string;
+
+  @IsString()
+  confirmationToken: string;
+}
+
+export class PreviewUsersImportDto {
   @IsString()
   content: string;
 }

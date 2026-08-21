@@ -20,13 +20,14 @@
     "type": "Typ"
   },
   "sections": {
-    "account": "Grunduppgifter",
-    "groups": "Grupper och behörigheter",
+    "account": "Kontouppgifter för testinloggning",
+    "groups": "Grupper i SAML-svaret",
     "known_attributes": "Kända identitetsattribut",
     "custom_attributes": "Egna identitetsattribut",
     "applications": "Applikationer"
   },
-  "known_attributes_help": "Fälten kommer från det befintliga användarunderlaget. Tomma fält skickas inte som SAML-attribut.",
+  "known_attributes_help": "Detta är uppgifterna som mottagande system får i SAML-svaret. Tomma fält skickas inte.",
+  "account_help": "Namn, användarnamn och lösenord används i den lokala testinloggningen. De blir inte automatiskt SAML-attribut.",
   "show_citizen_identifier": "Visa personnummer",
   "hide_citizen_identifier": "Dölj personnummer",
   "reveal_citizen_identifier_error": "Kunde inte visa personnumret",
@@ -71,7 +72,33 @@
   "import": {
     "button": "Importera testidentiteter",
     "success": "{{count}} testidentiteter importerade",
-    "error": "Kunde inte importera testidentiteter"
+    "error": "Kunde inte importera testdata",
+    "confirm_title": "ersätta all testdata?",
+    "confirm_text": "Format: {{format}}. Nuvarande testidentiteter: {{current}}. Efter import: {{incoming}}. ID:n som behålls: {{preserved}}. ID:n som skapas: {{generated}}. ID:n som tas bort: {{removed}}. Grupper i filen: {{groups}} (katalogen {{groupCatalog}}). Applikationer i filen: {{applications}} (katalogen {{applicationCatalog}}). En verifierad återställningsbackup laddas ned och måste bekräftas innan importen startar.",
+    "confirm_button": "förbered import",
+    "formats": {
+      "backup_v1": "versionerad backup v1",
+      "legacy_users_js": "äldre users.js"
+    },
+    "catalog_replaced": "ersätts",
+    "catalog_preserved": "behålls",
+    "recovery_invalid": "Återställningsbackupen kunde inte verifieras. Ingen import har genomförts.",
+    "recovery_title": "är återställningsbackupen sparad?",
+    "recovery_text": "Backupen har validerats och nedladdningen har startats. Kontrollera att filen fake-idp-before-import finns bland dina hämtade filer innan du fortsätter.",
+    "recovery_confirm": "backupen är sparad – starta import"
+  },
+  "assertion_preview": {
+    "title": "SAML-förhandsvisning",
+    "help": "Visar NameID och attribut från den senast sparade testidentiteten. Applikationer är endast filtermetadata och skickas aldrig i SAML-svaret.",
+    "show": "Visa sparat SAML-svar",
+    "unsaved": "Du har osparade ändringar. Förhandsvisningen visar fortfarande den sparade versionen.",
+    "error": "Kunde inte hämta SAML-förhandsvisningen.",
+    "no_attributes": "Inga attribut skickas för testidentiteten.",
+    "masked": "Känsliga värden är maskerade i adminvyn. Det signerade testsvar som skickas till mottagaren använder det sparade originalvärdet."
+  },
+  "remove": {
+    "confirm_title": "ta bort {{name}}?",
+    "confirm_text": "Testidentiteten {{name}} tas bort permanent och kan inte längre användas för testinloggning."
   },
   "export": {
     "button": "Exportera testidentiteter",

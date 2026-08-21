@@ -9,5 +9,6 @@
     "description": "beskrivning",
     "groups": "grupper som ger access",
     "userCount": "testidentiteter"
-  }
+  },
+  "remove_confirm": "Applikationen {{name}} tas bort som filtermetadata och kopplingen för {{count}} testidentiteter försvinner. Inga SAML-attribut påverkas."
 }

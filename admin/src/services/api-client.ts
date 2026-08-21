@@ -1,14 +1,15 @@
 import { Api } from '@data-contracts/backend/Api';
 import { getCsrfToken } from './csrf-service';
-import { handleUnauthorized } from './handle-unauthorized';
+import { AxiosError } from 'axios';
+
+export const AUTH_EXPIRED_EVENT = 'fake-idp-admin-auth-expired';
 
 // NEXT_PUBLIC_API_PATH is the API root path INCLUDING any public sub-path prefix
 // (e.g. "/idp2/api"; "/api" in the default layout). The generated Api methods already
 // hardcode the "/api" segment in every request path, so this client's baseURL must be
 // origin + the PREFIX portion only (everything before the trailing "/api"). Without this,
 // CRUD requests drop the prefix and hit <origin>/api/* instead of <origin>/idp2/api/*
-// when the stack is served under a sub-path. The bespoke api-service.ts layer already
-// handles the prefix via api-url.ts; this brings the generated client in line.
+// when the stack is served under a sub-path.
 const apiPath = process.env.NEXT_PUBLIC_API_PATH ?? '/api';
 const apiPrefix = apiPath.replace(/\/api\/?$/, '');
 
@@ -30,15 +31,13 @@ apiClient.instance.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Samma 401-beteende som api-service. Interceptorn ligger här (inte i den
-// genererade http-client) eftersom allt under data-contracts/ skrivs över av
-// yarn generate:contracts.
-apiClient.instance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error?.response?.status === 401) {
-      handleUnauthorized(error.response?.data?.message);
-    }
-    return Promise.reject(error);
+export const handleApiError = (error: AxiosError) => {
+  if (error.response?.status === 401 && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
   }
-);
+  return Promise.reject(error);
+};
+
+// The generated client is the single transport owner. LoginGuard owns routing
+// when a request reports that the admin session has expired.
+apiClient.instance.interceptors.response.use((response) => response, handleApiError);

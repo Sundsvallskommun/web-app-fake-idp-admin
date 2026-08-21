@@ -17,6 +17,7 @@ import {
   AdminGroupResponse,
   AdminUserListResponse,
   AdminUserResponse,
+  AssertionPreviewResponse,
   CitizenIdentifierResponse,
   CreateApplicationDto,
   CreateGroupDto,
@@ -24,10 +25,12 @@ import {
   ImportUsersDto,
   ImportUsersResponse,
   LoginAdminDto,
+  PreviewUsersImportDto,
   UpdateApplicationDto,
   UpdateGroupDto,
   UpdateUserDto,
   UserApiResponse,
+  UsersImportPreviewResponse,
 } from "./data-contracts";
 import { ContentType, HttpClient, RequestParams } from "./http-client";
 
@@ -100,7 +103,7 @@ export class Api<
    *
    * @tags User
    * @name UserControllerExportUsers
-   * @summary Export all fake-IdP users as a users.js module
+   * @summary Export a complete, versioned JSON backup of fake-IdP data
    * @request GET:/api/users/export
    */
   userControllerExportUsers = (params: RequestParams = {}) =>
@@ -123,6 +126,23 @@ export class Api<
   ) =>
     this.request<CitizenIdentifierResponse, any>({
       path: `/api/users/${id}/citizen-identifier`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags User
+   * @name UserControllerGetAssertionPreview
+   * @summary Preview the saved SAML NameID and attributes with sensitive values masked
+   * @request GET:/api/users/{id}/assertion-preview
+   */
+  userControllerGetAssertionPreview = (
+    id: string,
+    params: RequestParams = {},
+  ) =>
+    this.request<AssertionPreviewResponse, any>({
+      path: `/api/users/${id}/assertion-preview`,
       method: "GET",
       ...params,
     });
@@ -178,8 +198,27 @@ export class Api<
    * No description
    *
    * @tags User
+   * @name UserControllerPreviewImportUsers
+   * @summary Validate and preview a backup or legacy users.js import
+   * @request POST:/api/users/import/preview
+   */
+  userControllerPreviewImportUsers = (
+    data?: PreviewUsersImportDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<UsersImportPreviewResponse, any>({
+      path: `/api/users/import/preview`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags User
    * @name UserControllerImportUsers
-   * @summary Replace all users with the contents of an uploaded users.js file
+   * @summary Replace data from a previously previewed backup or legacy users.js import
    * @request POST:/api/users/import
    */
   userControllerImportUsers = (

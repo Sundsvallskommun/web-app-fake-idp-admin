@@ -1,6 +1,7 @@
 import { EditResource } from '@components/edit-resource/edit-resource.component';
 import { EditorToolbar } from '@components/editor-toolbar/editor-toolbar';
 import LoaderFullScreen from '@components/loader/loader-fullscreen';
+import { ResourceError } from '@components/resource-error/resource-error.component';
 import { defaultInformationFields } from '@config/defaults';
 import resources from '@config/resources';
 import { Resource, ResourceResponse } from '@interfaces/resource';
@@ -15,7 +16,7 @@ import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { capitalize } from '@utils/capitalize';
 
@@ -51,12 +52,13 @@ export const EditAssistant: React.FC = () => {
   const id = _id === 'new' ? undefined : parseInt(_id as string, 10);
 
   const [loaded, setLoaded] = useState<boolean>(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isNew, setIsNew] = useState<boolean>(!id);
   const [navigate, setNavigate] = useState<boolean>(false);
 
   const formdata = getFormattedFields(watch());
 
-  useRouteGuard(isDirty);
+  const { allowNavigation } = useRouteGuard(isDirty);
 
   useEffect(() => {
     setNavigate(false);
@@ -65,23 +67,32 @@ export const EditAssistant: React.FC = () => {
     }
   }, [id]);
 
-  useEffect(() => {
+  const loadResource = useCallback(async () => {
+    setLoaded(false);
+    setLoadFailed(false);
     if (id) {
-      handleGetOne(() => getOne(id)).then((res) => {
+      const res = await handleGetOne(() => getOne(id));
+      if (res) {
         reset(res && toForm ? toForm(res) : res);
         setIsNew(false);
-        setLoaded(true);
-      });
+      } else {
+        setLoadFailed(true);
+      }
     } else {
       reset(defaultValues);
       setIsNew(true);
-      setLoaded(true);
     }
+    setLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, resource]);
+
+  useEffect(() => {
+    void loadResource();
+  }, [loadResource]);
 
   useEffect(() => {
     if (navigate) {
+      allowNavigation();
       router.push(`/${resource}/${formdata?.id}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,33 +104,44 @@ export const EditAssistant: React.FC = () => {
     }
   }, [formdata?.id, isNew, isDirty]);
 
-  const onSubmit = (data: DataType) => {
+  const onSubmit = async (data: DataType) => {
     const createFunc: (data: DataType) => ReturnType<NonNullable<Resource<FieldValues>['create']>> =
       create as NonNullable<Resource<FieldValues>['create']>;
     switch (isNew) {
-      case true:
-        handleCreate(() => createFunc(data as CreateType)).then((res) => {
-          if (res) {
-            reset(toForm ? toForm(res) : res);
-            refresh();
-          }
-        });
+      case true: {
+        const created = await handleCreate(() => createFunc(data as CreateType));
+        if (created) {
+          reset(toForm ? toForm(created) : created);
+          refresh();
+        }
 
         break;
-      case false:
+      }
+      case false: {
         if (id) {
-          handleUpdate(() => update?.(id, data) as ResourceResponse<Partial<FieldValues>>).then((res) => {
-            reset(res && toForm ? toForm(res) : res);
+          const updated = await handleUpdate(() => update?.(id, data) as ResourceResponse<Partial<FieldValues>>);
+          if (updated) {
+            reset(toForm ? toForm(updated) : updated);
             refresh();
-          });
+          }
         }
         break;
+      }
     }
   };
 
-  return !loaded || !resource ?
-      <LoaderFullScreen />
-    : <EditLayout
+  if (!loaded || !resource) return <LoaderFullScreen />;
+
+  if (loadFailed) {
+    return (
+      <EditLayout title={capitalize(t(`${resource}:name_one`))} backLink={`/${resource}`}>
+        <ResourceError resources={t(`${resource}:name_one`)} onRetry={() => void loadResource()} />
+      </EditLayout>
+    );
+  }
+
+  return (
+    <EditLayout
         headerInfo={
           !isNew ?
             <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
@@ -149,10 +171,11 @@ export const EditAssistant: React.FC = () => {
               verktygsraden hamnade svävande och fälten långt ner. */}
           <form className="flex flex-col gap-8 max-w-xl" onSubmit={handleSubmit(onSubmit)}>
             <EditResource resource={resource} isNew={isNew} />
-            <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
+            <EditorToolbar resource={resource} isDirty={isDirty} id={id} allowNavigation={allowNavigation} />
           </form>
         </FormProvider>
-      </EditLayout>;
+    </EditLayout>
+  );
 };
 
 export const getServerSideProps: GetServerSideProps = async ({ locale }) => ({

@@ -70,8 +70,46 @@ export interface CitizenIdentifierResponse {
   message: string;
 }
 
+export interface AssertionPreviewAttribute {
+  key: string;
+  format: string;
+  value: string;
+  type: string;
+}
+
+export interface AssertionPreview {
+  nameId: string;
+  attributes: AssertionPreviewAttribute[];
+}
+
+export interface AssertionPreviewResponse {
+  data: AssertionPreview;
+  message: string;
+}
+
 export interface ImportUsersResult {
   imported: number;
+  format: string;
+}
+
+export interface UsersImportPreview {
+  confirmationToken: string;
+  format: string;
+  currentUserCount: number;
+  incomingUserCount: number;
+  preservedUserIds: number;
+  generatedUserIds: number;
+  removedUserIds: number;
+  groupCount: number;
+  applicationCount: number;
+  replacesGroupCatalog: boolean;
+  replacesApplicationCatalog: boolean;
+  warnings: string[];
+}
+
+export interface UsersImportPreviewResponse {
+  data: UsersImportPreview;
+  message: string;
 }
 
 export interface ImportUsersResponse {
@@ -101,6 +139,11 @@ export interface CreateUserDto {
 }
 
 export interface ImportUsersDto {
+  content: string;
+  confirmationToken: string;
+}
+
+export interface PreviewUsersImportDto {
   content: string;
 }
 

@@ -24,4 +24,5 @@ export interface LocalStorage {
   setLoaded: (resource: ResourceName, loaded: boolean) => void;
   setLoading: (resource: ResourceName, loading: boolean) => void;
   setError: (resource: ResourceName, error: boolean) => void;
+  resetResourceData: () => void;
 }

@@ -74,8 +74,3 @@ model Attribute {
 
   @@index([userId])
 }
-
-model UserSettings {
-  id     Int    @id @default(autoincrement())
-  userId String @unique
-}
