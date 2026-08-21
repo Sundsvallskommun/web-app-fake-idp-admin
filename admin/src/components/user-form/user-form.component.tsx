@@ -150,39 +150,47 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
                   const index = userAttributeDefinitions.indexOf(definition);
                   const help = t(`${definition.labelKey}_help`, { defaultValue: '' });
                   return (
-                    <div key={definition.key} className="flex flex-col gap-1.5 min-w-0">
+                    // The parent grid stretches both fields in a column pair to the
+                    // same height. The flexible help row then absorbs differing copy
+                    // lengths while every control remains anchored to the final row.
+                    <div
+                      key={definition.key}
+                      className="grid min-w-0 grid-rows-[auto_1fr_auto] gap-1.5"
+                    >
                       <Label htmlFor={`known-${definition.key}`}>
                         {capitalize(t(definition.labelKey))}
                         <span className="block text-sm font-normal text-muted-foreground break-words">
                           {definition.key}
                         </span>
                       </Label>
-                      {help && <p className="text-xs text-muted-foreground">{help}</p>}
-                      {definition.key === 'citizenIdentifier' && revealCitizenIdentifier ?
-                        <Controller
-                          control={control}
-                          name={`knownAttributes.${index}.value`}
-                          render={({ field }) => (
-                            <RevealableInput
-                              {...field}
-                              value={field.value ?? ''}
-                              id={`known-${definition.key}`}
-                              autoComplete="off"
-                              placeholder={definition.placeholder}
-                              revealLabel={t('users:show_citizen_identifier')}
-                              concealLabel={t('users:hide_citizen_identifier')}
-                              loadValue={async () => {
-                                const value = await revealCitizenIdentifier();
-                                resetField(`knownAttributes.${index}.value`, { defaultValue: value });
-                              }}
-                            />
-                          )}
-                        />
-                      : <Input
-                          id={`known-${definition.key}`}
-                          placeholder={definition.placeholder}
-                          {...register(`knownAttributes.${index}.value`)}
-                        />}
+                      {help && <p className="row-start-2 text-xs text-muted-foreground">{help}</p>}
+                      <div className="row-start-3">
+                        {definition.key === 'citizenIdentifier' && revealCitizenIdentifier ?
+                          <Controller
+                            control={control}
+                            name={`knownAttributes.${index}.value`}
+                            render={({ field }) => (
+                              <RevealableInput
+                                {...field}
+                                value={field.value ?? ''}
+                                id={`known-${definition.key}`}
+                                autoComplete="off"
+                                placeholder={definition.placeholder}
+                                revealLabel={t('users:show_citizen_identifier')}
+                                concealLabel={t('users:hide_citizen_identifier')}
+                                loadValue={async () => {
+                                  const value = await revealCitizenIdentifier();
+                                  resetField(`knownAttributes.${index}.value`, { defaultValue: value });
+                                }}
+                              />
+                            )}
+                          />
+                        : <Input
+                            id={`known-${definition.key}`}
+                            placeholder={definition.placeholder}
+                            {...register(`knownAttributes.${index}.value`)}
+                          />}
+                      </div>
                     </div>
                   );
                 })}
