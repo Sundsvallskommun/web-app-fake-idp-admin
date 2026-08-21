@@ -13,6 +13,9 @@ const withAccess = {
       },
       orderBy: { name: 'asc' as const },
     },
+    legacyApplicationAccess: {
+      select: { user: { select: { id: true, name: true, username: true } } },
+    },
   },
 } as const;
 
@@ -27,10 +30,16 @@ type ApplicationWithAccess = {
     _count: { users: number };
     users: Array<{ id: string; name: string; username: string }>;
   }>;
+  legacyApplicationAccess: Array<{ user: { id: string; name: string; username: string } }>;
 };
 
 export const toApplication = (application: ApplicationWithAccess) => {
-  const usersById = new Map(application.groups.flatMap(group => group.users).map(user => [user.id, user]));
+  const usersById = new Map(
+    [...application.groups.flatMap(group => group.users), ...application.legacyApplicationAccess.map(access => access.user)].map(user => [
+      user.id,
+      user,
+    ]),
+  );
   const users = [...usersById.values()].sort((left, right) => left.name.localeCompare(right.name, 'sv'));
 
   return {

@@ -12,6 +12,9 @@ const withDetails = {
       include: { applications: { orderBy: { name: 'asc' as const } } },
       orderBy: { name: 'asc' as const },
     },
+    legacyApplicationAccess: {
+      select: { application: true },
+    },
   },
 } as const;
 
@@ -19,17 +22,30 @@ type UserDetails = Prisma.UserGetPayload<typeof withDetails>;
 
 type ApplicationSummary = { id: number; name: string; description: string };
 
-export const applicationsFromGroups = (groups: Array<{ applications: ApplicationSummary[] }>): ApplicationSummary[] =>
-  [...new Map(groups.flatMap(group => group.applications).map(application => [application.id, application])).values()].sort((left, right) =>
-    left.name.localeCompare(right.name, 'sv'),
-  );
+export const applicationsForUser = (
+  groups: Array<{ applications: ApplicationSummary[] }>,
+  legacyApplicationAccess: Array<{ application: ApplicationSummary }>,
+): ApplicationSummary[] =>
+  [
+    ...new Map(
+      [...groups.flatMap(group => group.applications), ...legacyApplicationAccess.map(access => access.application)].map(application => [
+        application.id,
+        application,
+      ]),
+    ).values(),
+  ].sort((left, right) => left.name.localeCompare(right.name, 'sv'));
 
-/** Application access is a read-only projection of the user's groups. */
+/** Application access is the canonical group projection plus persisted legacy
+ * assignments that have not been deliberately reclassified yet. */
 const toUser = (user: UserDetails) => {
-  const applications = applicationsFromGroups(user.groups);
+  const applications = applicationsForUser(user.groups, user.legacyApplicationAccess);
 
   return {
-    ...user,
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    password: user.password,
+    attributes: user.attributes,
     groups: user.groups.map(group => ({
       id: group.id,
       name: group.name,
@@ -48,43 +64,31 @@ type ImportedAccess = {
 export class UnrepresentableApplicationAccessError extends Error {}
 
 /**
- * Convert the legacy per-user application metadata in users.js to the canonical
- * group mappings. The conversion is accepted only when it reproduces every
- * user's application set exactly; otherwise importing would silently grant or
- * remove access.
+ * Preserve only the part of an imported per-user application set that is not
+ * already supplied by the current canonical group mappings. A users.js import
+ * never invents group mappings because the per-user projection contains no
+ * provenance for deciding which group should own an application.
  */
-export const deriveApplicationGroups = (users: ImportedAccess[]): Map<string, string[]> | undefined => {
-  if (!users.some(user => user.applicationNames !== undefined)) {
-    return undefined;
-  }
+export const legacyApplicationsForImport = (
+  users: ImportedAccess[],
+  groups: Array<{ name: string; applications: Array<{ name: string }> }>,
+): Array<string[] | undefined> => {
+  const applicationsByGroup = new Map(groups.map(group => [group.name, new Set(group.applications.map(application => application.name))]));
 
-  const membersByGroup = new Map<string, ImportedAccess[]>();
-  for (const user of users) {
-    for (const groupName of user.groupNames) {
-      membersByGroup.set(groupName, [...(membersByGroup.get(groupName) ?? []), user]);
-    }
-  }
+  return users.map(user => {
+    if (user.applicationNames === undefined) return undefined;
 
-  const applicationsByGroup = new Map<string, string[]>();
-  for (const [groupName, members] of membersByGroup) {
-    const [first, ...rest] = members;
-    const commonApplications = [...new Set(first.applicationNames ?? [])].filter(applicationName =>
-      rest.every(member => new Set(member.applicationNames ?? []).has(applicationName)),
-    );
-    applicationsByGroup.set(groupName, commonApplications);
-  }
-
-  for (const user of users) {
-    const expected = new Set(user.applicationNames ?? []);
-    const derived = new Set(user.groupNames.flatMap(groupName => applicationsByGroup.get(groupName) ?? []));
-    if (expected.size !== derived.size || [...expected].some(applicationName => !derived.has(applicationName))) {
+    const expected = new Set(user.applicationNames);
+    const derived = new Set(user.groupNames.flatMap(groupName => [...(applicationsByGroup.get(groupName) ?? [])]));
+    const unexpected = [...derived].filter(applicationName => !expected.has(applicationName));
+    if (unexpected.length > 0) {
       throw new UnrepresentableApplicationAccessError(
-        `Application assignments for user "${user.username}" cannot be represented through the imported group memberships`,
+        `Application assignments for user "${user.username}" conflict with existing group mappings: ${unexpected.join(', ')}`,
       );
     }
-  }
 
-  return applicationsByGroup;
+    return [...expected].filter(applicationName => !derived.has(applicationName));
+  });
 };
 
 export class UsersService {
@@ -117,6 +121,13 @@ export class UsersService {
           data.groupIds !== undefined
             ? { connect: data.groupIds.map(id => ({ id })) }
             : { connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })) },
+        ...(data.applicationIds === undefined
+          ? {}
+          : {
+              legacyApplicationAccess: {
+                create: data.applicationIds.map(applicationId => ({ application: { connect: { id: applicationId } } })),
+              },
+            }),
       },
       ...withDetails,
     });
@@ -148,6 +159,14 @@ export class UsersService {
                 },
               }
             : {}),
+        ...(data.applicationIds === undefined
+          ? {}
+          : {
+              legacyApplicationAccess: {
+                deleteMany: {},
+                create: data.applicationIds.map(applicationId => ({ application: { connect: { id: applicationId } } })),
+              },
+            }),
       },
       ...withDetails,
     });
@@ -195,14 +214,25 @@ export class UsersService {
         applicationNames: user.applications === undefined ? undefined : [...new Set(user.applications.map(name => name.trim()).filter(Boolean))],
       };
     });
-    const applicationsByGroup = deriveApplicationGroups(importedUsers);
-
     return prisma.$transaction(
       async tx => {
+        const importedGroupNames = [...new Set(importedUsers.flatMap(user => user.groupNames))];
+        const existingGroups = await tx.group.findMany({
+          where: { name: { in: importedGroupNames } },
+          select: { name: true, applications: { select: { name: true } } },
+        });
+        const legacyApplicationsByUser = legacyApplicationsForImport(importedUsers, existingGroups);
+
+        const applicationNames = [...new Set(importedUsers.flatMap(user => user.applicationNames ?? []))];
+        for (const name of applicationNames) {
+          await tx.application.upsert({ where: { name }, create: { name }, update: {} });
+        }
+
         // Clearing users cascades to their attributes.
         await tx.user.deleteMany();
-        for (const imported of importedUsers) {
+        for (const [index, imported] of importedUsers.entries()) {
           const { user, submittedAttributes, groupNames } = imported;
+          const legacyApplicationNames = legacyApplicationsByUser[index];
           await tx.user.create({
             data: {
               name: user.name,
@@ -214,21 +244,15 @@ export class UsersService {
               groups: {
                 connectOrCreate: groupNames.map(name => ({ where: { name }, create: { name } })),
               },
+              ...(legacyApplicationNames === undefined
+                ? {}
+                : {
+                    legacyApplicationAccess: {
+                      create: legacyApplicationNames.map(name => ({ application: { connect: { name } } })),
+                    },
+                  }),
             },
           });
-        }
-
-        if (applicationsByGroup) {
-          const applicationNames = [...new Set([...applicationsByGroup.values()].flat())];
-          for (const name of applicationNames) {
-            await tx.application.upsert({ where: { name }, create: { name }, update: {} });
-          }
-          for (const [groupName, names] of applicationsByGroup) {
-            await tx.group.update({
-              where: { name: groupName },
-              data: { applications: { set: names.map(name => ({ name })) } },
-            });
-          }
         }
         return users.length;
       },

@@ -40,9 +40,9 @@ export function serializeUsersModule(users: UserWithAttributes[]): string {
       attributes: Object.fromEntries(
         attributes.map(attribute => [attribute.key, { format: attribute.format, value: attribute.value, type: attribute.type }]),
       ),
-      // Applikationerna härleds från grupper. Ett explicit fält (även när det är
-      // tomt) gör att importen kan verifiera och återbygga samma access utan en
-      // separat användare–applikation-relation.
+      // Ett explicit fält (även när det är tomt) låter importen verifiera
+      // grupphärledd access och bevara eventuell ännu ej omklassificerad
+      // legacy-access utan att gissa nya gruppkopplingar.
       applications: user.applications.map(application => application.name),
     };
   });

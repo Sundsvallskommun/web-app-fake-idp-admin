@@ -14,6 +14,7 @@ describe('application access projection', () => {
           { id: 1, name: 'editors', description: '', _count: { users: 2 }, users: [anna, berit] },
           { id: 2, name: 'reviewers', description: '', _count: { users: 1 }, users: [anna] },
         ],
+        legacyApplicationAccess: [{ user: berit }],
       }),
     ).toEqual({
       id: 1,

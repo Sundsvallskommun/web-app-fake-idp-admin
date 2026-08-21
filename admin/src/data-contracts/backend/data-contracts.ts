@@ -93,6 +93,11 @@ export interface CreateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
+  /**
+   * @deprecated
+   * @uniqueItems true
+   */
+  applicationIds?: number[];
 }
 
 export interface ImportUsersDto {
@@ -106,6 +111,11 @@ export interface UpdateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
+  /**
+   * @deprecated
+   * @uniqueItems true
+   */
+  applicationIds?: number[];
 }
 
 export interface LoginAdminDto {

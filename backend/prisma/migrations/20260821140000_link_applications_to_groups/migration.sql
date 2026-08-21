@@ -11,25 +11,10 @@ CREATE TABLE "_ApplicationToGroup" (
 CREATE UNIQUE INDEX "_ApplicationToGroup_AB_unique" ON "_ApplicationToGroup"("A", "B");
 CREATE INDEX "_ApplicationToGroup_B_index" ON "_ApplicationToGroup"("B");
 
--- Preserve only direct assignments that can be represented without granting a
--- previously unassigned user access. A group is linked to an application when
--- every current member of that group was directly assigned to the application.
--- Direct assignments without such a group cannot be converted safely and are
--- intentionally left behind when the obsolete join table is removed.
-INSERT OR IGNORE INTO "_ApplicationToGroup" ("A", "B")
-SELECT DISTINCT "applicationUser"."A", "groupUser"."A"
-FROM "_ApplicationToUser" AS "applicationUser"
-JOIN "_GroupToUser" AS "groupUser" ON "groupUser"."B" = "applicationUser"."B"
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM "_GroupToUser" AS "otherGroupUser"
-    WHERE "otherGroupUser"."A" = "groupUser"."A"
-      AND NOT EXISTS (
-          SELECT 1
-          FROM "_ApplicationToUser" AS "otherApplicationUser"
-          WHERE "otherApplicationUser"."A" = "applicationUser"."A"
-            AND "otherApplicationUser"."B" = "otherGroupUser"."B"
-      )
-);
-
-DROP TABLE "_ApplicationToUser";
+-- Existing per-user assignments do not contain enough provenance to infer which
+-- group should own an application. Keep the table as the explicitly modelled
+-- LegacyApplicationAccess relation instead of guessing mappings or dropping
+-- assignments. Runtime projections union these rows with group-derived access,
+-- so existing IdP filtering remains unchanged while administrators migrate the
+-- assignments deliberately. The table may be removed in a later migration only
+-- after an explicit audit proves that it is empty.

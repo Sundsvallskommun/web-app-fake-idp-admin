@@ -14,12 +14,13 @@ datasource db {
 /// A fake-IdP user. NOTE: this is a test/simulator IdP, so `password` is stored
 /// in plain text on purpose — the IdP must be able to replay credentials.
 model User {
-  id         String      @id @default(cuid())
-  name       String
-  username   String
-  password   String
-  attributes Attribute[]
-  groups     Group[]
+  id                      String                    @id @default(cuid())
+  name                    String
+  username                String
+  password                String
+  attributes              Attribute[]
+  groups                  Group[]
+  legacyApplicationAccess LegacyApplicationAccess[]
 }
 
 /// A documented SAML group. Membership is relational; the legacy comma-separated
@@ -34,12 +35,29 @@ model Group {
 
 /// Ansluten testapplikation. Grupper ger access till noll eller flera
 /// applikationer; en användares applikationer härleds från gruppmedlemskapen.
-/// Applikationen är verktygsmetadata och blir aldrig ett SAML-claim.
+/// LegacyApplicationAccess bevarar äldre direkttilldelningar tills de har
+/// klassificerats uttryckligen. Metadata blir aldrig ett SAML-claim.
 model Application {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String  @default("")
-  groups      Group[]
+  id                      Int                       @id @default(autoincrement())
+  name                    String                    @unique
+  description             String                    @default("")
+  groups                  Group[]
+  legacyApplicationAccess LegacyApplicationAccess[]
+}
+
+/// Compatibility owner for persisted per-user assignments created before
+/// application access moved to Group. Writes are limited to legacy users.js
+/// imports and the deprecated applicationIds API adapter. Remove this model only
+/// after those adapters are retired and the mapped table is verified empty.
+model LegacyApplicationAccess {
+  applicationId Int         @map("A")
+  userId        String      @map("B")
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, userId], map: "_ApplicationToUser_AB_unique")
+  @@index([userId], map: "_ApplicationToUser_B_index")
+  @@map("_ApplicationToUser")
 }
 
 /// A single SAML attribute belonging to a user. Keys are free-form (e.g.

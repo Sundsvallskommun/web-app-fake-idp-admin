@@ -1,40 +1,34 @@
-import { applicationsFromGroups, deriveApplicationGroups } from './users.service';
+import { applicationsForUser, legacyApplicationsForImport } from './users.service';
 
 describe('user application access', () => {
   it('derives a sorted, unique application list from all groups', () => {
     const draken = { id: 1, name: 'Draken', description: '' };
     const katla = { id: 2, name: 'Katla', description: '' };
 
-    expect(applicationsFromGroups([{ applications: [katla, draken] }, { applications: [draken] }])).toEqual([draken, katla]);
+    expect(applicationsForUser([{ applications: [katla, draken] }, { applications: [draken] }], [{ application: katla }])).toEqual([draken, katla]);
   });
 });
 
-describe('derived application access during users.js import', () => {
-  it('rebuilds group mappings when they reproduce every user application exactly', () => {
-    const mappings = deriveApplicationGroups([
-      { username: 'anna', groupNames: ['editors'], applicationNames: ['Draken'] },
-      { username: 'berit', groupNames: ['editors', 'reviewers'], applicationNames: ['Draken', 'Katla'] },
-      { username: 'cecilia', groupNames: ['reviewers'], applicationNames: ['Katla'] },
-    ]);
-
-    expect(mappings).toEqual(
-      new Map([
-        ['editors', ['Draken']],
-        ['reviewers', ['Katla']],
-      ]),
+describe('legacy application access during users.js import', () => {
+  it('stores only access that is not already derived from current group mappings', () => {
+    const legacy = legacyApplicationsForImport(
+      [{ username: 'anna', groupNames: ['editors'], applicationNames: ['Draken', 'Katla'] }],
+      [{ name: 'editors', applications: [{ name: 'Draken' }] }],
     );
+
+    expect(legacy).toEqual([['Katla']]);
   });
 
-  it('leaves existing group mappings untouched for legacy imports without application metadata', () => {
-    expect(deriveApplicationGroups([{ username: 'anna', groupNames: ['editors'] }])).toBeUndefined();
+  it('does not create legacy assignments when old imports omit application metadata', () => {
+    expect(legacyApplicationsForImport([{ username: 'anna', groupNames: ['editors'] }], [])).toEqual([undefined]);
   });
 
-  it('rejects direct assignments that group memberships cannot represent', () => {
+  it('rejects imports whose groups would grant access absent from the imported projection', () => {
     expect(() =>
-      deriveApplicationGroups([
-        { username: 'anna', groupNames: ['editors'], applicationNames: ['Draken'] },
-        { username: 'berit', groupNames: ['editors'], applicationNames: [] },
-      ]),
-    ).toThrow('cannot be represented through the imported group memberships');
+      legacyApplicationsForImport(
+        [{ username: 'anna', groupNames: ['editors'], applicationNames: [] }],
+        [{ name: 'editors', applications: [{ name: 'Draken' }] }],
+      ),
+    ).toThrow('conflict with existing group mappings: Draken');
   });
 });
