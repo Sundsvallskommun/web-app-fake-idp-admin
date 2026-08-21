@@ -3,9 +3,8 @@ import { ClientUser } from '@/interfaces/users.interface';
 import { AdminUserListResponse, AdminUserResponse, CitizenIdentifierResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
-import { ApplicationsService } from '@services/applications.service';
 import { GroupsService } from '@services/groups.service';
-import { UsersService } from '@services/users.service';
+import { UnrepresentableApplicationAccessError, UsersService } from '@services/users.service';
 import { CITIZEN_IDENTIFIER_KEY, maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { serializeUsersModule } from '@utils/serialize-users-module';
@@ -18,17 +17,10 @@ import { Request } from 'express';
 export class UserController {
   private users = new UsersService();
   private groups = new GroupsService();
-  private applications = new ApplicationsService();
 
   private async validateGroups(groupIds?: number[]) {
     if (groupIds !== undefined && !(await this.groups.containsAll(groupIds))) {
       throw new HttpException(400, 'One or more groups do not exist');
-    }
-  }
-
-  private async validateApplications(applicationIds?: number[]) {
-    if (applicationIds !== undefined && !(await this.applications.containsAll(applicationIds))) {
-      throw new HttpException(400, 'One or more applications do not exist');
     }
   }
 
@@ -106,7 +98,6 @@ export class UserController {
   @ResponseSchema(AdminUserResponse)
   async createUser(@Body() body: CreateUserDto, @Res() response: any) {
     await this.validateGroups(body.groupIds);
-    await this.validateApplications(body.applicationIds);
     const data = await this.users.createUser(body);
     return response.send({ data: maskUser(data), message: 'success' });
   }
@@ -121,7 +112,15 @@ export class UserController {
     } catch (err) {
       throw new HttpException(400, (err as Error).message);
     }
-    const imported = await this.users.replaceAllUsers(users);
+    let imported: number;
+    try {
+      imported = await this.users.replaceAllUsers(users);
+    } catch (error) {
+      if (error instanceof UnrepresentableApplicationAccessError) {
+        throw new HttpException(400, error.message);
+      }
+      throw error;
+    }
     return response.send({ data: { imported }, message: 'success' });
   }
 
@@ -133,7 +132,6 @@ export class UserController {
       throw new HttpException(404, 'User not found');
     }
     await this.validateGroups(body.groupIds);
-    await this.validateApplications(body.applicationIds);
     const data = await this.users.updateUser(id, body);
     return response.send({ data: maskUser(data), message: 'success' });
   }

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { ArrayUnique, IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateGroupDto {
   @IsString()
@@ -8,6 +8,12 @@ export class CreateGroupDto {
 
   @IsString()
   description: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  applicationIds?: number[];
 }
 
 export class UpdateGroupDto {
@@ -20,4 +26,10 @@ export class UpdateGroupDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  applicationIds?: number[];
 }

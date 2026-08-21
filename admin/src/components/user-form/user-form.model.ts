@@ -1,4 +1,4 @@
-import { AdminUser, AttributeDto, CreateUserDto } from '@data-contracts/backend/data-contracts';
+import { AdminGroup, AdminUser, AttributeDto, CreateUserDto, UserApplication } from '@data-contracts/backend/data-contracts';
 import { SAML_BASIC_FORMAT, userAttributeDefinitions, XML_SCHEMA_STRING } from './user-form.schema';
 
 export type UserFormAttribute = Pick<AttributeDto, 'key' | 'format' | 'value' | 'type'>;
@@ -7,7 +7,6 @@ export type UserForm = Pick<CreateUserDto, 'name' | 'username' | 'password'> & {
   knownAttributes: Array<{ value: string }>;
   customAttributes: UserFormAttribute[];
   groupIds: number[];
-  applicationIds: number[];
 };
 
 export const emptyCustomAttribute = (): UserFormAttribute => ({
@@ -24,8 +23,17 @@ export const createEmptyUserForm = (): UserForm => ({
   knownAttributes: userAttributeDefinitions.map(() => ({ value: '' })),
   customAttributes: [],
   groupIds: [],
-  applicationIds: [],
 });
+
+export const applicationsForGroups = (groups: AdminGroup[], selectedGroupIds: number[]): UserApplication[] =>
+  [
+    ...new Map(
+      groups
+        .filter((group) => selectedGroupIds.includes(group.id))
+        .flatMap((group) => group.applications)
+        .map((application) => [application.id, application])
+    ).values(),
+  ].sort((left, right) => left.name.localeCompare(right.name, 'sv'));
 
 export const userToForm = (user: AdminUser): UserForm => {
   const unmatchedAttributes: UserFormAttribute[] = user.attributes.map(({ key, format, value, type }) => ({
@@ -54,7 +62,6 @@ export const userToForm = (user: AdminUser): UserForm => {
     // editable so loading and saving a user never silently drops them.
     customAttributes: unmatchedAttributes,
     groupIds: user.groups.map((group) => group.id),
-    applicationIds: (user.applications ?? []).map((application) => application.id),
   };
 };
 
@@ -81,6 +88,5 @@ export const userFormToPayload = (form: UserForm): CreateUserDto => {
     password: form.password,
     attributes: [...knownAttributes, ...customAttributes],
     groupIds: form.groupIds,
-    applicationIds: form.applicationIds,
   };
 };

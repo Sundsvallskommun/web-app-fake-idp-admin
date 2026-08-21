@@ -29,4 +29,20 @@ describe('users.js group compatibility', () => {
     // export → import.
     expect(user.applications).toEqual(['draken', 'katla']);
   });
+
+  it('exports an explicit empty application set', () => {
+    const source = serializeUsersModule([
+      {
+        id: 'user-1',
+        name: 'Test Person',
+        username: 'test.person',
+        password: 'test-password',
+        attributes: [],
+        groups: [],
+        applications: [],
+      },
+    ]);
+
+    expect(parseUsersModule(source)[0].applications).toEqual([]);
+  });
 });

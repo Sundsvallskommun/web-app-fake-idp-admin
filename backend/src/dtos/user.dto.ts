@@ -36,12 +36,6 @@ export class CreateUserDto {
   @ArrayUnique()
   @IsInt({ each: true })
   groupIds?: number[];
-
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsInt({ each: true })
-  applicationIds?: number[];
 }
 
 export class ImportUsersDto {
@@ -75,10 +69,4 @@ export class UpdateUserDto {
   @ArrayUnique()
   @IsInt({ each: true })
   groupIds?: number[];
-
-  @IsOptional()
-  @IsArray()
-  @ArrayUnique()
-  @IsInt({ each: true })
-  applicationIds?: number[];
 }

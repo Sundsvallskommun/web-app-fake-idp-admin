@@ -1,6 +1,6 @@
 import { AdminUser } from '@data-contracts/backend/data-contracts';
 import { describe, expect, it } from 'vitest';
-import { createEmptyUserForm, userFormToPayload, userToForm } from './user-form.model';
+import { applicationsForGroups, createEmptyUserForm, userFormToPayload, userToForm } from './user-form.model';
 import { SAML_BASIC_FORMAT, userAttributeDefinitions, XML_SCHEMA_STRING } from './user-form.schema';
 
 const attribute = (id: number, key: string, value: string) => ({
@@ -18,6 +18,18 @@ describe('user form model', () => {
     expect(form).toMatchObject({ name: '', username: '', password: '', customAttributes: [], groupIds: [] });
     expect(form.knownAttributes).toHaveLength(userAttributeDefinitions.length);
     expect(form.knownAttributes.every(({ value }) => value === '')).toBe(true);
+  });
+
+  it('derives unique application access from the selected groups', () => {
+    const draken = { id: 1, name: 'Draken', description: '' };
+    const katla = { id: 2, name: 'Katla', description: '' };
+    const groups = [
+      { id: 7, name: 'editors', description: '', userCount: 1, users: [], applications: [katla, draken] },
+      { id: 8, name: 'reviewers', description: '', userCount: 1, users: [], applications: [draken] },
+      { id: 9, name: 'unselected', description: '', userCount: 0, users: [], applications: [] },
+    ];
+
+    expect(applicationsForGroups(groups, [7, 8])).toEqual([draken, katla]);
   });
 
   it('maps known claims to schema fields and preserves unknown and duplicate claims', () => {
@@ -63,7 +75,6 @@ describe('user form model', () => {
       password: 'secret',
       attributes: [{ key: 'applicationRole', value: 'editor', format: SAML_BASIC_FORMAT, type: XML_SCHEMA_STRING }],
       groupIds: [7],
-      applicationIds: [],
     });
   });
 });

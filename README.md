@@ -246,12 +246,14 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 - **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Skapa testidentiteter manuellt i admin-gränssnittet (http://localhost:7001) eller importera en `users.js`-fil på sidan `/users`. Importen ersätter hela uppsättningen testidentiteter.
 - **Datan överlever ombyggnader.** SQLite-databasen ligger på den namngivna Docker-volymen `backend-data` (`/app/data`). Den behålls vid `docker compose up --build` och `docker compose down`, och töms bara om du uttryckligen kör `docker compose down -v`.
 
-#### Datamodell för användare och grupper
+#### Datamodell för användare, grupper och applikationer
 
 - `User` äger de fasta kontofälten (`name`, `username`, `password`). Övriga SAML-claims lagras som typade `Attribute`-rader. Adminformulärets kända claims definieras i ett gemensamt schema; okända eller egna claims bevaras som anpassade attribut.
 - `Group` är en dokumenterad gruppkatalog med namn och beskrivning. Medlemskap lagras som en många-till-många-relation mellan `User` och `Group`, så grupper kan läggas till eller tas bort från en användare utan att redigera kommaseparerad text.
+- `Application` är katalogen över anslutna testapplikationer. En grupp kan kopplas till noll eller flera applikationer; befintliga och generella grupper behöver därför ingen applikation.
+- En användares applikationsaccess lagras inte separat utan härleds som unionen av applikationerna för användarens grupper. Gruppformuläret äger kopplingen och användarvyn visar resultatet skrivskyddat.
 - En grupp är inte per definition en roll. Konsumerande system avgör om en grupp ger en applikationsroll, beskriver organisationstillhörighet eller bara används i testdata. Dokumentera den betydelsen i gruppens beskrivning.
-- Vid SAML-svar samt import/export av `users.js` adapteras relationen till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken.
+- Vid SAML-svar samt import/export av `users.js` adapteras gruppmedlemskapet till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken. Exporterad applikationsaccess är härledd metadata, aldrig ett SAML-claim; äldre användarbaserad metadata importeras bara när samma access kan uttryckas exakt med grupperna.
 
 ### Noteringar
 

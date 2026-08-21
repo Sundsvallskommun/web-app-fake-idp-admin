@@ -1,17 +1,18 @@
-import { AdminApplication, AdminGroup } from '@data-contracts/backend/data-contracts';
+import { AdminGroup } from '@data-contracts/backend/data-contracts';
+import { ResourcePicker } from '@components/resource-picker/resource-picker.component';
+import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
 import { RevealableInput } from '@components/revealable-input/revealable-input';
 import { ResourceError } from '@components/resource-error/resource-error.component';
-import { ResourcePicker } from './resource-picker.component';
 import { useResource } from '@utils/use-resource';
 import { Loader2, Plus, Trash } from 'lucide-react';
 import NextLink from 'next/link';
-import { Control, Controller, UseFormRegister, UseFormResetField, useFieldArray } from 'react-hook-form';
+import { Control, Controller, UseFormRegister, UseFormResetField, useFieldArray, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { capitalize } from '@utils/capitalize';
-import { emptyCustomAttribute, UserForm } from './user-form.model';
+import { applicationsForGroups, emptyCustomAttribute, UserForm } from './user-form.model';
 import { userAttributeDefinitions, userPropertyDefinitions } from './user-form.schema';
 
 type UserFormFieldsProps = {
@@ -37,14 +38,8 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
     refresh: refreshGroups,
   } = useResource('groups');
   const groups = groupData as AdminGroup[];
-  const {
-    data: applicationData,
-    loaded: applicationsLoaded,
-    loading: applicationsLoading,
-    error: applicationsError,
-    refresh: refreshApplications,
-  } = useResource('applications');
-  const applications = applicationData as AdminApplication[];
+  const selectedGroupIds = useWatch({ control, name: 'groupIds' }) ?? [];
+  const applications = applicationsForGroups(groups, selectedGroupIds);
 
   return (
     <>
@@ -118,36 +113,16 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
           <h2 className="text-xl font-bold mb-0">{capitalize(t('users:sections.applications'))}</h2>
           <p className="text-sm text-muted-foreground mt-1">{t('users:applications_help')}</p>
         </header>
-
-        {applicationsLoading && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
-        {applicationsError && applications.length === 0 && (
-          <ResourceError resources={t('applications:name_many')} onRetry={refreshApplications} />
-        )}
-        {!applicationsError && applicationsLoaded && applications.length === 0 && (
-          <p className="text-muted-foreground">
-            {t('users:no_applications')}{' '}
-            <NextLink href="/applications/new" className="underline">
-              {t('users:create_application')}
-            </NextLink>
-          </p>
-        )}
-        {applications.length > 0 && (
-          <Controller
-            control={control}
-            name="applicationIds"
-            render={({ field }) => (
-              <ResourcePicker
-                items={applications}
-                value={field.value}
-                onChange={field.onChange}
-                idPrefix="application"
-                label={t('users:sections.applications')}
-                searchLabel={t('users:filter_applications')}
-                noMatchLabel={t('users:no_matching_applications')}
-              />
-            )}
-          />
-        )}
+        {applications.length === 0 ?
+          <p className="text-muted-foreground">{t('users:no_application_access')}</p>
+        : <div className="flex flex-wrap gap-2" aria-label={t('users:sections.applications')}>
+            {applications.map((application) => (
+              <Badge key={application.id} variant="secondary">
+                {application.name}
+              </Badge>
+            ))}
+          </div>
+        }
       </section>
 
       <section className="flex flex-col gap-4">
