@@ -164,7 +164,7 @@ export const UserEditPage: React.FC = () => {
           revealCitizenIdentifier={isNew ? undefined : revealCitizenIdentifier}
         />
 
-        {!isNew && id && <AssertionPreview userId={id} hasUnsavedChanges={isDirty} />}
+        {!isNew && id && <AssertionPreview key={`${id}-${formVersion}`} userId={id} hasUnsavedChanges={isDirty} />}
 
         <div className="flex gap-4">
           <Button type="submit" disabled={!isDirty || isSubmitting || deleting}>

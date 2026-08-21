@@ -8,6 +8,7 @@ import DefaultLayout from '@layouts/default-layout/default-layout.component';
 import { Header } from '@layouts/header/header.component';
 import Main from '@layouts/main/main.component';
 import { apiClient } from '@services/api-client';
+import { isCompleteRecoveryBackup } from '@services/users-transfer';
 import { Button } from '@components/ui/button';
 import { Download, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -89,14 +90,23 @@ export const UsersListPage: React.FC = () => {
       const previewResponse = await apiClient.userControllerPreviewImportUsers({ content });
       const preview = previewResponse.data.data;
       const warningText = preview.warnings.length > 0 ? ` ${preview.warnings.join(' ')}` : '';
+      const format =
+        preview.format === 'backup-v1' ? t('users:import.formats.backup_v1') : t('users:import.formats.legacy_users_js');
       const confirmed = await showConfirmation(
         capitalize(t('users:import.confirm_title')),
         `${t('users:import.confirm_text', {
           current: preview.currentUserCount,
           incoming: preview.incomingUserCount,
+          preserved: preview.preservedUserIds,
+          generated: preview.generatedUserIds,
           removed: preview.removedUserIds,
           groups: preview.groupCount,
           applications: preview.applicationCount,
+          format,
+          groupCatalog:
+            preview.replacesGroupCatalog ? t('users:import.catalog_replaced') : t('users:import.catalog_preserved'),
+          applicationCatalog:
+            preview.replacesApplicationCatalog ? t('users:import.catalog_replaced') : t('users:import.catalog_preserved'),
         })}${warningText}`,
         capitalize(t('users:import.confirm_button')),
         capitalize(t('common:close')),
@@ -104,8 +114,25 @@ export const UsersListPage: React.FC = () => {
       );
       if (!confirmed) return;
 
-      // A complete recovery point is downloaded before the destructive request.
-      downloadFile(await fetchBackup(), backupFilename('fake-idp-before-import'));
+      // Parse the generated recovery point through the same backend validation
+      // path before offering it as the rollback artifact.
+      const recoveryContent = await fetchBackup();
+      const recoveryPreviewResponse = await apiClient.userControllerPreviewImportUsers({ content: recoveryContent });
+      if (!isCompleteRecoveryBackup(recoveryPreviewResponse.data.data)) {
+        toast.error(t('users:import.recovery_invalid'));
+        return;
+      }
+
+      downloadFile(recoveryContent, backupFilename('fake-idp-before-import'));
+      const recoveryConfirmed = await showConfirmation(
+        capitalize(t('users:import.recovery_title')),
+        t('users:import.recovery_text'),
+        capitalize(t('users:import.recovery_confirm')),
+        capitalize(t('common:close')),
+        'error'
+      );
+      if (!recoveryConfirmed) return;
+
       const response = await apiClient.userControllerImportUsers({
         content,
         confirmationToken: preview.confirmationToken,

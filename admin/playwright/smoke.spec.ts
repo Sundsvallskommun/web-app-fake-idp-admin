@@ -64,7 +64,6 @@ test('personnummer är maskerat tills ögat används', async ({ page }) => {
   await page.locator('#user-password').fill('test-password');
   await page.locator('#known-citizenIdentifier').fill(citizenIdentifier);
   await page.getByRole('button', { name: 'Spara' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'OK' }).click();
   await page.waitForURL(/\/users\/(?!new$)[^/]+$/);
 
   const citizenIdentifierInput = page.locator('#known-citizenIdentifier');
