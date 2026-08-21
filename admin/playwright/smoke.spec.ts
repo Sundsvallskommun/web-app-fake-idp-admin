@@ -80,6 +80,9 @@ test('personnummer är maskerat tills ögat används', async ({ page }) => {
   await expect(citizenIdentifierInput).toHaveValue(citizenIdentifier);
 
   await page.getByRole('button', { name: 'Ta bort' }).click();
+  const removeDialog = page.getByRole('alertdialog');
+  await expect(removeDialog).toBeVisible();
+  await removeDialog.getByRole('button', { name: 'Ta bort' }).click();
   await page.waitForURL('**/users');
 });
 
