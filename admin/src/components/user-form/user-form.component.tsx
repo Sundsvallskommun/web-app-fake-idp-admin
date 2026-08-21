@@ -49,7 +49,10 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
   return (
     <>
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-bold mb-0">{capitalize(t('users:sections.account'))}</h2>
+        <header>
+          <h2 className="text-xl font-bold mb-0">{capitalize(t('users:sections.account'))}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{t('users:account_help')}</p>
+        </header>
         {userPropertyDefinitions.map((definition) => (
           <div key={definition.key} className="flex flex-col gap-2">
             <Label htmlFor={`user-${definition.key}`}>

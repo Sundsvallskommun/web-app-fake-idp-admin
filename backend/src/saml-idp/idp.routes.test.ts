@@ -9,7 +9,6 @@ import { createResponse } from './response-builder';
 vi.mock('@config', () => ({
   ADMIN_URL: '/start',
   // Krävs av @utils/util som idp.routes importerar isValidUrl från.
-  API_BASE_URL: 'https://api.test',
   BASE_URL_PREFIX: '/api',
   IDP_MOUNT_PATH: '/api/saml/idp',
   IDP_PATH_PREFIX: '',

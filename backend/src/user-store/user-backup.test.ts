@@ -1,0 +1,111 @@
+import { createUserBackup, parseUserImport, serializeUserBackup, USER_BACKUP_SCHEMA_VERSION } from './user-backup';
+
+const storedUser = {
+  id: 'stable-subject',
+  name: 'Test Person',
+  username: 'test.person',
+  password: 'test-password',
+  attributes: [
+    { key: 'role', value: 'editor', format: 'basic', type: 'xs:string' },
+    { key: 'role', value: 'reviewer', format: 'basic', type: 'xs:string' },
+  ],
+  groups: [{ name: 'editors' }],
+  applications: [{ name: 'test-app' }],
+};
+
+describe('versioned user backup', () => {
+  it('round-trips stable ids, duplicate claims and complete catalogues', () => {
+    const source = createUserBackup(
+      [storedUser],
+      [
+        { name: 'editors', description: 'Can edit' },
+        { name: 'empty-group', description: 'Documented but empty' },
+      ],
+      [
+        { name: 'test-app', description: 'Assigned application' },
+        { name: 'empty-app', description: 'Documented but empty' },
+      ],
+      new Date('2026-08-21T10:00:00.000Z'),
+    );
+
+    expect(parseUserImport(serializeUserBackup(source))).toMatchObject({
+      format: 'backup-v1',
+      replacesGroupCatalog: true,
+      replacesApplicationCatalog: true,
+      groups: [{ name: 'editors' }, { name: 'empty-group' }],
+      applications: [{ name: 'empty-app' }, { name: 'test-app' }],
+      users: [
+        {
+          id: 'stable-subject',
+          groups: ['editors'],
+          applications: ['test-app'],
+          attributes: [
+            { key: 'role', value: 'editor' },
+            { key: 'role', value: 'reviewer' },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('rejects unknown schema versions and dangling catalogue references', () => {
+    expect(() =>
+      parseUserImport(
+        JSON.stringify({
+          schemaVersion: USER_BACKUP_SCHEMA_VERSION + 1,
+          exportedAt: new Date().toISOString(),
+          groups: [],
+          applications: [],
+          users: [],
+        }),
+      ),
+    ).toThrow('unsupported backup schema version');
+
+    const invalid = createUserBackup([storedUser], [{ name: 'editors', description: '' }], [], new Date());
+    invalid.users[0].applications = ['missing'];
+    expect(() => parseUserImport(serializeUserBackup(invalid))).toThrow('references unknown application');
+  });
+});
+
+describe('legacy users.js import', () => {
+  it('parses the established CommonJS shape without executing it', () => {
+    const parsed = parseUserImport(`
+      const format = 'basic';
+      const users = [{
+        id: 'legacy-id', name: 'Legacy', username: 'legacy', password: 'secret',
+        applications: ['test-app'],
+        attributes: {
+          givenName: { format, value: 'Legacy', type: 'xs:string' },
+          groups: { format, value: 'editor, reviewer', type: 'xs:string' }
+        }
+      }];
+      module.exports = { users };
+    `);
+
+    expect(parsed).toMatchObject({
+      format: 'legacy-users-js',
+      replacesGroupCatalog: false,
+      replacesApplicationCatalog: false,
+      groups: [{ name: 'editor' }, { name: 'reviewer' }],
+      applications: [{ name: 'test-app' }],
+      users: [{ id: 'legacy-id', groups: ['editor', 'reviewer'], applications: ['test-app'] }],
+    });
+  });
+
+  it('rejects executable expressions', () => {
+    expect(() => parseUserImport('module.exports = { users: getUsers() };')).toThrow('executable or unsupported syntax');
+  });
+
+  it('keeps all users while replacing duplicate legacy ids', () => {
+    const parsed = parseUserImport(
+      JSON.stringify({
+        users: [
+          { id: 'duplicate', name: 'One', username: 'one', password: 'one', attributes: {} },
+          { id: 'duplicate', name: 'Two', username: 'two', password: 'two', attributes: {} },
+        ],
+      }),
+    );
+    expect(parsed.users.map(user => user.id)).toEqual(['duplicate', undefined]);
+    expect(parsed.warnings).toEqual(expect.arrayContaining([expect.stringContaining('Dubblett-ID')]));
+  });
+});

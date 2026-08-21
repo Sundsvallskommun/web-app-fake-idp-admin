@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { IndexController } from '@controllers/index.controller';
+import { HealthController } from '@controllers/health.controller';
 import { localApi } from '@utils/util';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -35,6 +36,15 @@ describe('Testing Index', () => {
       const response = await request(app.getServer()).get(localApi('/'));
 
       expect(response.status).toBe(200);
+    });
+  });
+  describe('[GET] /health/up', () => {
+    it('reports process liveness without calling an external service', async () => {
+      const app = new App([HealthController]);
+      const response = await request(app.getServer()).get(localApi('health/up'));
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'OK' });
     });
   });
 });

@@ -42,10 +42,14 @@ export const useLocalStorage = create(
             resourceData: { ...state.resourceData, [resource]: { ...oldData, error } },
           };
         }),
+      resetResourceData: () => set({ resourceData: {} }),
     }),
     {
       name: `${process.env.NEXT_PUBLIC_APP_NAME}-admin-store`,
       storage: createJSONStorage(() => sessionStorage),
+      // Column preferences may survive a reload; API data belongs to the active
+      // admin session and must always be fetched again.
+      partialize: (state) => ({ ...state, resourceData: {} }),
     }
   )
 );

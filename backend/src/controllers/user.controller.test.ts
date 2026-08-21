@@ -83,3 +83,27 @@ describe('UserController citizen identifier', () => {
     });
   });
 });
+
+describe('UserController assertion preview', () => {
+  it('uses the saved SAML projection while masking sensitive values', async () => {
+    vi.spyOn(UsersService.prototype, 'getUser').mockResolvedValue({
+      ...storedUser,
+      groups: [{ id: 1, name: 'editor', description: '' }],
+    });
+    const response = { send: vi.fn(), setHeader: vi.fn() };
+
+    await new UserController().getAssertionPreview(storedUser.id, response);
+
+    expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    expect(response.send).toHaveBeenCalledWith({
+      data: {
+        nameId: storedUser.id,
+        attributes: expect.arrayContaining([
+          expect.objectContaining({ key: 'citizenIdentifier', value: MASKED_VALUE }),
+          expect.objectContaining({ key: 'groups', value: 'editor' }),
+        ]),
+      },
+      message: 'success',
+    });
+  });
+});

@@ -2,7 +2,7 @@ import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
 import prisma from '@utils/prisma';
 import { groupNamesFromAttributes, withoutGroupAttributes } from '@utils/group-claim';
 import { isMaskedAttributeKey, MASKED_VALUE } from '@utils/mask-user';
-import { ImportUser } from '@utils/parse-users-module';
+import { ParsedUserImport } from '@/user-store/user-backup';
 
 const withDetails = {
   include: {
@@ -93,52 +93,49 @@ export class UsersService {
     return prisma.user.delete({ where: { id } });
   }
 
-  /**
-   * Replace the entire user store with `users` (parsed from an uploaded
-   * users.js). Wraps the wipe + inserts in a transaction so a failure rolls back
-   * and never leaves the store half-empty. Mirrors the prisma seed mapping:
-   * source `id`s are ignored (the test data has duplicates) and the DB assigns a
-   * fresh cuid. Returns the number of users created.
-   */
-  public replaceAllUsers(users: ImportUser[]) {
+  /** Replace the complete store from a validated import document. Versioned
+   * backups replace both catalogues; legacy users.js retains documented entries
+   * and adds names found in the file. The whole operation is one transaction. */
+  public replaceAllUsers(document: ParsedUserImport) {
     return prisma.$transaction(
       async tx => {
-        // Clearing users cascades to their attributes.
+        // Clearing users cascades to attributes and disconnects memberships.
         await tx.user.deleteMany();
-        for (const user of users) {
-          const attributes = user.attributes ?? {};
-          const submittedAttributes = Object.entries(attributes).map(([key, attr]) => ({
-            key,
-            format: attr.format ?? '',
-            value: attr.value ?? '',
-            type: attr.type ?? '',
-          }));
-          const legacyGroups = groupNamesFromAttributes(submittedAttributes);
+
+        if (document.replacesGroupCatalog) {
+          await tx.group.deleteMany();
+          for (const group of document.groups) await tx.group.create({ data: group });
+        } else {
+          for (const group of document.groups) {
+            await tx.group.upsert({ where: { name: group.name }, create: group, update: {} });
+          }
+        }
+
+        if (document.replacesApplicationCatalog) {
+          await tx.application.deleteMany();
+          for (const application of document.applications) await tx.application.create({ data: application });
+        } else {
+          for (const application of document.applications) {
+            await tx.application.upsert({ where: { name: application.name }, create: application, update: {} });
+          }
+        }
+
+        for (const user of document.users) {
           await tx.user.create({
             data: {
+              ...(user.id ? { id: user.id } : {}),
               name: user.name,
               username: user.username,
               password: user.password,
-              attributes: {
-                create: withoutGroupAttributes(submittedAttributes),
-              },
-              groups: {
-                connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
-              },
-              ...(user.applications && user.applications.length > 0
-                ? {
-                    applications: {
-                      connectOrCreate: [...new Set(user.applications)].map(name => ({ where: { name }, create: { name } })),
-                    },
-                  }
-                : {}),
+              attributes: { create: user.attributes },
+              groups: { connect: user.groups.map(name => ({ name })) },
+              applications: { connect: user.applications.map(name => ({ name })) },
             },
           });
         }
-        return users.length;
+        return document.users.length;
       },
-      // Raise the interactive-transaction timeout (default 5s) so importing a
-      // large users.js — many sequential inserts — doesn't roll back midway.
+      // Large imports use sequential writes to keep replacement reviewable and atomic.
       { timeout: 60_000 },
     );
   }

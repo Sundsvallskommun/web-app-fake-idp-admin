@@ -1,4 +1,4 @@
-import ApiResponse from '@/interfaces/api-service.interface';
+import ApiResponse from '@/interfaces/api-response.interface';
 import { ClientUser } from '@/interfaces/users.interface';
 import { Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
@@ -117,10 +117,75 @@ export class CitizenIdentifierResponse implements ApiResponse<CitizenIdentifier>
   message: string;
 }
 
+export class AssertionPreviewAttribute {
+  @IsString()
+  key: string;
+  @IsString()
+  format: string;
+  @IsString()
+  value: string;
+  @IsString()
+  type: string;
+}
+
+export class AssertionPreview {
+  @IsString()
+  nameId: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AssertionPreviewAttribute)
+  attributes: AssertionPreviewAttribute[];
+}
+
+export class AssertionPreviewResponse implements ApiResponse<AssertionPreview> {
+  @ValidateNested()
+  @Type(() => AssertionPreview)
+  data: AssertionPreview;
+  @IsString()
+  message: string;
+}
+
 export class ImportUsersResult {
-  // Number of users created from the uploaded file.
   @IsNumber()
   imported: number;
+  @IsString()
+  format: string;
+}
+
+export class UsersImportPreview {
+  @IsString()
+  confirmationToken: string;
+  @IsString()
+  format: string;
+  @IsNumber()
+  currentUserCount: number;
+  @IsNumber()
+  incomingUserCount: number;
+  @IsNumber()
+  preservedUserIds: number;
+  @IsNumber()
+  generatedUserIds: number;
+  @IsNumber()
+  removedUserIds: number;
+  @IsNumber()
+  groupCount: number;
+  @IsNumber()
+  applicationCount: number;
+  @IsBoolean()
+  replacesGroupCatalog: boolean;
+  @IsBoolean()
+  replacesApplicationCatalog: boolean;
+  @IsArray()
+  @IsString({ each: true })
+  warnings: string[];
+}
+
+export class UsersImportPreviewResponse implements ApiResponse<UsersImportPreview> {
+  @ValidateNested()
+  @Type(() => UsersImportPreview)
+  data: UsersImportPreview;
+  @IsString()
+  message: string;
 }
 
 export class ImportUsersResponse implements ApiResponse<ImportUsersResult> {

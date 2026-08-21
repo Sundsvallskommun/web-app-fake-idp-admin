@@ -1,58 +1,21 @@
-import { PrismaClient } from '@prisma/client';
-import { groupNamesFromAttributes, withoutGroupAttributes } from '../src/utils/group-claim';
+import { UsersService } from '../src/services/users.service';
+import { parseUserImport } from '../src/user-store/user-backup';
+import prisma from '../src/utils/prisma';
+import { readFileSync } from 'fs';
 import path from 'path';
 
-const prisma = new PrismaClient();
-
-type SeedAttribute = { format?: string; value?: string; type?: string };
-type SeedUser = {
-  id?: string;
-  name: string;
-  username: string;
-  password: string;
-  attributes?: Record<string, SeedAttribute>;
-};
-
-// The fake-IdP seed data lives as a CommonJS module at the repo root.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { users } = require(path.join(__dirname, '../../users.js')) as { users: SeedUser[] };
+const usersFile = path.join(__dirname, '../../users.js');
 
 async function main() {
-  // Idempotent reseed: clearing users cascades to their attributes.
-  await prisma.user.deleteMany();
-
-  for (const user of users) {
-    const attributes = user.attributes ?? {};
-    const submittedAttributes = Object.entries(attributes).map(([key, attr]) => ({
-      key,
-      format: attr.format ?? '',
-      value: attr.value ?? '',
-      type: attr.type ?? '',
-    }));
-    const legacyGroups = groupNamesFromAttributes(submittedAttributes);
-    // Source `id`s are unreliable (duplicates in the test data), so we let the
-    // DB assign a fresh cuid and import every user without dropping any.
-    await prisma.user.create({
-      data: {
-        name: user.name,
-        username: user.username,
-        password: user.password,
-        attributes: {
-          create: withoutGroupAttributes(submittedAttributes),
-        },
-        groups: {
-          connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
-        },
-      },
-    });
-  }
-
-  console.log(`Seeded ${users.length} users.`);
+  // Seed and admin import intentionally share one parser and replacement owner.
+  const document = parseUserImport(readFileSync(usersFile, 'utf8'));
+  const imported = await new UsersService().replaceAllUsers(document);
+  console.log(`Seeded ${imported} users.`);
 }
 
 main()
-  .catch(e => {
-    console.error(e);
+  .catch(error => {
+    console.error(error);
     process.exit(1);
   })
   .finally(async () => {

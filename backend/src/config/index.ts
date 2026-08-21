@@ -1,8 +1,4 @@
 import { config } from 'dotenv';
-import { APIS } from './api-config';
-
-export { APIS };
-
 config({ path: `.env.${process.env.NODE_ENV || 'development'}.local` });
 
 export const CREDENTIALS = process.env.CREDENTIALS === 'true';
@@ -15,13 +11,10 @@ export const {
   APP_NAME,
   NODE_ENV,
   PORT,
-  API_BASE_URL,
   LOG_FORMAT,
   LOG_DIR,
   ORIGIN,
   SECRET_KEY,
-  CLIENT_KEY,
-  CLIENT_SECRET,
   BASE_URL_PREFIX,
   SAML_CALLBACK_URL,
   SAML_LOGOUT_CALLBACK_URL,

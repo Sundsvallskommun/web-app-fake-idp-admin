@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import router from 'next/router';
 import { useConfirm } from '@components/confirm/confirm-context';
 import { useTranslation } from 'react-i18next';
@@ -18,36 +18,43 @@ export function useRouteGuard(
     confirmLabel?: string;
     dismissLabel?: string;
   }) => Promise<boolean>;
+  allowNavigation: () => void;
 } {
   const { t } = useTranslation();
   const [active, setActive] = useState<boolean>(false);
+  const activeRef = useRef(false);
   const title = options?.warningTitle || t('common:unsaved_changes');
   const text = options?.warningText || t('common:do_you_want_to_leave');
   const confirmLabel = options?.confirmLabel || undefined;
   const dismissLabel = options?.dismissLabel || undefined;
   const { showConfirmation } = useConfirm();
 
-  useEffect(() => {
-    setActive(showWarning);
-  }, [showWarning]);
+  const setGuardActive = useCallback((value: boolean) => {
+    activeRef.current = value;
+    setActive(value);
+  }, []);
+
+  const allowNavigation = useCallback(() => setGuardActive(false), [setGuardActive]);
+
+  useEffect(() => setGuardActive(showWarning), [setGuardActive, showWarning]);
 
   useEffect(() => {
     const confirmRouterChange = async (url: string) => {
       const confirm = await showConfirmation(title, text, confirmLabel, dismissLabel, 'info');
       if (confirm) {
-        setActive(false);
+        setGuardActive(false);
         router.push(url);
       }
     };
 
     const handleWindowClose = (e: BeforeUnloadEvent) => {
-      if (!active) return;
+      if (!activeRef.current) return;
       e.preventDefault();
       return (e.returnValue = `${title} ${text}`);
     };
 
     const handleBrowseAway = (url: string) => {
-      if (!active) return;
+      if (!activeRef.current) return;
       confirmRouterChange(url);
       router.events.emit('routeChangeError');
       throw 'routing cancelled. Confirm to continue.';
@@ -59,7 +66,7 @@ export function useRouteGuard(
       window.removeEventListener('beforeunload', handleWindowClose);
       router.events.off('routeChangeStart', handleBrowseAway);
     };
-  }, [active, showConfirmation, text, title, confirmLabel, dismissLabel]);
+  }, [active, confirmLabel, dismissLabel, setGuardActive, showConfirmation, text, title]);
 
   async function confirmer(
     options: {
@@ -74,7 +81,7 @@ export function useRouteGuard(
       dismissLabel: dismissLabel,
     }
   ) {
-    if (!active) return true;
+    if (!activeRef.current) return true;
     const confirm = await showConfirmation(
       options.warningTitle,
       options.warningText,
@@ -85,5 +92,5 @@ export function useRouteGuard(
     return confirm;
   }
 
-  return { confirm: confirmer };
+  return { confirm: confirmer, allowNavigation };
 }

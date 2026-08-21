@@ -16,6 +16,21 @@ export interface BuiltResponse {
   relayState?: string;
 }
 
+export interface AssertionData {
+  nameId: string;
+  attributes: Array<{ key: string; format: string; value: string; type: string }>;
+}
+
+/** Canonical projection shared by the signed response and the admin preview. */
+export function assertionDataForUser(user: UserWithAttributes): AssertionData {
+  const groupAttribute = createGroupAttribute(user.groups.map(group => group.name));
+  const attributes = user.attributes.map(({ key, format, value, type }) => ({ key, format, value, type }));
+  return {
+    nameId: user.id,
+    attributes: groupAttribute ? [...attributes, groupAttribute] : attributes,
+  };
+}
+
 // Validity window for the assertion (minutes), matching the original fake-sso-idp.
 const ASSERTION_TTL_MINUTES = 500;
 
@@ -68,8 +83,7 @@ export function createResponse(request: ParsedAuthnRequest, user: UserWithAttrib
   const audience = SAML_SP_AUDIENCE || SAML_ISSUER;
   const sessionIndex = createSessionId();
 
-  const groupAttribute = createGroupAttribute(user.groups.map(group => group.name));
-  const attributes = groupAttribute ? [...user.attributes, groupAttribute] : user.attributes;
+  const assertionData = assertionDataForUser(user);
 
   const xml = buildResponseXml({
     destination: request.destination,
@@ -86,8 +100,8 @@ export function createResponse(request: ParsedAuthnRequest, user: UserWithAttrib
     audience,
     authnInstant: issueInstant,
     sessionIndex,
-    nameId: user.id,
-    attributes,
+    nameId: assertionData.nameId,
+    attributes: assertionData.attributes,
   });
 
   const signedXml = sign(xml);

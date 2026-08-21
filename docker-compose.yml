@@ -30,7 +30,6 @@ services:
   backend:
     build:
       context: ./backend
-    image: fake-idp-backend
     ports:
       - "${BACKEND_PORT:-7000}:3000"
     volumes:
@@ -39,7 +38,6 @@ services:
       NODE_ENV: production
       PORT: "3000"
       BASE_URL_PREFIX: /api
-      API_BASE_URL: https://api-test.sundsvall.se
       # Browser-facing origin. With the same-origin proxy, app traffic is same-origin
       # (CORS not exercised), but this whitelist still gates SAML RelayState validation
       # (isValidOrigin) — so it must contain the proxy origin. Override via ORIGIN in .env.
@@ -49,9 +47,6 @@ services:
       LOG_FORMAT: dev
       LOG_DIR: ../../data/logs
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
-      # WSO2 proxy creds — dummies are fine unless you exercise the upstream APIs.
-      CLIENT_KEY: ${CLIENT_KEY:-dummy}
-      CLIENT_SECRET: ${CLIENT_SECRET:-dummy}
       # SAML Service Provider role (consume). The SP points at our OWN IdP below,
       # so SAML_ENTRY_SSO + SAML_IDP_PUBLIC_CERT are the self-referential link.
       # All browser-facing SAML URLs use the PROXY origin (ADMIN_PORT) so the entire
@@ -105,8 +100,10 @@ services:
         NEXT_PUBLIC_APP_NAME: Fake IdP Admin
         DOMAIN_NAME: localhost
         NEXT_PUBLIC_FEATURE_SHOW_USER_PASSWORDS: "false"
-        HEALTH_AUTH: "false"
-    image: fake-idp-admin
+    environment:
+      HEALTH_AUTH: ${HEALTH_AUTH:-false}
+      HEALTH_USERNAME: ${HEALTH_USERNAME:-}
+      HEALTH_PASSWORD: ${HEALTH_PASSWORD:-}
     # No published port: the admin is reached only through the proxy below.
     expose:
       - "3000"
@@ -159,4 +156,4 @@ volumes:
 # `up --build` / `down` (only `down -v` wipes it). It starts empty (migrations run
 # at startup, but seeding is not wired into Docker) — populate test identities via
 # the admin UI (the proxy on ADMIN_PORT), either by adding them by hand or with the
-# import button on /users, which replaces all test identities from a users.js file.
+# import button on /users, which previews and replaces data from JSON backup or legacy users.js.

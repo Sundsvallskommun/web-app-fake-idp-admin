@@ -7,7 +7,7 @@ import resources from '@config/resources';
 import DefaultLayout from '@layouts/default-layout/default-layout.component';
 import { Header } from '@layouts/header/header.component';
 import Main from '@layouts/main/main.component';
-import { ApiResponse, apiService } from '@services/api-service';
+import { apiClient } from '@services/api-client';
 import { Button } from '@components/ui/button';
 import { Download, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useMemo, useRef, useState } from 'react';
 import { capitalize } from '@utils/capitalize';
+import axios from 'axios';
 
 export const UsersListPage: React.FC = () => {
   const { t } = useTranslation();
@@ -29,7 +30,7 @@ export const UsersListPage: React.FC = () => {
 
   // Trigger a client-side download of `content` as `filename` (no download util exists yet).
   const downloadFile = (content: string, filename: string) => {
-    const url = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -37,6 +38,20 @@ export const UsersListPage: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const backupFilename = (prefix: string) =>
+    `${prefix}-${new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/, 'Z')}.json`;
+
+  const fetchBackup = async () => {
+    const response = await apiClient.instance.get<string>('/api/users/export', { responseType: 'text' });
+    return response.data;
+  };
+
+  const errorMessage = (error: unknown, fallback: string) => {
+    if (!axios.isAxiosError(error)) return fallback;
+    const message = error.response?.data?.message;
+    return typeof message === 'string' ? message : fallback;
   };
 
   // Download the whole user store as a re-importable users.js module.
@@ -52,11 +67,10 @@ export const UsersListPage: React.FC = () => {
     if (!confirmed) return;
     setExporting(true);
     try {
-      const res = await apiService.get<string>('/users/export', { responseType: 'text' });
-      downloadFile(res?.data ?? '', 'exported_users.js');
+      downloadFile(await fetchBackup(), backupFilename('fake-idp-backup'));
       toast.success(t('users:export.success'));
-    } catch {
-      toast.error(t('users:export.error'));
+    } catch (error) {
+      toast.error(errorMessage(error, t('users:export.error')));
     } finally {
       setExporting(false);
     }
@@ -72,11 +86,34 @@ export const UsersListPage: React.FC = () => {
     setImporting(true);
     try {
       const content = await file.text();
-      const res = await apiService.post<ApiResponse<{ imported: number }>>('/users/import', { content });
-      toast.success(t('users:import.success', { count: res?.data?.data?.imported ?? 0 }));
+      const previewResponse = await apiClient.userControllerPreviewImportUsers({ content });
+      const preview = previewResponse.data.data;
+      const warningText = preview.warnings.length > 0 ? ` ${preview.warnings.join(' ')}` : '';
+      const confirmed = await showConfirmation(
+        capitalize(t('users:import.confirm_title')),
+        `${t('users:import.confirm_text', {
+          current: preview.currentUserCount,
+          incoming: preview.incomingUserCount,
+          removed: preview.removedUserIds,
+          groups: preview.groupCount,
+          applications: preview.applicationCount,
+        })}${warningText}`,
+        capitalize(t('users:import.confirm_button')),
+        capitalize(t('common:close')),
+        'error'
+      );
+      if (!confirmed) return;
+
+      // A complete recovery point is downloaded before the destructive request.
+      downloadFile(await fetchBackup(), backupFilename('fake-idp-before-import'));
+      const response = await apiClient.userControllerImportUsers({
+        content,
+        confirmationToken: preview.confirmationToken,
+      });
+      toast.success(t('users:import.success', { count: response.data.data.imported }));
       refresh();
-    } catch {
-      toast.error(t('users:import.error'));
+    } catch (error) {
+      toast.error(errorMessage(error, t('users:import.error')));
     } finally {
       setImporting(false);
     }
@@ -127,7 +164,7 @@ export const UsersListPage: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".js,.json,application/javascript,text/javascript"
+              accept=".json,.js,application/json,application/javascript,text/javascript"
               className="hidden"
               onChange={onImportFile}
             />

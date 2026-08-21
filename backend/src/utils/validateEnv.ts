@@ -5,9 +5,6 @@ const validateEnv = () => {
   cleanEnv(process.env, {
     NODE_ENV: str(),
     SECRET_KEY: str(),
-    API_BASE_URL: str(),
-    CLIENT_KEY: str(),
-    CLIENT_SECRET: str(),
     PORT: port(),
     BASE_URL_PREFIX: str(),
     SAML_CALLBACK_URL: url(),

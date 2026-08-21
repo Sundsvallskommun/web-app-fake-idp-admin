@@ -2,16 +2,22 @@
 
 Backend som agerar både SAML Service Provider och fejk-Identity Provider, med ett konfigdrivet admingränssnitt för att hantera IdP-användare. Avsedd som test-/simulator-IdP och kan ersätta den fristående `web-app-fake-sso-idp`.
 
-## APIer som används
+## Lagring och backup
 
-Dessa APIer används i projektet, applikationsanvändaren i WSO2 måste prenumerera på dessa.
-Systemet utgår ifrån [api-config.ts](./backend/src/config/api-config.ts)/backend/api-config.ts där dessa står specificerade.
+Testidentiteter, attribut, grupper och applikationsmetadata lagras i SQLite via
+Prisma. Docker använder den namngivna volymen `backend-data`, som överlever både
+ombyggnad och `docker compose down`. Endast `docker compose down -v` tar bort den.
+
+Adminpanelen kan exportera en komplett, versionshanterad JSON-backup. Importen
+förhandsgranskas, kräver bekräftelse och laddar ned en återställningsbackup innan
+data ersätts. Äldre `users.js` stöds som importformat och tolkas utan att koden
+exekveras.
 
 ## Utveckling
 
 ### Krav
 
-- Node >= 20 LTS
+- Node 24
 - Yarn
 
 ### Steg för steg
@@ -47,7 +53,6 @@ cp .env.example.local .env.test.local
 
 redigera `.env.development.local` för behov. URLer, nycklar och cert behöver fyllas i korrekt.
 
-- `CLIENT_KEY` och `CLIENT_SECRET` måste fyllas i för att APIerna ska fungera, du måste ha en applikation från WSO2-portalen som abonnerar på de microtjänster du anropar
 - `SAML_ENTRY_SSO` behöver pekas till en SAML IDP
 - `SAML_IDP_PUBLIC_CERT` ska stämma överens med IDPens cert
 - `SAML_PRIVATE_KEY` och `SAML_PUBLIC_KEY` behöver bara fyllas i korrekt om man kör mot en riktig IDP
@@ -60,14 +65,10 @@ yarn prisma:generate
 yarn prisma:migrate
 ```
 
-5. Synca datamodeller för api:er
+5. Synka adminens API-kontrakt
 
-   Se till att README och /backend/src/config/api-config.ts matchar och justera utefter de api:er som önskas användas.
-   - För backend, i /backend kör `yarn generate:contracts` för att få ned de senaste datamodellerna för samtliga api:er
-     -- Justera om så behövs utifrån de uppdaterade modellerna
-
-   - För frontend, se till att backend är igång (`yarn dev`), i /frontend kör `yarn generate:contracts` för att synca backend med frontend
-     -- Justera om så behövs utifrån de uppdaterade modellerna
+   Starta backend (`yarn dev`) och kör sedan `yarn generate:contracts` i
+   `admin/`. Kontrakten genereras från backendens OpenAPI-dokument.
 
 ## Köra hela stacken med Docker Compose
 
@@ -214,7 +215,7 @@ Vill du köra Apache istället för den medföljande nginx-proxyn gäller samma 
     ProxyPassReverse /idp2/admin http://<admin>:3000/idp2/admin
 ```
 
-`ProxyPass` matchar **första träff**, så lägg dessa **före** en ev. bredare regel (t.ex. en `/`-catch-all). Lägg **inte** en bred `/idp2`-regel före `/idp2/admin` – då fångas admin-trafiken av fel regel. `users.js`-importen postar filen som en JSON-body; Apache har ingen storleksgräns på proxyade requests by default, men har du satt `LimitRequestBody` globalt behöver vägen tillåta minst ~10 MB (`LimitRequestBody 10485760`).
+`ProxyPass` matchar **första träff**, så lägg dessa **före** en ev. bredare regel (t.ex. en `/`-catch-all). Lägg **inte** en bred `/idp2`-regel före `/idp2/admin` – då fångas admin-trafiken av fel regel. Backupimporten postar filen som en JSON-body; Apache har ingen storleksgräns på proxyade requests by default, men har du satt `LimitRequestBody` globalt behöver vägen tillåta minst ~10 MB (`LimitRequestBody 10485760`).
 
 #### Bakom en egen proxy utan domän/TLS (t.ex. åtkomst via IP)
 
@@ -243,7 +244,7 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 ### Testidentiteter: import och persistens
 
 - **Adminkontot ligger inte i databasen.** Det konfigureras med miljövariabler och kan därför användas även när databasen är tom.
-- **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Skapa testidentiteter manuellt i admin-gränssnittet (http://localhost:7001) eller importera en `users.js`-fil på sidan `/users`. Importen ersätter hela uppsättningen testidentiteter.
+- **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Skapa testidentiteter manuellt i admin-gränssnittet (http://localhost:7001) eller importera en JSON-backup/äldre `users.js` på sidan `/users`.
 - **Datan överlever ombyggnader.** SQLite-databasen ligger på den namngivna Docker-volymen `backend-data` (`/app/data`). Den behålls vid `docker compose up --build` och `docker compose down`, och töms bara om du uttryckligen kör `docker compose down -v`.
 
 #### Datamodell för användare och grupper
@@ -251,11 +252,11 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 - `User` äger de fasta kontofälten (`name`, `username`, `password`). Övriga SAML-claims lagras som typade `Attribute`-rader. Adminformulärets kända claims definieras i ett gemensamt schema; okända eller egna claims bevaras som anpassade attribut.
 - `Group` är en dokumenterad gruppkatalog med namn och beskrivning. Medlemskap lagras som en många-till-många-relation mellan `User` och `Group`, så grupper kan läggas till eller tas bort från en användare utan att redigera kommaseparerad text.
 - En grupp är inte per definition en roll. Konsumerande system avgör om en grupp ger en applikationsroll, beskriver organisationstillhörighet eller bara används i testdata. Dokumentera den betydelsen i gruppens beskrivning.
-- Vid SAML-svar samt import/export av `users.js` adapteras relationen till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken.
+- I SAML-svar samt vid import av äldre `users.js` adapteras relationen till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken.
 
 ### Noteringar
 
-- Övriga värden (CORS-origins, sessionssecret, WSO2-creds m.m.) har dugliga dev-defaults i `docker-compose.yml` och kan överskridas via root-`.env` (se `.env.example`).
+- Övriga värden (CORS-origins, sessionssecret och adminuppgifter) har dev-defaults i `docker-compose.yml` och kan överskridas via root-`.env` (se `.env.example`).
 
 ## SAML IdP
 

@@ -1,14 +1,22 @@
 import { HttpException } from '@/exceptions/HttpException';
 import { ClientUser } from '@/interfaces/users.interface';
-import { AdminUserListResponse, AdminUserResponse, CitizenIdentifierResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
-import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
+import {
+  AdminUserListResponse,
+  AdminUserResponse,
+  AssertionPreviewResponse,
+  CitizenIdentifierResponse,
+  ImportUsersResponse,
+  UserApiResponse,
+  UsersImportPreviewResponse,
+} from '@/responses/user.response';
+import { assertionDataForUser } from '@/saml-idp/response-builder';
+import { CreateUserDto, ImportUsersDto, PreviewUsersImportDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
 import { ApplicationsService } from '@services/applications.service';
 import { GroupsService } from '@services/groups.service';
+import { ImportConfirmationError, UsersTransferService } from '@services/users-transfer.service';
 import { UsersService } from '@services/users.service';
 import { CITIZEN_IDENTIFIER_KEY, maskUser } from '@utils/mask-user';
-import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
-import { serializeUsersModule } from '@utils/serialize-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { Request } from 'express';
@@ -19,6 +27,7 @@ export class UserController {
   private users = new UsersService();
   private groups = new GroupsService();
   private applications = new ApplicationsService();
+  private transfers = new UsersTransferService();
 
   private async validateGroups(groupIds?: number[]) {
     if (groupIds !== undefined && !(await this.groups.containsAll(groupIds))) {
@@ -62,15 +71,11 @@ export class UserController {
   // Must be declared BEFORE `getUser` (`/users/:id`): GET routes match in declaration
   // order, so `:id` would otherwise capture the literal "export".
   @Get('/users/export')
-  @OpenAPI({ summary: 'Export all fake-IdP users as a users.js module' })
+  @OpenAPI({ summary: 'Export a complete, versioned JSON backup of fake-IdP data' })
   async exportUsers(@Res() response: any) {
-    // Intentionally bypasses `maskUser` (unlike the other user responses): the export is a
-    // faithful, re-importable backup, so it carries the real attribute values. See
-    // serialize-users-module.ts.
-    const data = await this.users.getUsers();
-    const file = serializeUsersModule(data);
-    response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    response.setHeader('Content-Disposition', 'attachment; filename="exported_users.js"');
+    const file = await this.transfers.exportUsers();
+    response.setHeader('Content-Type', 'application/json; charset=utf-8');
+    response.setHeader('Content-Disposition', 'attachment; filename="fake-idp-backup.json"');
     return response.send(file);
   }
 
@@ -88,6 +93,18 @@ export class UserController {
     const value = user.attributes.find(attribute => attribute.key === CITIZEN_IDENTIFIER_KEY)?.value ?? '';
     response.setHeader('Cache-Control', 'no-store');
     return response.send({ data: { value }, message: 'success' });
+  }
+
+  @Get('/users/:id/assertion-preview')
+  @OpenAPI({ summary: 'Preview the saved SAML NameID and attributes with sensitive values masked' })
+  @ResponseSchema(AssertionPreviewResponse)
+  async getAssertionPreview(@Param('id') id: string, @Res() response: any) {
+    const user = await this.users.getUser(id);
+    if (!user) {
+      throw new HttpException(404, 'User not found');
+    }
+    response.setHeader('Cache-Control', 'no-store');
+    return response.send({ data: assertionDataForUser(maskUser(user)), message: 'success' });
   }
 
   @Get('/users/:id')
@@ -111,18 +128,30 @@ export class UserController {
     return response.send({ data: maskUser(data), message: 'success' });
   }
 
+  @Post('/users/import/preview')
+  @OpenAPI({ summary: 'Validate and preview a backup or legacy users.js import' })
+  @ResponseSchema(UsersImportPreviewResponse)
+  async previewImportUsers(@Body() body: PreviewUsersImportDto, @Res() response: any) {
+    try {
+      return response.send({ data: await this.transfers.previewImport(body.content), message: 'success' });
+    } catch (error) {
+      throw new HttpException(400, (error as Error).message);
+    }
+  }
+
   @Post('/users/import')
-  @OpenAPI({ summary: 'Replace all users with the contents of an uploaded users.js file' })
+  @OpenAPI({ summary: 'Replace data from a previously previewed backup or legacy users.js import' })
   @ResponseSchema(ImportUsersResponse)
   async importUsers(@Body() body: ImportUsersDto, @Res() response: any) {
-    let users: ImportUser[];
     try {
-      users = parseUsersModule(body.content);
-    } catch (err) {
-      throw new HttpException(400, (err as Error).message);
+      return response.send({
+        data: await this.transfers.importUsers(body.content, body.confirmationToken),
+        message: 'success',
+      });
+    } catch (error) {
+      if (error instanceof ImportConfirmationError) throw new HttpException(409, error.message);
+      throw new HttpException(400, (error as Error).message);
     }
-    const imported = await this.users.replaceAllUsers(users);
-    return response.send({ data: { imported }, message: 'success' });
   }
 
   @Put('/users/:id')

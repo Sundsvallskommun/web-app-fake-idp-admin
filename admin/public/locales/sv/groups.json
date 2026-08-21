@@ -6,7 +6,8 @@
   "properties": {
     "id": "Id",
     "name": "Gruppnamn",
-    "description": "Beskrivning och behörighet",
+    "description": "Beskrivning och avsedd användning",
     "userCount": "Testidentiteter"
-  }
+  },
+  "remove_confirm": "Gruppen {{name}} tas bort permanent och kopplingen för {{count}} testidentiteter försvinner. Mottagande system avgör själv hur gruppvärdet används."
 }
