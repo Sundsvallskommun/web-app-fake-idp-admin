@@ -1,5 +1,6 @@
 /* eslint-disable */
 /* tslint:disable */
+// @ts-nocheck
 /*
  * ---------------------------------------------------------------
  * ## THIS FILE WAS GENERATED VIA SWAGGER-TYPESCRIPT-API        ##
@@ -10,29 +11,28 @@
  */
 
 import {
+  AdminApplicationListResponse,
+  AdminApplicationResponse,
+  AdminGroupListResponse,
+  AdminGroupResponse,
   AdminUserListResponse,
   AdminUserResponse,
+  CreateApplicationDto,
+  CreateGroupDto,
   CreateUserDto,
+  ImportUsersDto,
+  ImportUsersResponse,
+  LoginAdminDto,
+  UpdateApplicationDto,
+  UpdateGroupDto,
   UpdateUserDto,
   UserApiResponse,
-} from './data-contracts';
-import { ContentType, HttpClient, RequestParams } from './http-client';
+} from "./data-contracts";
+import { ContentType, HttpClient, RequestParams } from "./http-client";
 
-export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType> {
-  /**
-   * No description
-   *
-   * @tags Health
-   * @name HealthControllerUp
-   * @summary Return health check
-   * @request GET:/api/health/up
-   */
-  healthControllerUp = (params: RequestParams = {}) =>
-    this.request<void, any>({
-      path: `/api/health/up`,
-      method: 'GET',
-      ...params,
-    });
+export class Api<
+  SecurityDataType = unknown,
+> extends HttpClient<SecurityDataType> {
   /**
    * No description
    *
@@ -44,7 +44,7 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   indexControllerIndex = (params: RequestParams = {}) =>
     this.request<void, any>({
       path: `/api/`,
-      method: 'GET',
+      method: "GET",
       ...params,
     });
   /**
@@ -58,7 +58,7 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   userControllerGetMe = (params: RequestParams = {}) =>
     this.request<UserApiResponse, any>({
       path: `/api/me`,
-      method: 'GET',
+      method: "GET",
       ...params,
     });
   /**
@@ -72,7 +72,7 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   userControllerGetUsers = (params: RequestParams = {}) =>
     this.request<AdminUserListResponse, any>({
       path: `/api/users`,
-      method: 'GET',
+      method: "GET",
       ...params,
     });
   /**
@@ -83,12 +83,29 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
    * @summary Create a fake-IdP user
    * @request POST:/api/users
    */
-  userControllerCreateUser = (data?: CreateUserDto, params: RequestParams = {}) =>
+  userControllerCreateUser = (
+    data?: CreateUserDto,
+    params: RequestParams = {},
+  ) =>
     this.request<AdminUserResponse, any>({
       path: `/api/users`,
-      method: 'POST',
+      method: "POST",
       body: data,
       type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags User
+   * @name UserControllerExportUsers
+   * @summary Export all fake-IdP users as a users.js module
+   * @request GET:/api/users/export
+   */
+  userControllerExportUsers = (params: RequestParams = {}) =>
+    this.request<void, any>({
+      path: `/api/users/export`,
+      method: "GET",
       ...params,
     });
   /**
@@ -102,7 +119,7 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   userControllerGetUser = (id: string, params: RequestParams = {}) =>
     this.request<AdminUserResponse, any>({
       path: `/api/users/${id}`,
-      method: 'GET',
+      method: "GET",
       ...params,
     });
   /**
@@ -113,10 +130,14 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
    * @summary Update a fake-IdP user
    * @request PUT:/api/users/{id}
    */
-  userControllerUpdateUser = (id: string, data?: UpdateUserDto, params: RequestParams = {}) =>
+  userControllerUpdateUser = (
+    id: string,
+    data?: UpdateUserDto,
+    params: RequestParams = {},
+  ) =>
     this.request<AdminUserResponse, any>({
       path: `/api/users/${id}`,
-      method: 'PUT',
+      method: "PUT",
       body: data,
       type: ContentType.Json,
       ...params,
@@ -132,7 +153,241 @@ export class Api<SecurityDataType = unknown> extends HttpClient<SecurityDataType
   userControllerRemoveUser = (id: string, params: RequestParams = {}) =>
     this.request<void, any>({
       path: `/api/users/${id}`,
-      method: 'DELETE',
+      method: "DELETE",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags User
+   * @name UserControllerImportUsers
+   * @summary Replace all users with the contents of an uploaded users.js file
+   * @request POST:/api/users/import
+   */
+  userControllerImportUsers = (
+    data?: ImportUsersDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<ImportUsersResponse, any>({
+      path: `/api/users/import`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Health
+   * @name HealthControllerUp
+   * @summary Return health check
+   * @request GET:/api/health/up
+   */
+  healthControllerUp = (params: RequestParams = {}) =>
+    this.request<void, any>({
+      path: `/api/health/up`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Admin Auth
+   * @name AdminAuthControllerLogin
+   * @summary Sign in to the admin panel with the configured operator account
+   * @request POST:/api/admin-auth/login
+   */
+  adminAuthControllerLogin = (
+    data?: LoginAdminDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<UserApiResponse, any>({
+      path: `/api/admin-auth/login`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Admin Auth
+   * @name AdminAuthControllerLogout
+   * @summary Sign out from the admin panel
+   * @request POST:/api/admin-auth/logout
+   */
+  adminAuthControllerLogout = (params: RequestParams = {}) =>
+    this.request<void, any>({
+      path: `/api/admin-auth/logout`,
+      method: "POST",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Group
+   * @name GroupControllerGetGroups
+   * @summary List documented SAML groups
+   * @request GET:/api/groups
+   */
+  groupControllerGetGroups = (params: RequestParams = {}) =>
+    this.request<AdminGroupListResponse, any>({
+      path: `/api/groups`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Group
+   * @name GroupControllerCreateGroup
+   * @summary Create a documented SAML group
+   * @request POST:/api/groups
+   */
+  groupControllerCreateGroup = (
+    data?: CreateGroupDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminGroupResponse, any>({
+      path: `/api/groups`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Group
+   * @name GroupControllerGetGroup
+   * @summary Return a documented SAML group
+   * @request GET:/api/groups/{id}
+   */
+  groupControllerGetGroup = (id: number, params: RequestParams = {}) =>
+    this.request<AdminGroupResponse, any>({
+      path: `/api/groups/${id}`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Group
+   * @name GroupControllerUpdateGroup
+   * @summary Update a documented SAML group
+   * @request PUT:/api/groups/{id}
+   */
+  groupControllerUpdateGroup = (
+    id: number,
+    data?: UpdateGroupDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminGroupResponse, any>({
+      path: `/api/groups/${id}`,
+      method: "PUT",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Group
+   * @name GroupControllerRemoveGroup
+   * @summary Delete a documented SAML group and its memberships
+   * @request DELETE:/api/groups/{id}
+   */
+  groupControllerRemoveGroup = (id: number, params: RequestParams = {}) =>
+    this.request<void, any>({
+      path: `/api/groups/${id}`,
+      method: "DELETE",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Application
+   * @name ApplicationControllerGetApplications
+   * @summary List connected test applications
+   * @request GET:/api/applications
+   */
+  applicationControllerGetApplications = (params: RequestParams = {}) =>
+    this.request<AdminApplicationListResponse, any>({
+      path: `/api/applications`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Application
+   * @name ApplicationControllerCreateApplication
+   * @summary Create a connected test application
+   * @request POST:/api/applications
+   */
+  applicationControllerCreateApplication = (
+    data?: CreateApplicationDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminApplicationResponse, any>({
+      path: `/api/applications`,
+      method: "POST",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Application
+   * @name ApplicationControllerGetApplication
+   * @summary Return a connected test application
+   * @request GET:/api/applications/{id}
+   */
+  applicationControllerGetApplication = (
+    id: number,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminApplicationResponse, any>({
+      path: `/api/applications/${id}`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Application
+   * @name ApplicationControllerUpdateApplication
+   * @summary Update a connected test application
+   * @request PUT:/api/applications/{id}
+   */
+  applicationControllerUpdateApplication = (
+    id: number,
+    data?: UpdateApplicationDto,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminApplicationResponse, any>({
+      path: `/api/applications/${id}`,
+      method: "PUT",
+      body: data,
+      type: ContentType.Json,
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Application
+   * @name ApplicationControllerRemoveApplication
+   * @summary Delete a connected test application and its memberships
+   * @request DELETE:/api/applications/{id}
+   */
+  applicationControllerRemoveApplication = (
+    id: number,
+    params: RequestParams = {},
+  ) =>
+    this.request<AdminApplicationResponse, any>({
+      path: `/api/applications/${id}`,
+      method: "DELETE",
       ...params,
     });
 }

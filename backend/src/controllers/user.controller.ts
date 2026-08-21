@@ -1,26 +1,42 @@
 import { HttpException } from '@/exceptions/HttpException';
-import { RequestWithUser } from '@/interfaces/auth.interface';
 import { ClientUser } from '@/interfaces/users.interface';
 import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
+import { ApplicationsService } from '@services/applications.service';
+import { GroupsService } from '@services/groups.service';
 import { UsersService } from '@services/users.service';
 import { maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { serializeUsersModule } from '@utils/serialize-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { Request } from 'express';
 
 @Controller()
 @UseBefore(authMiddleware)
 export class UserController {
   private users = new UsersService();
+  private groups = new GroupsService();
+  private applications = new ApplicationsService();
+
+  private async validateGroups(groupIds?: number[]) {
+    if (groupIds !== undefined && !(await this.groups.containsAll(groupIds))) {
+      throw new HttpException(400, 'One or more groups do not exist');
+    }
+  }
+
+  private async validateApplications(applicationIds?: number[]) {
+    if (applicationIds !== undefined && !(await this.applications.containsAll(applicationIds))) {
+      throw new HttpException(400, 'One or more applications do not exist');
+    }
+  }
 
   @Get('/me')
   @OpenAPI({ summary: 'Return current user' })
   @ResponseSchema(UserApiResponse)
-  async getMe(@Req() req: RequestWithUser, @Res() response: any): Promise<ClientUser> {
-    const { name, username } = req.user;
+  async getMe(@Req() req: Request, @Res() response: any): Promise<ClientUser> {
+    const { name, username, defaultCredentials } = req.session.adminUser;
 
     if (!name) {
       throw new HttpException(400, 'Bad Request');
@@ -29,6 +45,7 @@ export class UserController {
     const userData: ClientUser = {
       name: name,
       username: username,
+      defaultCredentials: defaultCredentials,
     };
 
     return response.send({ data: userData, message: 'success' });
@@ -72,6 +89,8 @@ export class UserController {
   @OpenAPI({ summary: 'Create a fake-IdP user' })
   @ResponseSchema(AdminUserResponse)
   async createUser(@Body() body: CreateUserDto, @Res() response: any) {
+    await this.validateGroups(body.groupIds);
+    await this.validateApplications(body.applicationIds);
     const data = await this.users.createUser(body);
     return response.send({ data: maskUser(data), message: 'success' });
   }
@@ -97,6 +116,8 @@ export class UserController {
     if (!(await this.users.getUser(id))) {
       throw new HttpException(404, 'User not found');
     }
+    await this.validateGroups(body.groupIds);
+    await this.validateApplications(body.applicationIds);
     const data = await this.users.updateUser(id, body);
     return response.send({ data: maskUser(data), message: 'success' });
   }

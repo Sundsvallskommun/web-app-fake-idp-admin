@@ -1,10 +1,16 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
-
-@import '../../public/fonts/fonts.css';
-
-@import './base.scss';
-@import './utilities.scss';
-@import './components.scss';
-@import './layouts/default-layout.scss';
+// Ren @use-lista (Sass kräver alla @use överst, före andra regler) — @import är
+// deprecerat och försvinner i Dart Sass 3. Regelinnehållet bor i partials:
+// tokens (shadcn-variabler + basregler) och fonts (Raleway + $basePath-prefix).
+// Alias krävs: './base' skulle annars kollidera med tailwindcss/base i namnrymd.
+// $basePath kommer från sassOptions.prependData i next.config.js.
+@use 'tailwindcss/base' as tw-base;
+@use 'tailwindcss/components' as tw-components;
+@use 'tailwindcss/utilities' as tw-utilities;
+@use './fonts' as fonts with (
+  $basePath: $basePath
+);
+@use './tokens' as tokens;
+@use './base' as app-base;
+@use './utilities' as app-utilities;
+@use './components' as app-components;
+@use './layouts/default-layout' as app-default-layout;

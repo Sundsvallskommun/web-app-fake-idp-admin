@@ -12,6 +12,7 @@ const validateEnv = () => {
     BASE_URL_PREFIX: str(),
     SAML_CALLBACK_URL: url(),
     SAML_LOGOUT_CALLBACK_URL: url(),
+    SAML_SUCCESS_REDIRECT: url(),
     SAML_FAILURE_REDIRECT: url(),
     SAML_ENTRY_SSO: url(),
     SAML_ISSUER: str(),
@@ -24,6 +25,12 @@ const validateEnv = () => {
     SAML_SP_AUDIENCE: str({ default: '' }),
     // Optional public sub-path for the IdP's browser-facing URLs (reverse-proxy setups).
     SAML_IDP_BASE_PATH: str({ default: '' }),
+    // Local operator account for the admin panel. It is deliberately separate
+    // from the fake identities stored in the database.
+    ADMIN_USERNAME: str(),
+    ADMIN_PASSWORD: str(),
+    ADMIN_DISPLAY_NAME: str(),
+    ADMIN_URL: url(),
   });
 };
 

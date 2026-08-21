@@ -1,97 +1,114 @@
 import { defaultInformationFields } from '@config/defaults';
 import resources from '@config/resources';
 import { ResourceName } from '@interfaces/resource-name';
-import { Button, Checkbox, Icon, PopupMenu } from '@sk-web-gui/react';
+import { Button, buttonVariants } from '@components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@components/ui/tooltip';
+import { cn } from '@utils/cn';
 import { useLocalStorage } from '@utils/use-localstorage.hook';
 import { FilePlus2, RefreshCcw, Settings } from 'lucide-react';
 import Link from 'next/link';
-import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { useShallow } from 'zustand/react/shallow';
 
 interface ListToolbarProps {
   resource: ResourceName;
   onRefresh?: () => void;
   properties?: string[];
+  className?: string;
 }
 
-export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, properties }) => {
+export const ListToolbar: React.FC<ListToolbarProps> = ({ onRefresh, resource, properties, className }) => {
   const { t } = useTranslation();
   const [{ [resource]: headers }, setHeaders] = useLocalStorage(
     useShallow((state) => [state.headers, state.setHeaders])
   );
-  const { watch, register, reset } = useForm<{ headers: string[] }>({ defaultValues: { headers } });
   const { create, columns } = resources[resource];
 
-  const selectedHeaders = watch('headers');
+  const label = (prop: string) =>
+    capitalize(t(`${defaultInformationFields.includes(prop) ? 'common:' : `${resource}:properties.`}${prop}`));
 
-  useEffect(() => {
-    reset({ headers });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resource]);
-
-  useEffect(() => {
-    if (!selectedHeaders) {
-      reset({ headers });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [headers]);
-
-  useEffect(() => {
-    if (properties && setHeaders && selectedHeaders) {
-      if (headers?.join() !== selectedHeaders?.join()) {
-        setHeaders({ [resource]: selectedHeaders });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHeaders, properties, setHeaders]);
+  // Kolumnvalet skrivs rakt mot storen. Den tidigare react-hook-form-varianten
+  // behövdes bara för att kunna binda flera <Checkbox> till ett fält.
+  const toggle = (prop: string, checked: boolean) => {
+    const selected = new Set(headers ?? []);
+    if (checked) selected.add(prop);
+    else selected.delete(prop);
+    // Behåll `properties`-ordningen istället för klickordningen.
+    setHeaders({ [resource]: (properties ?? []).filter((property) => selected.has(property)) });
+  };
 
   return (
-    <Button.Group className="absolute top-16 right-0 w-fit z-10">
+    // Statisk i headerraden (inte absolute) så den radbryts istället för att
+    // lägga sig ovanpå rubriken på smala skärmar. Tooltips: ikonknappar utan
+    // synlig text måste förklara sig själva för seende användare också.
+    <div className={cn('flex items-center gap-1', className)}>
       {!!create && (
-        <Link
-          href={`/${resource}/new`}
-          className="sk-btn sk-btn-sm sk-btn-tertiary"
-          data-icon={true}
-          data-background={false}
-          aria-label={capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}
-        >
-          <Icon icon={<FilePlus2 />} />
-        </Link>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href={`/${resource}/new`}
+              className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+              aria-label={capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}
+            >
+              <FilePlus2 className="size-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent>{capitalize(t('common:create_new', { resource: t(`${resource}:name_one`) }))}</TooltipContent>
+        </Tooltip>
       )}
       {!!onRefresh && (
-        <Button iconButton variant="tertiary" aria-label={capitalize(t('common:refresh'))} onClick={() => onRefresh()}>
-          <Icon icon={<RefreshCcw />} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={capitalize(t('common:refresh'))}
+              onClick={() => onRefresh()}
+            >
+              <RefreshCcw className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{capitalize(t('common:refresh'))}</TooltipContent>
+        </Tooltip>
       )}
       {!columns && properties && headers && (
-        <span className="relative">
-          <PopupMenu position="under" align="end">
-            <PopupMenu.Button
-              variant="tertiary"
-              showBackground={false}
-              size="sm"
-              iconButton
-              leftIcon={<Settings />}
-            ></PopupMenu.Button>
-            <PopupMenu.Panel>
-              <PopupMenu.Items>
-                {properties.map((prop, index) => (
-                  <PopupMenu.Item key={`tab-prop-${index}`}>
-                    <Checkbox labelPosition="left" value={prop} {...register('headers')}>
-                      {capitalize(
-                        t(`${defaultInformationFields.includes(prop) ? 'common:' : `${resource}:properties.`}${prop}`)
-                      )}
-                    </Checkbox>
-                  </PopupMenu.Item>
-                ))}
-              </PopupMenu.Items>
-            </PopupMenu.Panel>
-          </PopupMenu>
-        </span>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={capitalize(t('common:columns'))}
+                >
+                  <Settings className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{capitalize(t('common:columns'))}</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end">
+            {properties.map((prop) => (
+              <DropdownMenuCheckboxItem
+                key={`tab-prop-${prop}`}
+                checked={headers.includes(prop)}
+                onCheckedChange={(checked) => toggle(prop, checked)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                {label(prop)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-    </Button.Group>
+    </div>
   );
 };

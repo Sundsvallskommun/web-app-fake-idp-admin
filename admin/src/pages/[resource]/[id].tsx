@@ -14,23 +14,22 @@ import { useResource } from '@utils/use-resource';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const EditAssistant: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { resource: _resource, id: _id } = useParams();
+  const { resource: _resource, id: _id } = router.query;
   const resource = stringToResourceName((typeof _resource === 'object' ? _resource[0] : _resource) ?? '');
   if (!resource) {
     router.push('/');
   }
 
-  const { create, update, getOne, defaultValues } = resources[resource as ResourceName];
+  const { create, update, getOne, defaultValues } = resources[resource as ResourceName] as Resource<FieldValues>;
   const { refresh } = useResource(resource as ResourceName);
 
   const { handleGetOne, handleCreate, handleUpdate } = useCrudHelper(resource as ResourceName);
@@ -123,13 +122,17 @@ export const EditAssistant: React.FC = () => {
     : <EditLayout
         headerInfo={
           !isNew ?
-            <ul className="text-small flex gap-16">
-              {defaultInformationFields.map((field, index) => (
-                <li key={index + field}>
-                  <strong>{capitalize(t(`common:${field}`))}: </strong>
-                  {formdata?.[field]}
-                </li>
-              ))}
+            <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
+              {/* Visa bara fält som resursen faktiskt har med värde — Group saknar
+                  t.ex. createdAt/updatedAt och etiketter utan värden är brus. */}
+              {defaultInformationFields
+                .filter((field) => formdata?.[field] !== undefined && formdata?.[field] !== null && formdata?.[field] !== '')
+                .map((field, index) => (
+                  <li key={index + field}>
+                    <strong>{capitalize(t(`common:${field}`))}: </strong>
+                    {formdata?.[field]}
+                  </li>
+                ))}
             </ul>
           : undefined
         }
@@ -141,9 +144,12 @@ export const EditAssistant: React.FC = () => {
         backLink={`/${resource}`}
       >
         <FormProvider {...form}>
-          <form className="flex flex-row gap-32 justify-between grow flex-wrap" onSubmit={handleSubmit(onSubmit)}>
-            <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
+          {/* Vertikal kolumn (som users-formuläret). Den gamla flex-row + wrap +
+              justify-between + grow stretchade raderna över hela sidhöjden, så
+              verktygsraden hamnade svävande och fälten långt ner. */}
+          <form className="flex flex-col gap-8 max-w-xl" onSubmit={handleSubmit(onSubmit)}>
             <EditResource resource={resource} isNew={isNew} />
+            <EditorToolbar resource={resource} isDirty={isDirty} id={id} />
           </form>
         </FormProvider>
       </EditLayout>;

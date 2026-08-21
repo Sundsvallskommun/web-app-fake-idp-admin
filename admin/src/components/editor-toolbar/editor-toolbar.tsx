@@ -1,12 +1,13 @@
 import resources from '@config/resources';
 import { ResourceName } from '@interfaces/resource-name';
-import { Button, Icon, useConfirm } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { useConfirm } from '@components/confirm/confirm-context';
 import { useCrudHelper } from '@utils/use-crud-helpers';
 import { Save, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 interface ToolbarProps {
   resource: ResourceName;
@@ -34,7 +35,11 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
         )
         .then((confirm) => {
           if (confirm) {
-            handleRemove(remove(id)).then((res) => {
+            // OBS: thunk — handleRemove anropar själv. `handleRemove(remove(id))`
+            // skickade ett redan startat promise; hjälparen kraschade på att
+            // "anropa" det, visade fel-toast och navigerade aldrig, trots att
+            // servern hann radera. Doldes av att Remove<T = any> returnerade any.
+            handleRemove(() => remove(id)).then((res) => {
               if (res) {
                 reset();
                 router.push(parentPath);
@@ -49,33 +54,20 @@ export const EditorToolbar: React.FC<ToolbarProps> = ({ resource, isDirty, id })
 
   const { t } = useTranslation();
   return (
-    <Button.Group className="absolute top-40 right-48 w-fit">
-      <Button
-        type="submit"
-        color="vattjom"
-        size="sm"
-        showBackground={false}
-        leftIcon={<Save />}
-        disabled={!isDirty}
-        iconButton
-        aria-label={capitalize(t('common:save'))}
-      ></Button>
+    // Tydliga textknappar under formulärfälten, samma mönster som
+    // users-formulärets spara/ta bort-rad.
+    <div className="flex items-center gap-4">
+      <Button type="submit" disabled={!isDirty}>
+        <Save className="size-4" />
+        {capitalize(t('common:save'))}
+      </Button>
 
       {((!!remove && id) || !id) && (
-        <>
-          <Button
-            variant="tertiary"
-            color="error"
-            showBackground={false}
-            iconButton
-            aria-label={capitalize(t('common:remove', { resource: t(`${resource}:name_one`) }))}
-            size="sm"
-            onClick={() => onRemove()}
-          >
-            <Icon icon={<Trash />} />
-          </Button>
-        </>
+        <Button type="button" variant="destructive" onClick={() => onRemove()}>
+          <Trash className="size-4" />
+          {capitalize(t('common:remove'))}
+        </Button>
       )}
-    </Button.Group>
+    </div>
   );
 };

@@ -7,5 +7,8 @@
     "dark": "mörkt läge",
     "light": "ljust läge",
     "system": "följ system"
-  }
+  },
+  "default_credentials_warning": "Adminkontot använder standardlösenordet admin/admin. Sätt ADMIN_PASSWORD i .env innan stacken exponeras utanför localhost.",
+  "idp_session": "IdP-testsession",
+  "idp_session_help": "Öppna IdP:ns testinloggning i en ny flik — välj testidentitet och testa SAML-inloggningen."
 }

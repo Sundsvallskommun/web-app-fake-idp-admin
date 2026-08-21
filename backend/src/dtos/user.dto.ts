@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayUnique, IsArray, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 export class AttributeDto {
   @IsString()
@@ -30,6 +30,18 @@ export class CreateUserDto {
   @ValidateNested({ each: true })
   @Type(() => AttributeDto)
   attributes?: AttributeDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  groupIds?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  applicationIds?: number[];
 }
 
 export class ImportUsersDto {
@@ -57,4 +69,16 @@ export class UpdateUserDto {
   @ValidateNested({ each: true })
   @Type(() => AttributeDto)
   attributes?: AttributeDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  groupIds?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  applicationIds?: number[];
 }

@@ -1,10 +1,9 @@
 import { ResourceResponse } from '@interfaces/resource';
-import { useSnackbar } from '@sk-web-gui/react';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const useCrudHelper = (resource: string) => {
-  const message = useSnackbar();
   const { t } = useTranslation();
 
   const handleGetOne = async <TData = unknown>(getOne: () => ResourceResponse<TData>): Promise<TData | undefined> => {
@@ -13,7 +12,7 @@ export const useCrudHelper = (resource: string) => {
       const result = await getOne();
       return Promise.resolve(result.data.data);
     } catch {
-      message({ message: capitalize(t('crud:get_one.error', { resource: name })), status: 'error' });
+      toast.error(capitalize(t('crud:get_one.error', { resource: name })));
     }
   };
 
@@ -25,7 +24,7 @@ export const useCrudHelper = (resource: string) => {
       const result = await getMany();
       return Promise.resolve(result.data.data);
     } catch {
-      message({ message: capitalize(t('crud:get_one.error', { resource: name })), status: 'error' });
+      toast.error(capitalize(t('crud:get_one.error', { resource: name })));
     }
   };
 
@@ -34,11 +33,11 @@ export const useCrudHelper = (resource: string) => {
     try {
       const result = await create();
       if (result) {
-        message({ message: capitalize(t('crud:create.success', { resource: name })), status: 'success' });
+        toast.success(capitalize(t('crud:create.success', { resource: name })));
         return Promise.resolve(result.data.data);
       }
     } catch {
-      message({ message: t('crud:create.error', { resource: name }), status: 'error' });
+      toast.error(t('crud:create.error', { resource: name }));
     }
   };
 
@@ -47,24 +46,25 @@ export const useCrudHelper = (resource: string) => {
     try {
       const result = await update();
       if (result) {
-        message({ message: capitalize(t('crud:update.success', { resource: name })), status: 'success' });
+        toast.success(capitalize(t('crud:update.success', { resource: name })));
         return Promise.resolve(result.data.data);
       }
     } catch {
-      message({ message: capitalize(t('crud:update.error', { resource: name })), status: 'error' });
+      toast.error(capitalize(t('crud:update.error', { resource: name })));
     }
   };
 
-  const handleRemove = async <TData = unknown>(remove: () => ResourceResponse<TData>): Promise<TData | undefined> => {
+  // Boolean, inte svarskroppen: de genererade delete-endpointsen är typade
+  // AxiosResponse<void>, och ingen anropare använder mer än utfallet.
+  const handleRemove = async (remove: () => Promise<unknown>): Promise<boolean> => {
     const name = t(`${resource}:name_one`);
     try {
-      const result = await remove();
-      if (result) {
-        message({ message: capitalize(t('crud:remove.success', { resource: name })), status: 'success' });
-        return Promise.resolve(result.data.data);
-      }
+      await remove();
+      toast.success(capitalize(t('crud:remove.success', { resource: name })));
+      return true;
     } catch {
-      message({ message: capitalize(t('crud:remove.error', { resource: name })), status: 'error' });
+      toast.error(capitalize(t('crud:remove.error', { resource: name })));
+      return false;
     }
   };
 

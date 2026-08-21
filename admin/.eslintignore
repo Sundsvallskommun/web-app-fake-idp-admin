@@ -1,5 +1,0 @@
-.next
-**/dist/**
-coverage
-**/*.jsx
-**/*.d.ts

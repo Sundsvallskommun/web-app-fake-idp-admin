@@ -39,10 +39,10 @@ export const {
   SAML_IDP_PRIVATE_KEY,
   SAML_IDP_ENTITY_ID,
   SAML_SP_AUDIENCE,
-  // Optional comma-separated allow-list of group names. When set, only users whose
-  // SAML `groups` claim contains one of these may sign in to the admin app. Empty/
-  // unset = no gating (any authenticated user is allowed).
-  ADMIN_PANEL_GROUP,
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD,
+  ADMIN_DISPLAY_NAME,
+  ADMIN_URL,
 } = process.env;
 
 // IdP role: canonical path where the IdP routes are mounted on this Express app.
@@ -52,9 +52,7 @@ export const IDP_MOUNT_PATH = `${BASE_URL_PREFIX}/saml/idp`;
 // serve the IdP under a sub-path, e.g. SAML_IDP_BASE_PATH=/idp2 exposes the IdP at
 // `<host>/idp2/api/saml/idp/*`. Leading/trailing slashes are normalised; empty = no
 // prefix (default).
-export const IDP_PATH_PREFIX = process.env.SAML_IDP_BASE_PATH
-  ? `/${process.env.SAML_IDP_BASE_PATH.replace(/^\/+|\/+$/g, '')}`
-  : '';
+export const IDP_PATH_PREFIX = process.env.SAML_IDP_BASE_PATH ? `/${process.env.SAML_IDP_BASE_PATH.replace(/^\/+|\/+$/g, '')}` : '';
 
 // IdP role: the PUBLIC base path advertised in browser-facing URLs (login/logout
 // form actions, metadata SSO Location) = prefix + mount path. The router is also

@@ -7,7 +7,7 @@ import Main from '@layouts/main/main.component';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const Start = () => {
   const { t } = useTranslation();
@@ -16,9 +16,9 @@ export const Start = () => {
     <DefaultLayout title={`${process.env.NEXT_PUBLIC_APP_NAME} - ${t('example:title')}`}>
       <Main>
         <Header>
-          <h1 className="mb-0">{capitalize(`${t('common:welcome')}`)}</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-0">{capitalize(`${t('common:welcome')}`)}</h1>
         </Header>
-        <ul className="flex flex-wrap gap-32">
+        <ul className="flex flex-wrap gap-8">
           {Object.keys(resources).map((resourceName, index) => (
             <ResourceCard key={`${resourceName}-${index}`} resource={resourceName as ResourceName} />
           ))}

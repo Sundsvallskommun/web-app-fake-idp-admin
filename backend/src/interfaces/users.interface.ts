@@ -9,4 +9,6 @@ export type User = {
 export type ClientUser = {
   name: string;
   username: string;
+  /** Adminkontot kör kvar på defaultlösenordet — driver varningsbannern i UI:t. */
+  defaultCredentials?: boolean;
 };

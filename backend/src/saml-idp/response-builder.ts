@@ -1,11 +1,12 @@
 import { SAML_IDP_ENTITY_ID, SAML_IDP_PRIVATE_KEY, SAML_ISSUER, SAML_SP_AUDIENCE } from '@config';
-import type { Attribute, User } from '@prisma/client';
+import type { Application, Attribute, Group, User } from '@prisma/client';
+import { createGroupAttribute } from '@utils/group-claim';
 import { SignedXml } from 'xml-crypto';
 import { buildResponseXml } from './assertion-template';
 import type { ParsedAuthnRequest } from './request-parser';
 import { createId, createSessionId, normalizePem } from './util';
 
-export type UserWithAttributes = User & { attributes: Attribute[] };
+export type UserWithAttributes = User & { attributes: Attribute[]; groups: Group[]; applications?: Application[] };
 
 export interface BuiltResponse {
   /** SP ACS URL the auto-submitting form POSTs to. */
@@ -67,6 +68,9 @@ export function createResponse(request: ParsedAuthnRequest, user: UserWithAttrib
   const audience = SAML_SP_AUDIENCE || SAML_ISSUER;
   const sessionIndex = createSessionId();
 
+  const groupAttribute = createGroupAttribute(user.groups.map(group => group.name));
+  const attributes = groupAttribute ? [...user.attributes, groupAttribute] : user.attributes;
+
   const xml = buildResponseXml({
     destination: request.destination,
     id: createId(entity),
@@ -83,7 +87,7 @@ export function createResponse(request: ParsedAuthnRequest, user: UserWithAttrib
     authnInstant: issueInstant,
     sessionIndex,
     nameId: user.id,
-    attributes: user.attributes,
+    attributes,
   });
 
   const signedXml = sign(xml);

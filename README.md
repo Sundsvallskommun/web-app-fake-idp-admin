@@ -108,14 +108,23 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
    docker compose up --build
    ```
 
+   Öppna IdP-testsessionen på `http://localhost:7001/api/saml/idp/login` för att
+   välja vilken testidentitet som ska användas. Testa sedan ett komplett lokalt
+   SAML-flöde på `http://localhost:7001/api/saml/test`.
+
+   Logga in i adminpanelen med `admin` / `admin`. Kontot kan ändras med
+   `ADMIN_USERNAME`, `ADMIN_PASSWORD` och `ADMIN_DISPLAY_NAME` i root-`.env` och är
+   helt separat från testidentiteterna i SQLite.
+
 ### Portar och adresser
 
 | Tjänst | URL |
 |---|---|
-| Admin-gränssnitt | http://localhost:7001 |
+| Admin-gränssnitt | http://localhost:7001/login |
+| IdP-testsession | http://localhost:7001/api/saml/idp/login |
+| Lokal SAML-testapp | http://localhost:7001/api/saml/test |
 | Backend-API | http://localhost:7000/api |
 | Swagger | http://localhost:7000/api/api-docs |
-| IdP-inloggningssida | http://localhost:7000/api/saml/idp/login |
 
 (Frontend på port 7002 ligger utkommenterad i `docker-compose.yml` – avkommentera tjänsten för att aktivera den.)
 
@@ -231,19 +240,18 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 
 **`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`localhost`) istället för klientens, så du hamnar på `http://localhost/idp2/admin/`. Backend påverkas inte (den bygger sina SAML-URL:er från `PUBLIC_ORIGIN`). Behöver en annan app i samma vhost se `localhost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
 
-### Användardata: import och persistens
+### Testidentiteter: import och persistens
 
-- **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Fyll på den på något av tre sätt:
-  - **Skapa en admin-användare att logga in med** (gör detta först – panelen kräver en SAML-inloggning). Skriptet frågar efter användarnamn (default `admin`) och lösenord och skapar en användare med de attribut som krävs för inloggning:
-    ```
-    # lokalt:
-    cd backend && yarn create-admin
-    # mot Docker-stacken:
-    docker compose exec backend yarn create-admin
-    ```
-  - Skapa fler användare manuellt i admin-gränssnittet (http://localhost:7001).
-  - **Importera en `users.js`-fil:** på användarsidan (`/users`) finns knappen **Importera användare**. Välj din `users.js` (samma format som seed-filen, dvs. en CommonJS-modul som exporterar `{ users }`) så **ersätts hela användartabellen** med filens innehåll.
+- **Adminkontot ligger inte i databasen.** Det konfigureras med miljövariabler och kan därför användas även när databasen är tom.
+- **Databasen startar tom.** Migrationer körs vid uppstart, men ingen seed sker i Docker. Skapa testidentiteter manuellt i admin-gränssnittet (http://localhost:7001) eller importera en `users.js`-fil på sidan `/users`. Importen ersätter hela uppsättningen testidentiteter.
 - **Datan överlever ombyggnader.** SQLite-databasen ligger på den namngivna Docker-volymen `backend-data` (`/app/data`). Den behålls vid `docker compose up --build` och `docker compose down`, och töms bara om du uttryckligen kör `docker compose down -v`.
+
+#### Datamodell för användare och grupper
+
+- `User` äger de fasta kontofälten (`name`, `username`, `password`). Övriga SAML-claims lagras som typade `Attribute`-rader. Adminformulärets kända claims definieras i ett gemensamt schema; okända eller egna claims bevaras som anpassade attribut.
+- `Group` är en dokumenterad gruppkatalog med namn och beskrivning. Medlemskap lagras som en många-till-många-relation mellan `User` och `Group`, så grupper kan läggas till eller tas bort från en användare utan att redigera kommaseparerad text.
+- En grupp är inte per definition en roll. Konsumerande system avgör om en grupp ger en applikationsroll, beskriver organisationstillhörighet eller bara används i testdata. Dokumentera den betydelsen i gruppens beskrivning.
+- Vid SAML-svar samt import/export av `users.js` adapteras relationen till det befintliga claim-formatet `groups: "grupp-a,grupp-b"`. Gruppnamn får därför inte innehålla kommatecken.
 
 ### Noteringar
 
@@ -252,6 +260,17 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 ## SAML IdP
 
 Förutom att agera SAML Service Provider (logga in användare i appen) kan backend även agera fejk-**Identity Provider**: den utfärdar signerade SAML-assertions för användarna i Prisma-databasen och kan därmed ersätta den fristående `web-app-fake-sso-idp`. IdP-endpointerna ligger under `/api/saml/idp/*` (modul: `backend/src/saml-idp/`).
+
+Admininloggningen och IdP-flödet är separata. På IdP-testsidan väljer du en
+testidentitet som sparas i SAML-sessionen. Identiteten återanvänds automatiskt när
+en ansluten testapplikation skickar en ny AuthnRequest och ligger kvar tills du
+uttryckligen väljer **Logga ut testidentitet**. Administration-länken i sidhuvudet
+leder till den separata admininloggningen och påverkar inte testsessionen.
+
+Den lokala SAML-testappen på `/api/saml/test` är standardmål för appens eget
+self-referential SAML-flöde. Efter callback visar den vilken identitet som togs
+emot, i stället för att skicka användaren till adminpanelen. Externa Service
+Providers fortsätter att få assertionen till sin egen ACS-URL.
 
 ### Miljövariabler
 
@@ -263,6 +282,7 @@ Lägg till i `backend/.env.development.local` (se även `backend/.env.example.lo
 - `SAML_IDP_ENUMERATE_USERS` — `true` visar en användarlista på inloggningssidan, `false` kräver användarnamn/lösenord.
 - `SAML_IDP_PUBLIC_CERT` — (återanvänds) IdP:ns publika cert som motsvarar `SAML_IDP_PRIVATE_KEY`; det är detta cert som Service Providern måste lita på.
 - `SAML_IDP_BASE_PATH` — (valfritt) publik sub-path-prefix för IdP:n. T.ex. `/myidp` exponerar IdP:n på `<host>/myidp/api/saml/idp/*` (utöver standardvägen). Tom = inget prefix (standard). Se [Köra IdP:n under en sub-path](#köra-idpn-under-en-sub-path-tex-foobarcommyidp).
+- `ADMIN_URL` — fullständig URL till adminpanelen som visas i IdP-sidans header. Docker Compose härleder den från `BASE_URL`, `ADMIN_PORT` och `ADMIN_BASE_PATH`.
 
 Generera ett självsignerat nyckelpar för test:
 
@@ -273,10 +293,18 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 ### Endpoints
 
 - `GET`/`POST /api/saml/idp/sso` — tar emot AuthnRequest (HTTP-Redirect respektive HTTP-POST).
-- `POST /api/saml/idp/authenticate` — validerar inloggning och postar tillbaka en signerad assertion.
-- `GET`/`POST /api/saml/idp/login` — IdP:ns startsida (inloggning / detaljer).
-- `GET /api/saml/idp/logout` — loggar ut från IdP:n.
+- `POST /api/saml/idp/authenticate` — väljer testidentitet och postar en signerad assertion om en AuthnRequest väntar.
+- `GET /api/saml/idp/login` — visar väljare eller aktuell IdP-testsession.
+- `POST /api/saml/idp/logout` — loggar ut testidentiteten utan att påverka adminsessionen.
 - `GET /api/saml/idp/metadata` — IdP-metadata för att konfigurera en Service Provider.
+- `GET /api/saml/test` — lokal testapp som startar SAML och visar mottagen identitet.
+
+Muterande admin- och IdP-anrop skyddas med en sessionsbunden CSRF-token. Admin-GUI:t
+hämtar och skickar token automatiskt. Egna API-klienter hämtar den från
+`GET /api/admin-auth/csrf` och skickar den i headern `x-csrf-token`. De externa
+SAML POST-bindningarna (`/saml/idp/sso` och `/saml/login/callback`) är undantagna,
+eftersom anropen kommer från en Service Provider respektive Identity Provider.
+IdP-routes och adminlogin har även lokal IP-baserad rate limiting.
 
 ### Peka en Service Provider mot IdP:n
 

@@ -1,13 +1,16 @@
 import resources from '@config/resources';
 import { Resource } from '@interfaces/resource';
 import { ResourceName } from '@interfaces/resource-name';
-import { Button, cx, FormControl, FormErrorMessage, FormLabel, Input } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Input } from '@components/ui/input';
+import { Label } from '@components/ui/label';
+import { cn } from '@utils/cn';
 import { fieldpathWithoutIndex } from '@utils/fieldpath-without-index';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect } from 'react';
 import { FieldError, FieldErrorsImpl, FieldValues, Merge, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 import { EditResourceObject } from './edit-resource-object.component';
 
 interface EditResourceArrayProps {
@@ -95,37 +98,41 @@ export const EditResourceArray: React.FC<EditResourceArrayProps> = ({
   const Headercomp: React.ElementType = `h${level}` as React.ElementType;
 
   return (
-    <div className="flex flex-col gap-16">
-      <header className="flex gap-24">
-        <Headercomp className={cx('font-header', level < 3 ? 'text-h3-lg' : 'text-h4-md')}>
+    <div className="flex flex-col gap-4">
+      <header className="flex gap-6 items-center">
+        <Headercomp className={cn('font-semibold', level < 3 ? 'text-2xl font-bold' : 'text-xl font-bold')}>
           {capitalize(t(`${resource}:properties.${i18nKey}.DEFAULT_many`))}
         </Headercomp>
-        <Button size="sm" color="success" leftIcon={<Plus />} onClick={() => addEntry()}>
+        <Button type="button" size="sm" onClick={() => addEntry()}>
+          <Plus className="size-4" />
           {capitalize(t('common:add'))} {t(`${resource}:properties.${i18nKey}.DEFAULT`)}
         </Button>
       </header>
-      {error?.message && (
-        <FormErrorMessage className="font-bold text-error-text-primary">{`${error.message}`}</FormErrorMessage>
-      )}
+      {error?.message && <p className="font-bold text-sm text-destructive">{`${error.message}`}</p>}
       {Array.isArray(formdata) &&
         formdata.map((item, index) => {
           const type = typeof item;
           const isRequired = requiredFields ? fieldpathWithoutIndex(requiredFields)?.includes(i18nKey) : false;
           if (type === 'string' || type === 'number') {
             return (
-              <div key={`res-array-${index}`} className="flex justify-between items-start">
-                <FormControl key={`formc-${index}`} required={isRequired}>
-                  <FormLabel>{capitalize(t(`${resource}:properties.${i18nKey}`))}</FormLabel>
+              <div key={`res-array-${index}`} className="flex justify-between items-end gap-3">
+                <div key={`formc-${index}`} className="flex flex-col gap-2 grow">
+                  <Label htmlFor={`${dataTypeKey}.${index}`}>
+                    {capitalize(t(`${resource}:properties.${i18nKey}`))}
+                    {isRequired && <span aria-hidden="true"> *</span>}
+                  </Label>
                   <Input
+                    id={`${dataTypeKey}.${index}`}
                     type={type === 'number' ? 'number' : 'text'}
+                    required={isRequired}
                     {...register(`${dataTypeKey}.${index}` as keyof DataType)}
                   />
-                </FormControl>
+                </div>
                 <Button
-                  size="sm"
-                  rounded
-                  color="error"
-                  iconButton
+                  type="button"
+                  size="icon"
+                  variant="destructive"
+                  className="rounded-full shrink-0"
                   aria-label={capitalize(
                     t('common:remove_resource', {
                       resource: t(`${resource}:properties.${i18nKey}.DEFAULT`),
@@ -133,7 +140,7 @@ export const EditResourceArray: React.FC<EditResourceArrayProps> = ({
                   )}
                   onClick={() => removeEntry(index)}
                 >
-                  <Minus />
+                  <Minus className="size-4" />
                 </Button>
               </div>
             );

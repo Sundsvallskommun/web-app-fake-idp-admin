@@ -1,0 +1,141 @@
+# CI för admin + backend. Fanns inte tidigare: bara frontend kördes i CI, och i
+# praktiken var varje regressionsfel i admin "tyst" (fel spacing, svävande
+# knappar, stale cache — inget av det syns i tsc/lint/build). Två nivåer:
+#   checks — snabba kontraktskontroller per paket
+#   e2e    — Playwright-smokes mot den riktiga docker-stacken via proxyn,
+#            eftersom same-origin-cookien är en del av det som ska testas
+name: Admin CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - 'develop'
+      - 'main'
+      - '*'
+    paths:
+      - '.github/workflows/admin.yml'
+      - '.nvmrc'
+      - 'admin/**'
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - 'nginx.conf.template'
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [admin, backend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    name: type-check/lint/test (${{ matrix.package }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: ${{ matrix.package }}/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --silent --network-timeout 1000000
+
+      - name: Generate Prisma client
+        if: matrix.package == 'backend'
+        run: yarn prisma:generate
+
+      - name: Type-check
+        run: yarn type-check
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Unit tests
+        run: yarn test
+
+      - name: Build
+        if: matrix.package == 'admin'
+        run: yarn build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:7000
+          NEXT_PUBLIC_API_PATH: /api
+          NEXT_PUBLIC_APP_NAME: Fake IdP
+          BASE_PATH: ''
+          NEXT_PUBLIC_BASE_PATH: ''
+          DOMAIN_NAME: localhost
+          HEALTH_AUTH: false
+          HEALTH_USERNAME: ''
+          HEALTH_PASSWORD: ''
+
+  e2e:
+    runs-on: ubuntu-latest
+    name: E2E-smokes mot docker-stacken
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+          cache-dependency-path: admin/yarn.lock
+
+      # Enda hemligheten stacken kräver är ett självsignerat nyckelpar — samma
+      # recept som i README, med \n-escapade rader för .env-interpolationen.
+      - name: Generate SAML keypair and .env
+        run: |
+          openssl req -x509 -newkey rsa:2048 -sha256 -keyout idp.key -out idp.crt -days 2 -nodes -subj "/CN=fake-idp-ci"
+          {
+            printf 'SAML_IDP_PRIVATE_KEY='
+            awk 'NF{printf "%s\\n",$0}' idp.key
+            printf '\nSAML_IDP_PUBLIC_CERT='
+            awk 'NF{printf "%s\\n",$0}' idp.crt
+            printf '\n'
+          } > .env
+
+      - name: Build and start the stack
+        run: docker compose up -d --build
+
+      - name: Wait for the proxy to serve the admin UI
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:7001/login; then exit 0; fi
+            sleep 2
+          done
+          echo 'Stacken svarade aldrig på :7001' >&2
+          docker compose logs --tail 50
+          exit 1
+
+      - name: Install admin dependencies
+        working-directory: admin
+        run: yarn install --frozen-lockfile --silent --network-timeout 1000000
+
+      - name: Install Playwright Chromium
+        working-directory: admin
+        run: yarn playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        working-directory: admin
+        run: yarn test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-playwright-report
+          path: admin/playwright-report/
+          retention-days: 14
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs --tail 100

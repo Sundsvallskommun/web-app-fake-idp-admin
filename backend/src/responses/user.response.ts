@@ -1,7 +1,7 @@
 import ApiResponse from '@/interfaces/api-service.interface';
 import { ClientUser } from '@/interfaces/users.interface';
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 // export class Permissions implements IPermissions {
 //   @IsBoolean()
@@ -13,6 +13,9 @@ export class User implements ClientUser {
   name: string;
   @IsString()
   username: string;
+  @IsOptional()
+  @IsBoolean()
+  defaultCredentials?: boolean;
   // @IsEnum(InternalRoleEnum)
   // role: InternalRole;
   // @ValidateNested()
@@ -43,6 +46,24 @@ export class UserAttribute {
   type: string;
 }
 
+export class UserGroup {
+  @IsNumber()
+  id: number;
+  @IsString()
+  name: string;
+  @IsString()
+  description: string;
+}
+
+export class UserApplication {
+  @IsNumber()
+  id: number;
+  @IsString()
+  name: string;
+  @IsString()
+  description: string;
+}
+
 export class AdminUser {
   @IsString()
   id: string;
@@ -56,6 +77,14 @@ export class AdminUser {
   @ValidateNested({ each: true })
   @Type(() => UserAttribute)
   attributes: UserAttribute[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserGroup)
+  groups: UserGroup[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserApplication)
+  applications: UserApplication[];
 }
 
 export class AdminUserResponse implements ApiResponse<AdminUser> {

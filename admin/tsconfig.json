@@ -58,9 +58,6 @@
       "@public/*": [
         "public/*"
       ],
-      "@jestRoot/*": [
-        ".jest/*"
-      ],
       "@data-contracts/*": [
         "src/data-contracts/*"
       ]
@@ -74,6 +71,8 @@
   ],
   "exclude": [
     "node_modules",
-    "**/*.test.jsx"
+    "vitest.config.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

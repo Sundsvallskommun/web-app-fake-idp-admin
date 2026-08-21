@@ -1,5 +1,7 @@
 .DefaultLayout {
+  /* Skip-link. Tidigare sk-klasser: bg-light-primary (token), p-4 (4px) och
+     focus:w-80 (80px). Omräknat till Tailwinds skala: p-1 = 4px, w-20 = 80px. */
   .next-link-a {
-    @apply sr-only focus:not-sr-only bg-light-primary border-2 border-black p-4 text-black inline-block focus:absolute focus:top-0 focus:left-0 focus:right-0 focus:m-auto focus:w-80 text-center;
+    @apply sr-only focus:not-sr-only bg-background text-foreground border-2 border-foreground p-1 inline-block focus:absolute focus:top-0 focus:left-0 focus:right-0 focus:m-auto focus:w-20 text-center;
   }
 }

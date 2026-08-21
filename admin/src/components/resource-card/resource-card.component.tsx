@@ -1,47 +1,37 @@
 import { ResourceName } from '@interfaces/resource-name';
-import { Card, Spinner } from '@sk-web-gui/react';
+import { Card, CardContent } from '@components/ui/card';
 import { useResource } from '@utils/use-resource';
-import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
+import NextLink from 'next/link';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 interface ResourceCardProps {
   resource: ResourceName;
 }
 
 export const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
-  const { data, loaded, loading, refresh } = useResource(resource);
+  // useResource hämtar själv om vid montering.
+  const { data, loading } = useResource(resource);
   const { t } = useTranslation();
 
-  useEffect(() => {
-    if (!loaded) {
-      refresh();
-    }
-  }, [loaded, refresh]);
-
   return (
-    <Card
-      layout="horizontal"
-      href={`${process.env.NEXT_PUBLIC_BASE_PATH}/${resource}`}
-      useHoverEffect
-      color="vattjom"
-      invert
-    >
-      <Card.Body className="py-16">
-        <Card.Header>
-          <h2 className="text-h4-sm md:text-h4-md xl:text-h4-lg">{capitalize(t(`${resource}:name_many`))}</h2>
-        </Card.Header>
-        <Card.Text className="flex gap-12 py-8">
-          <span className="text-dark-secondary text-small h-24">
-            {loading ?
-              <Spinner size={1.5} className="leading-small" />
-            : <>
-                <strong>{data.length}</strong> {t(`${resource}:name`, { count: data.length })}
-              </>
-            }
-          </span>
-        </Card.Text>
-      </Card.Body>
+    <Card className="transition-colors hover:bg-accent hover:text-accent-foreground">
+      <NextLink href={`/${resource}`} className="block">
+        <CardContent className="py-4">
+          <h2 className="text-lg md:text-xl font-bold">{capitalize(t(`${resource}:name_many`))}</h2>
+          <div className="flex gap-3 py-2">
+            <span className="text-muted-foreground text-sm h-6">
+              {loading ?
+                <Loader2 className="size-4 animate-spin" aria-label={t('common:loading')} />
+              : <>
+                  <strong>{data.length}</strong> {t(`${resource}:name`, { count: data.length })}
+                </>
+              }
+            </span>
+          </div>
+        </CardContent>
+      </NextLink>
     </Card>
   );
 };

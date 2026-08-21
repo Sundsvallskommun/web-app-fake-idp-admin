@@ -8,15 +8,15 @@ This is a multi-app starter template (Sundsvalls kommun "web-app-starter") with 
 
 - `backend/` — TypeScript + Express + `routing-controllers` API server. Acts as a BFF/proxy in front of WSO2 microservices, handles SAML auth + sessions, exposes a Swagger doc.
 - `frontend/` — Public-facing Next.js 16 / React 19 app.
-- `admin/` — Next.js 16 / React 18 admin UI with config-driven auto-CRUD (the most actively developed package; see below).
+- `admin/` — Next.js 16 / React 19 admin UI with config-driven auto-CRUD (the most actively developed package; see below).
 
-There is no root-level package manager — `cd` into the package you're working on. Node >= 20 LTS, Yarn.
+There is no root-level package manager — `cd` into the package you're working on. Node 24 LTS, Yarn.
 
 ## SAML IdP role
 
 The backend plays two SAML roles. As a **Service Provider** it *consumes* SAML to log users into the app (passport-saml / `@node-saml/passport-saml` strategy, raw routes registered inline in `backend/src/app.ts` under `/api/saml/*` — login, login/callback (ACS), logout, logout/callback, metadata). It also doubles as a fake **Identity Provider**: it *issues* signed SAML assertions for users in the Prisma store (`User` + `Attribute`), which lets it replace the standalone `web-app-fake-sso-idp`. The IdP routes are mounted under `/api/saml/idp/*` (module: `backend/src/saml-idp/`, wired in `idp.routes.ts`; assertion signing/XML logic lives in `response-builder.ts`, `assertion-template.ts`, `idp-metadata.ts`).
 
-The IdP user store is a local **SQLite** DB (`backend/data/database/database.db`, Prisma). `User.password` is plaintext by design (test/simulator). Seed it with `yarn prisma:seed` (imports the repo-root `users.js`) or create/update a single admin user interactively with `yarn create-admin` (prompts for the required SAML attributes: `givenName`, `surname`, `citizenIdentifier`, `username`, `groups`).
+The IdP test-identity store is a local **SQLite** DB (`backend/data/database/database.db`, Prisma). `User.password` is plaintext by design (test/simulator). Seed it with `yarn prisma:seed` (imports the repo-root `users.js`) or manage identities through the admin UI. The admin operator is configured separately with `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_DISPLAY_NAME` and uses its own session cookie.
 
 The old standalone fake-idp served its routes at the root (governed by `BASEPATH`, default `/`). New equivalents:
 
@@ -25,12 +25,12 @@ The old standalone fake-idp served its routes at the root (governed by `BASEPATH
 | `GET /sso` | `GET /api/saml/idp/sso` | SSO, HTTP-Redirect binding |
 | `POST /sso` | `POST /api/saml/idp/sso` | SSO, HTTP-POST binding |
 | `POST /authenticate` | `POST /api/saml/idp/authenticate` | Validate creds → post signed assertion |
-| `GET /` | `GET /api/saml/idp/login` | Homepage: login form, or details if logged in |
-| `POST /` | `POST /api/saml/idp/login` | Log in at homepage (no AuthnRequest) |
-| `GET /logout` | `GET /api/saml/idp/logout` | Clear IdP session, redirect to RelayState/login |
+| `GET /` | `GET /api/saml/idp/login` | Select or inspect the persistent IdP test identity |
+| `GET /logout` | `POST /api/saml/idp/logout` | Clear only the IdP test identity session |
 | *(none)* | `GET /api/saml/idp/metadata` | **New** — IdP metadata for SP config |
+| *(none)* | `GET /api/saml/test` | **New** — local SP result/test page |
 
-Notes: the old root `/` becomes `/login` (the `/api/saml/idp` prefix already namespaces the IdP, and a bare `/` would collide with the app root); the old `pure-min.css` static asset has no equivalent (the pages inline their CSS); assertions are signed with SHA-1 for parity with the original (this is a test/simulator IdP). New env vars: `SAML_IDP_PRIVATE_KEY`, `SAML_IDP_ENTITY_ID`, `SAML_SP_AUDIENCE`, `SAML_IDP_ENUMERATE_USERS`, plus the existing `SAML_IDP_PUBLIC_CERT` reused as the IdP's own signing cert.
+Notes: the old root `/` becomes `/login` (the `/api/saml/idp` prefix already namespaces the IdP, and a bare `/` would collide with the app root). The selected identity is stored as `idpIdentityId` in the SAML session and is reused for SSO until `POST /logout`; it never authorizes the admin API. The old `pure-min.css` static asset has no equivalent (the pages inline their CSS); assertions are signed with SHA-1 for parity with the original (this is a test/simulator IdP). New env vars: `SAML_IDP_PRIVATE_KEY`, `SAML_IDP_ENTITY_ID`, `SAML_SP_AUDIENCE`, `SAML_IDP_ENUMERATE_USERS`, `ADMIN_URL`, plus the existing `SAML_IDP_PUBLIC_CERT` reused as the IdP's own signing cert.
 
 ## Commands
 
@@ -39,17 +39,18 @@ Run inside the relevant package directory.
 **admin / frontend (Next.js):**
 - `yarn dev` — dev server (admin defaults to `PORT=3002`, frontend `3000`)
 - `yarn build` / `yarn start`
-- `yarn lint` — `next lint --no-cache`
-- `yarn type-check` — `tsc --noEmit` (frontend only; admin uses `next build`/editor for types)
+- `yarn lint` — ESLint
+- `yarn type-check` — type-check application and Vitest/Playwright configs
 - `yarn generate:contracts` — regenerate API data-contracts from the backend's live Swagger (requires backend running; see below)
-- `yarn cypress` — open Cypress (frontend also has `cypress:headless`, `jest`, `jest:coverage`)
+- `yarn test` / `yarn test:watch` / `yarn test:coverage` — Vitest
+- Frontend only: `yarn test:e2e` / `yarn test:e2e:ui` — Playwright
 
-**frontend tests (jest):** `yarn jest` (watch), `yarn jest:coverage`. Run a single test: `yarn jest path/to/file.test.tsx -t "test name"`. Jest only collects from `src/services/**` and `src/components/**`, and `testRegex` excludes `.spec.` files (those are Cypress). admin has the same jest setup with a single example test under `src/services/__tests__`.
+**Frontend tests:** Vitest owns unit tests under `frontend/vitest/`. Playwright owns browser flows under `frontend/playwright/`; install its Chromium runtime once with `yarn playwright install chromium`.
 
 **backend:**
 - `yarn dev` — nodemon (defaults to port `3001` via docker mapping)
-- `yarn build` (`tsc && tsc-alias`), `yarn test` (jest), `yarn lint` / `yarn lint:fix`, `yarn type-check`
-- `yarn prisma:generate` / `yarn prisma:migrate` — DB setup; `yarn prisma:seed` — seed users from root `users.js`; `yarn create-admin` — interactive admin-user creation (see SAML IdP role above)
+- `yarn build` (`tsc && tsc-alias`), `yarn test` (Vitest), `yarn lint` / `yarn lint:fix`, `yarn type-check`
+- `yarn prisma:generate` / `yarn prisma:migrate` — DB setup; `yarn prisma:seed` — seed test identities from root `users.js`
 - `yarn generate:contracts` — pull data models from the upstream WSO2 APIs listed in `src/config/api-config.ts`
 - Entry: `src/server.ts` → `App` (`src/app.ts`) wires middleware then mounts SAML SP routes, IdP routes, and routing-controllers at `BASE_URL_PREFIX` (`/api`), in that order.
 
@@ -60,8 +61,10 @@ Run inside the relevant package directory.
 The whole point of the stack is to be self-referential and same-origin (see the long header comments in `docker-compose.yml` + `.env.example`, which are the authoritative reference):
 
 - **Three services:** `backend` (port `7000`, direct — Swagger/debug), `admin` (internal-only, `expose: 3000`), and an nginx `proxy` (`nginx.conf.template`) published on `ADMIN_PORT` (`7001`) as the **single browser entry point**. `frontend` is commented out. Browse the app at the proxy, not the admin/backend ports.
-- **Why the proxy exists:** it serves the admin UI and the backend API under one origin, so admin→API calls are same-origin and the SAML session cookie is first-party. Hitting the admin/backend ports directly causes cross-site-cookie **401s** and broken SAML redirects (this is the recurring trap; the recent "routing/paths/subpaths" commits are about getting it right).
+- **Why the proxy exists:** it serves the admin UI and the backend API under one origin, so admin→API calls and the admin session cookie are same-origin. Browse the app through the proxy.
 - **Self-referential SAML:** the SP role points at this same backend's IdP role; both are signed with the **one** keypair in `.env` (`SAML_IDP_PRIVATE_KEY` / `SAML_IDP_PUBLIC_CERT` — there is no separate SP keypair). All browser-facing SP/IdP URLs are composed from `BASE_URL` + `ADMIN_PORT` (the proxy origin).
+- **Separate user contexts:** `fake-idp.sid` owns the selected test identity and local SP session; `fake-idp-admin.sid` owns the environment-configured admin operator. The local SAML callback lands on `/api/saml/test`, never on the admin login.
+- **Mutation protection:** state-changing admin and IdP requests use a synchronizer CSRF token from `GET /api/admin-auth/csrf`; the admin clients attach it automatically. Only the external SAML POST bindings (`/saml/idp/sso` and `/saml/login/callback`) bypass CSRF validation. Admin login and all IdP routes are rate-limited.
 - **Env split:** the root `.env` is read by Docker **only** for `${VAR}` interpolation in compose; runtime config is set inline in `docker-compose.yml`. `yarn dev` instead uses the per-package `.env.*.local` files and ignores root `.env`.
 - **Sub-path / basePath:** the stack can be served under a public prefix. `PUBLIC_PREFIX` (e.g. `/idp2`) prefixes the API + IdP; `ADMIN_BASE_PATH` (e.g. `/idp2/admin`) is the Next.js `basePath`. Both are **inlined into the admin build**, so changing them requires `--build`. The same `nginx.conf.template` serves both the default-root and prefixed layouts via envsubst.
 - **Own reverse proxy:** `docker-compose.external-proxy.yml` is a NON-auto-loaded overlay for fronting the stack with your own proxy (Apache, etc.) on a different origin/IP; it rebases browser-facing URLs onto `PUBLIC_ORIGIN` and disables the bundled nginx. Run with `docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build`.
@@ -99,7 +102,7 @@ Locale files live in `public/locales/<locale>/<namespace>.json` (default locale 
 
 ## Conventions
 
-- Path aliases (`@components/*`, `@interfaces/*`, `@utils/*`, `@config/*`, `@data-contracts/*`, etc.) are defined in each package's `tsconfig.json` and mirrored in `jest.config.js` `moduleNameMapper` — update both when adding one.
+- Path aliases (`@components/*`, `@interfaces/*`, `@utils/*`, `@config/*`, `@data-contracts/*`, etc.) are defined in each package's `tsconfig.json` and mirrored in its `vitest.config.mts` — update both when adding one.
 - `@typescript-eslint/no-explicit-any` is an **error** in admin; existing `any` usages carry explicit `eslint-disable` comments.
 - UI is built on the `@sk-web-gui` component library and Tailwind.
 - Line endings may differ between Windows/Linux checkouts — ignore pure EOL diffs.

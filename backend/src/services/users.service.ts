@@ -1,33 +1,47 @@
 import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
 import prisma from '@utils/prisma';
+import { groupNamesFromAttributes, withoutGroupAttributes } from '@utils/group-claim';
 import { isMaskedAttributeKey, MASKED_VALUE } from '@utils/mask-user';
 import { ImportUser } from '@utils/parse-users-module';
 
-const withAttributes = { include: { attributes: true } } as const;
+const withDetails = {
+  include: {
+    attributes: true,
+    groups: { orderBy: { name: 'asc' as const } },
+    applications: { orderBy: { name: 'asc' as const } },
+  },
+} as const;
 
 export class UsersService {
   public getUsers() {
-    return prisma.user.findMany({ ...withAttributes, orderBy: { name: 'asc' } });
+    return prisma.user.findMany({ ...withDetails, orderBy: { name: 'asc' } });
   }
 
   public getUser(id: string) {
-    return prisma.user.findUnique({ where: { id }, ...withAttributes });
+    return prisma.user.findUnique({ where: { id }, ...withDetails });
   }
 
   // username is not unique in the schema; callers match the password themselves.
   public getUsersByUsername(username: string) {
-    return prisma.user.findMany({ where: { username }, ...withAttributes });
+    return prisma.user.findMany({ where: { username }, ...withDetails });
   }
 
   public createUser(data: CreateUserDto) {
+    const submittedAttributes = data.attributes ?? [];
+    const legacyGroups = groupNamesFromAttributes(submittedAttributes);
     return prisma.user.create({
       data: {
         name: data.name,
         username: data.username,
         password: data.password,
-        attributes: { create: (data.attributes ?? []).map(attributeData) },
+        attributes: { create: withoutGroupAttributes(submittedAttributes).map(attributeData) },
+        groups:
+          data.groupIds !== undefined
+            ? { connect: data.groupIds.map(id => ({ id })) }
+            : { connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })) },
+        ...(data.applicationIds !== undefined ? { applications: { connect: data.applicationIds.map(id => ({ id })) } } : {}),
       },
-      ...withAttributes,
+      ...withDetails,
     });
   }
 
@@ -35,7 +49,9 @@ export class UsersService {
     // The admin UI receives masked values for sensitive attributes (see mask-user.ts).
     // When the edit form submits the mask sentinel back unchanged, restore the stored
     // value so saving the form never clobbers a real personnummer with the mask.
-    const attributes = data.attributes && (await this.unmaskAttributes(id, data.attributes));
+    const submittedAttributes = data.attributes && (await this.unmaskAttributes(id, data.attributes));
+    const legacyGroups = submittedAttributes && groupNamesFromAttributes(submittedAttributes);
+    const attributes = submittedAttributes && withoutGroupAttributes(submittedAttributes);
     return prisma.user.update({
       where: { id },
       data: {
@@ -44,8 +60,19 @@ export class UsersService {
         password: data.password,
         // Replace the attribute set wholesale when provided.
         ...(attributes ? { attributes: { deleteMany: {}, create: attributes.map(attributeData) } } : {}),
+        ...(data.groupIds !== undefined
+          ? { groups: { set: data.groupIds.map(groupId => ({ id: groupId })) } }
+          : legacyGroups?.found
+            ? {
+                groups: {
+                  set: [],
+                  connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
+                },
+              }
+            : {}),
+        ...(data.applicationIds !== undefined ? { applications: { set: data.applicationIds.map(applicationId => ({ id: applicationId })) } } : {}),
       },
-      ...withAttributes,
+      ...withDetails,
     });
   }
 
@@ -56,9 +83,9 @@ export class UsersService {
     const existing = await this.getUser(id);
     const storedByKey = new Map(existing?.attributes.map(attribute => [attribute.key, attribute.value]));
     return attributes.map(attribute =>
-      isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE ?
-        { ...attribute, value: storedByKey.get(attribute.key) ?? '' }
-      : attribute,
+      isMaskedAttributeKey(attribute.key) && attribute.value === MASKED_VALUE
+        ? { ...attribute, value: storedByKey.get(attribute.key) ?? '' }
+        : attribute,
     );
   }
 
@@ -80,19 +107,31 @@ export class UsersService {
         await tx.user.deleteMany();
         for (const user of users) {
           const attributes = user.attributes ?? {};
+          const submittedAttributes = Object.entries(attributes).map(([key, attr]) => ({
+            key,
+            format: attr.format ?? '',
+            value: attr.value ?? '',
+            type: attr.type ?? '',
+          }));
+          const legacyGroups = groupNamesFromAttributes(submittedAttributes);
           await tx.user.create({
             data: {
               name: user.name,
               username: user.username,
               password: user.password,
               attributes: {
-                create: Object.entries(attributes).map(([key, attr]) => ({
-                  key,
-                  format: attr.format ?? '',
-                  value: attr.value ?? '',
-                  type: attr.type ?? '',
-                })),
+                create: withoutGroupAttributes(submittedAttributes),
               },
+              groups: {
+                connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })),
+              },
+              ...(user.applications && user.applications.length > 0
+                ? {
+                    applications: {
+                      connectOrCreate: [...new Set(user.applications)].map(name => ({ where: { name }, create: { name } })),
+                    },
+                  }
+                : {}),
             },
           });
         }

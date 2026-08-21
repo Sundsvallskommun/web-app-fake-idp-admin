@@ -1,11 +1,12 @@
 {
-  "description": "",
-  "logout_and_retry": "logga ut och försök igen",
+  "description": "Logga in med adminkontot för att hantera testidentiteter.",
+  "username": "användarnamn",
+  "password": "lösenord",
+  "submit": "logga in",
+  "submitting": "loggar in",
   "errors": {
     "NOT_AUTHORIZED": "Inte inloggad",
-    "SAML_MISSING_GROUP": "Användaren saknar rätt grupper",
-    "SAML_MISSING_ATTRIBUTES": "Användaren saknar rätt attribut",
-    "MISSING_PERMISSIONS": "Användaren saknar rättigheter",
-    "NO_USER": "Misslyckades att konfigurera användare"
+    "INVALID_CREDENTIALS": "Fel användarnamn eller lösenord",
+    "UNKNOWN": "Inloggningen misslyckades"
   }
 }

@@ -1,24 +1,27 @@
 import { ListResources } from '@components/list-resources/list-resources';
 import { ListToolbar } from '@components/list-toolbar/list-toolbar';
+import { ResourceError } from '@components/resource-error/resource-error.component';
+import { useConfirm } from '@components/confirm/confirm-context';
 import { features } from '@config/features';
 import resources from '@config/resources';
 import DefaultLayout from '@layouts/default-layout/default-layout.component';
 import { Header } from '@layouts/header/header.component';
 import Main from '@layouts/main/main.component';
 import { ApiResponse, apiService } from '@services/api-service';
-import { Button, Icon, Spinner, useSnackbar } from '@sk-web-gui/react';
+import { Button } from '@components/ui/button';
+import { Download, Loader2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { useResource } from '@utils/use-resource';
-import { Download, Upload } from 'lucide-react';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useMemo, useRef, useState } from 'react';
-import { capitalize } from 'underscore.string';
+import { capitalize } from '@utils/capitalize';
 
 export const UsersListPage: React.FC = () => {
   const { t } = useTranslation();
-  const message = useSnackbar();
-  const { data, refresh, loaded, loading } = useResource('users');
+  const { data, refresh, loaded, loading, error } = useResource('users');
+  const { showConfirmation } = useConfirm();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -38,13 +41,22 @@ export const UsersListPage: React.FC = () => {
 
   // Download the whole user store as a re-importable users.js module.
   const onExport = async () => {
+    // Filen innehåller klartextlösenord (simulatorns syfte) — gör nedladdningen
+    // till ett medvetet val istället för en reflex.
+    const confirmed = await showConfirmation(
+      capitalize(t('users:export.confirm_title')),
+      t('users:export.confirm_text'),
+      capitalize(t('users:export.button')),
+      capitalize(t('common:close'))
+    );
+    if (!confirmed) return;
     setExporting(true);
     try {
       const res = await apiService.get<string>('/users/export', { responseType: 'text' });
       downloadFile(res?.data ?? '', 'exported_users.js');
-      message({ message: t('users:export.success'), status: 'success' });
+      toast.success(t('users:export.success'));
     } catch {
-      message({ message: t('users:export.error'), status: 'error' });
+      toast.error(t('users:export.error'));
     } finally {
       setExporting(false);
     }
@@ -61,13 +73,10 @@ export const UsersListPage: React.FC = () => {
     try {
       const content = await file.text();
       const res = await apiService.post<ApiResponse<{ imported: number }>>('/users/import', { content });
-      message({
-        message: t('users:import.success', { count: res?.data?.data?.imported ?? 0 }),
-        status: 'success',
-      });
+      toast.success(t('users:import.success', { count: res?.data?.data?.imported ?? 0 }));
       refresh();
     } catch {
-      message({ message: t('users:import.error'), status: 'error' });
+      toast.error(t('users:import.error'));
     } finally {
       setImporting(false);
     }
@@ -100,25 +109,19 @@ export const UsersListPage: React.FC = () => {
     <DefaultLayout title={`${capitalize(t('users:name_many'))} - ${process.env.NEXT_PUBLIC_APP_NAME}`}>
       <Main>
         <Header>
-          <span className="flex flex-row items-center gap-16">
-            <h1 className="leading-h4-sm">{capitalize(t('users:name_many'))}</h1>
-            {(loading || importing || exporting) && <Spinner size={2.5} className="leading-h4-sm" />}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              leftIcon={<Icon icon={<Upload />} />}
-            >
+          {/* flex-wrap: knappar och verktygsrad radbryts under rubriken på smala
+              skärmar istället för att överlappa. */}
+          <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
+            <h1 className="text-3xl font-bold leading-6">{capitalize(t('users:name_many'))}</h1>
+            {(loading || importing || exporting) && (
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            )}
+            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+              <Upload className="size-4" />
               {capitalize(t('users:import.button'))}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onExport}
-              disabled={exporting}
-              leftIcon={<Icon icon={<Download />} />}
-            >
+            <Button variant="secondary" size="sm" onClick={onExport} disabled={exporting}>
+              <Download className="size-4" />
               {capitalize(t('users:export.button'))}
             </Button>
             <input
@@ -128,10 +131,12 @@ export const UsersListPage: React.FC = () => {
               className="hidden"
               onChange={onImportFile}
             />
-          </span>
-          <ListToolbar resource="users" onRefresh={refresh} properties={getProperties()} />
+            <ListToolbar className="ml-auto" resource="users" onRefresh={refresh} properties={getProperties()} />
+          </div>
         </Header>
-        {loaded && <ListResources resource="users" data={displayData} />}
+        {error && data.length === 0 ?
+          <ResourceError resources={t('users:name_many')} onRetry={refresh} />
+        : loaded && <ListResources resource="users" data={displayData} />}
       </Main>
     </DefaultLayout>
   );

@@ -1,35 +1,35 @@
-import { exec } from 'child_process';
 import { config } from 'dotenv';
-import { ExecException } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'path';
 config();
 
 const PATH_TO_OUTPUT_DIR = path.resolve(process.cwd(), './src/data-contracts');
 
-const callback = (error: ExecException | null, stdout: string, stderr: string) => {
-  if (error) {
-    console.log(`error: ${error.message}`);
-    return;
+/**
+ * Hämtar backendens swagger och genererar API-klienten. Kräver körande backend.
+ *
+ * Tidigare version await:ade `exec` (en no-op — exec returnerar en ChildProcess,
+ * inte en promise) så genereringen startade innan curl skrivit klart filen, och
+ * använde v12-syntaxen utan `generate`-kommandot som swagger-typescript-api v13
+ * kräver. Synkrona anrop gör ordningen garanterad och fel högljudda.
+ */
+const main = () => {
+  const outputDir = `${PATH_TO_OUTPUT_DIR}/backend`;
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
   }
-  if (stderr) {
-    console.log(`stderr: ${stderr}`);
-    return;
-  }
-  console.log(`Data-contract-generator: ${stdout}`);
-};
+  const swaggerUrl = `${process.env.NEXT_PUBLIC_API_URL}${process.env.NEXT_PUBLIC_API_PATH}/swagger.json`;
+  const swaggerFile = `${outputDir}/swagger.json`;
 
-const main = async () => {
-  if (!fs.existsSync(`${PATH_TO_OUTPUT_DIR}/backend`)) {
-    fs.mkdirSync(`${PATH_TO_OUTPUT_DIR}/backend`, { recursive: true });
-  }
-  console.log('Downloading and generating api-docs for backend');
-  await exec(
-    `curl -o ${PATH_TO_OUTPUT_DIR}/backend/swagger.json ${process.env.NEXT_PUBLIC_API_URL}${process.env.NEXT_PUBLIC_API_PATH}/swagger.json`
-  );
-  await exec(
-    `npx swagger-typescript-api --modular -p ${PATH_TO_OUTPUT_DIR}/backend/swagger.json -o ${PATH_TO_OUTPUT_DIR}/backend --axios --clean-output`,
-    callback
+  console.log(`Downloading ${swaggerUrl}`);
+  execFileSync('curl', ['-sf', '-o', swaggerFile, swaggerUrl], { stdio: 'inherit' });
+
+  console.log('Generating data contracts');
+  execFileSync(
+    'npx',
+    ['swagger-typescript-api', 'generate', '--modular', '-p', swaggerFile, '-o', outputDir, '--axios', '--clean-output'],
+    { stdio: 'inherit' }
   );
 };
 

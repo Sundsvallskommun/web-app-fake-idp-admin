@@ -8,8 +8,7 @@
       },
     ],
     "types": [
-      "node",
-      "@simonsmith/cypress-image-snapshot/types"
+      "node"
      ]
   },
   "include": [
@@ -20,5 +19,5 @@
     "./*.js",
     ".next/types/**/*.ts",
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "vitest", "playwright", "**/*.test.ts", "**/*.test.tsx"]
 }

@@ -1,0 +1,12 @@
+{
+  "name_zero": "grupper",
+  "name_one": "grupp",
+  "name_many": "grupper",
+  "name_other": "grupper",
+  "properties": {
+    "id": "Id",
+    "name": "Gruppnamn",
+    "description": "Beskrivning och behörighet",
+    "userCount": "Testidentiteter"
+  }
+}

@@ -1,0 +1,59 @@
+// Raleway. Sökvägarna prefixas med $basePath (injiceras via sassOptions.prependData
+// i next.config.js och skickas hit med @use ... with) — rot-absoluta url('/fonts/…')
+// 404:ade tyst när stacken kördes under ADMIN_BASE_PATH, eftersom Next inte skriver
+// om url() i CSS. Typsnittsfilerna ligger kvar i public/fonts/.
+$basePath: '' !default;
+
+@supports not (font-variation-settings: 'wght') {
+  @font-face {
+    font-family: 'Raleway';
+    src: url('#{$basePath}/fonts/Raleway-Regular.ttf');
+    font-display: swap;
+    font-weight: 400;
+  }
+
+  @font-face {
+    font-family: 'Raleway';
+    src: url('#{$basePath}/fonts/Raleway-Medium.ttf');
+    font-display: swap;
+    font-weight: 500;
+  }
+
+  @font-face {
+    font-family: 'Raleway';
+    src: url('#{$basePath}/fonts/Raleway-SemiBold.ttf');
+    font-display: swap;
+    font-weight: 600;
+  }
+
+  @font-face {
+    font-family: 'Raleway';
+    src: url('#{$basePath}/fonts/Raleway-Bold.ttf');
+    font-display: swap;
+    font-weight: 700;
+  }
+}
+
+@supports (font-variation-settings: 'wght') {
+  @font-face {
+    font-family: 'Raleway';
+    src:
+      url('#{$basePath}/fonts/Raleway-VariableFont_wght.ttf') format('truetype supports variations') tech('variations'),
+      url('#{$basePath}/fonts/Raleway-VariableFont_wght.ttf') format('truetype-variations');
+    font-weight: 100 1000;
+    font-stretch: 25% 151%;
+  }
+}
+
+// Rubriker i Raleway. (Gamla filen listade h4 två gånger och missade h5, och
+// hade en .btn-selektor som inte matchar något i appen. Brödtexten sätts i
+// _tokens.scss — body-regeln med Arial här var alltid överskuggad.)
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.header-font {
+  font-family: 'Raleway', sans-serif;
+}
