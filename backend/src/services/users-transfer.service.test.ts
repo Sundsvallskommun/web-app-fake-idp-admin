@@ -4,7 +4,7 @@ import { ImportConfirmationError, UsersTransferService } from '@services/users-t
 import { UsersService } from '@services/users.service';
 import { createUserBackup, serializeUserBackup } from '@/user-store/user-backup';
 
-const storedUsers: Awaited<ReturnType<UsersService['getUsers']>> = [
+const storedUsers: Awaited<ReturnType<UsersService['getUsersForBackup']>> = [
   {
     id: 'existing-id',
     name: 'Existing',
@@ -13,12 +13,13 @@ const storedUsers: Awaited<ReturnType<UsersService['getUsers']>> = [
     attributes: [],
     groups: [],
     applications: [],
+    legacyApplications: [],
   },
 ];
 
 describe('UsersTransferService', () => {
   beforeEach(() => {
-    vi.spyOn(UsersService.prototype, 'getUsers').mockResolvedValue(storedUsers);
+    vi.spyOn(UsersService.prototype, 'getUsersForBackup').mockResolvedValue(storedUsers);
     vi.spyOn(GroupsService.prototype, 'getGroups').mockResolvedValue([]);
     vi.spyOn(ApplicationsService.prototype, 'getApplications').mockResolvedValue([]);
   });
@@ -40,9 +41,18 @@ describe('UsersTransferService', () => {
     const transfer = new UsersTransferService();
     const content = serializeUserBackup(createUserBackup([], [], [], new Date('2026-08-21T10:00:00.000Z')));
     const preview = await transfer.previewImport(content);
-    vi.spyOn(UsersService.prototype, 'getUsers').mockResolvedValueOnce([
+    vi.spyOn(UsersService.prototype, 'getUsersForBackup').mockResolvedValueOnce([
       ...storedUsers,
-      { id: 'new-id', name: 'New', username: 'new', password: 'new', attributes: [], groups: [], applications: [] },
+      {
+        id: 'new-id',
+        name: 'New',
+        username: 'new',
+        password: 'new',
+        attributes: [],
+        groups: [],
+        applications: [],
+        legacyApplications: [],
+      },
     ]);
 
     await expect(transfer.importUsers(content, preview.confirmationToken)).rejects.toBeInstanceOf(ImportConfirmationError);

@@ -28,7 +28,11 @@ export class UsersTransferService {
   private applications = new ApplicationsService();
 
   private async currentBackup() {
-    const [users, groups, applications] = await Promise.all([this.users.getUsers(), this.groups.getGroups(), this.applications.getApplications()]);
+    const [users, groups, applications] = await Promise.all([
+      this.users.getUsersForBackup(),
+      this.groups.getGroups(),
+      this.applications.getApplications(),
+    ]);
     return createUserBackup(users, groups, applications);
   }
 

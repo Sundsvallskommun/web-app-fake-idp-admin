@@ -10,7 +10,7 @@ const storedUser = {
     { key: 'role', value: 'reviewer', format: 'basic', type: 'xs:string' },
   ],
   groups: [{ name: 'editors' }],
-  applications: [{ name: 'test-app' }],
+  legacyApplications: [{ name: 'legacy-app' }],
 };
 
 describe('versioned user backup', () => {
@@ -18,11 +18,12 @@ describe('versioned user backup', () => {
     const source = createUserBackup(
       [storedUser],
       [
-        { name: 'editors', description: 'Can edit' },
-        { name: 'empty-group', description: 'Documented but empty' },
+        { name: 'editors', description: 'Can edit', applications: [{ name: 'test-app' }] },
+        { name: 'empty-group', description: 'Documented but empty', applications: [] },
       ],
       [
         { name: 'test-app', description: 'Assigned application' },
+        { name: 'legacy-app', description: 'Legacy direct assignment' },
         { name: 'empty-app', description: 'Documented but empty' },
       ],
       new Date('2026-08-21T10:00:00.000Z'),
@@ -32,13 +33,16 @@ describe('versioned user backup', () => {
       format: 'backup-v1',
       replacesGroupCatalog: true,
       replacesApplicationCatalog: true,
-      groups: [{ name: 'editors' }, { name: 'empty-group' }],
-      applications: [{ name: 'empty-app' }, { name: 'test-app' }],
+      groups: [
+        { name: 'editors', applications: ['test-app'] },
+        { name: 'empty-group', applications: [] },
+      ],
+      applications: [{ name: 'empty-app' }, { name: 'legacy-app' }, { name: 'test-app' }],
       users: [
         {
           id: 'stable-subject',
           groups: ['editors'],
-          applications: ['test-app'],
+          legacyApplications: ['legacy-app'],
           attributes: [
             { key: 'role', value: 'editor' },
             { key: 'role', value: 'reviewer' },
@@ -61,9 +65,13 @@ describe('versioned user backup', () => {
       ),
     ).toThrow('unsupported backup schema version');
 
-    const invalid = createUserBackup([storedUser], [{ name: 'editors', description: '' }], [], new Date());
-    invalid.users[0].applications = ['missing'];
-    expect(() => parseUserImport(serializeUserBackup(invalid))).toThrow('references unknown application');
+    const invalid = createUserBackup([storedUser], [{ name: 'editors', description: '', applications: [] }], [], new Date());
+    invalid.users[0].legacyApplications = ['missing'];
+    expect(() => parseUserImport(serializeUserBackup(invalid))).toThrow('references unknown legacy application');
+
+    invalid.users[0].legacyApplications = [];
+    invalid.groups[0].applications = ['missing'];
+    expect(() => parseUserImport(serializeUserBackup(invalid))).toThrow('backup.groups[0] references unknown application');
   });
 });
 
@@ -107,5 +115,18 @@ describe('legacy users.js import', () => {
     );
     expect(parsed.users.map(user => user.id)).toEqual(['duplicate', undefined]);
     expect(parsed.warnings).toEqual(expect.arrayContaining([expect.stringContaining('Dubblett-ID')]));
+  });
+
+  it('distinguishes omitted legacy application metadata from an explicit empty projection', () => {
+    const parsed = parseUserImport(
+      JSON.stringify({
+        users: [
+          { name: 'Missing', username: 'missing', password: 'secret', attributes: {} },
+          { name: 'Empty', username: 'empty', password: 'secret', attributes: {}, applications: [] },
+        ],
+      }),
+    );
+
+    expect(parsed.users.map(user => user.applications)).toEqual([undefined, []]);
   });
 });

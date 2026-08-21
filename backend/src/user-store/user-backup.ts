@@ -13,6 +13,7 @@ export type BackupAttribute = {
 export type BackupGroup = {
   name: string;
   description: string;
+  applications: string[];
 };
 
 export type BackupApplication = {
@@ -27,7 +28,12 @@ export type BackupUser = {
   password: string;
   attributes: BackupAttribute[];
   groups: string[];
-  applications: string[];
+  legacyApplications: string[];
+};
+
+type ImportedUser = Omit<BackupUser, 'legacyApplications'> & {
+  applications?: string[];
+  legacyApplications?: string[];
 };
 
 export type UserBackup = {
@@ -44,7 +50,7 @@ export type ParsedUserImport = {
   replacesApplicationCatalog: boolean;
   groups: BackupGroup[];
   applications: BackupApplication[];
-  users: BackupUser[];
+  users: ImportedUser[];
   warnings: string[];
 };
 
@@ -55,12 +61,13 @@ type StoredUser = {
   password: string;
   attributes: BackupAttribute[];
   groups: Array<{ name: string }>;
-  applications: Array<{ name: string }>;
+  legacyApplications: Array<{ name: string }>;
 };
 
 type StoredGroup = {
   name: string;
   description: string;
+  applications: Array<{ name: string }>;
 };
 
 type StoredApplication = {
@@ -109,7 +116,13 @@ const parseGroup = (value: unknown, context: string): BackupGroup => {
   const name = requiredString(value, 'name', context).trim();
   if (!name) throw new Error(`${context}.name must not be empty`);
   if (name.includes(',')) throw new Error(`${context}.name must not contain commas`);
-  return { name, description: requiredString(value, 'description', context) };
+  return {
+    name,
+    description: requiredString(value, 'description', context),
+    applications: stringArray(value.applications, `${context}.applications`)
+      .map(applicationName => applicationName.trim())
+      .filter(Boolean),
+  };
 };
 
 const parseApplication = (value: unknown, context: string): BackupApplication => {
@@ -133,7 +146,7 @@ const parseBackupUser = (value: unknown, context: string): BackupUser => {
     groups: stringArray(value.groups, `${context}.groups`)
       .map(name => name.trim())
       .filter(Boolean),
-    applications: stringArray(value.applications, `${context}.applications`)
+    legacyApplications: stringArray(value.legacyApplications, `${context}.legacyApplications`)
       .map(name => name.trim())
       .filter(Boolean),
   };
@@ -173,6 +186,14 @@ const parseBackup = (value: Record<string, unknown>): ParsedUserImport => {
 
   const groupNames = new Set(groups.map(group => group.name));
   const applicationNames = new Set(applications.map(application => application.name));
+  groups.forEach((group, groupIndex) => {
+    validateUnique(group.applications, `backup.groups[${groupIndex}].applications`);
+    group.applications.forEach(applicationName => {
+      if (!applicationNames.has(applicationName)) {
+        throw new Error(`backup.groups[${groupIndex}] references unknown application "${applicationName}"`);
+      }
+    });
+  });
   users.forEach((user, userIndex) => {
     validateUnique(user.groups, `backup.users[${userIndex}].groups`);
     user.groups.forEach(groupName => {
@@ -180,10 +201,10 @@ const parseBackup = (value: Record<string, unknown>): ParsedUserImport => {
         throw new Error(`backup.users[${userIndex}] references unknown group "${groupName}"`);
       }
     });
-    validateUnique(user.applications, `backup.users[${userIndex}].applications`);
-    user.applications.forEach(applicationName => {
+    validateUnique(user.legacyApplications ?? [], `backup.users[${userIndex}].legacyApplications`);
+    (user.legacyApplications ?? []).forEach(applicationName => {
       if (!applicationNames.has(applicationName)) {
-        throw new Error(`backup.users[${userIndex}] references unknown application "${applicationName}"`);
+        throw new Error(`backup.users[${userIndex}] references unknown legacy application "${applicationName}"`);
       }
     });
   });
@@ -342,7 +363,7 @@ const parseLegacy = (value: unknown): ParsedUserImport => {
 
   const warnings: string[] = ['Legacyformat: katalogbeskrivningar och tomma grupper/applikationer ingår inte. Befintliga kataloger behålls.'];
   const seenIds = new Set<string>();
-  const users = exportedUsers.map((rawUser, index): BackupUser => {
+  const users = exportedUsers.map((rawUser, index): ImportedUser => {
     const context = `legacy users[${index}]`;
     if (!isRecord(rawUser)) throw new Error(`${context} must be an object`);
     const rawId = optionalString(rawUser, 'id', context)?.trim();
@@ -357,7 +378,7 @@ const parseLegacy = (value: unknown): ParsedUserImport => {
     if (!isRecord(rawAttributes)) throw new Error(`${context}.attributes must be an object`);
     const attributes = Object.entries(rawAttributes).map(([key, attribute]) => parseLegacyAttribute(key, attribute, `${context}.attributes.${key}`));
     const groupNames = attributes.filter(attribute => attribute.key === 'groups').flatMap(attribute => parseGroupNames(attribute.value));
-    const applications = rawUser.applications === undefined ? [] : stringArray(rawUser.applications, `${context}.applications`);
+    const applications = rawUser.applications === undefined ? undefined : stringArray(rawUser.applications, `${context}.applications`);
 
     return {
       id,
@@ -366,24 +387,24 @@ const parseLegacy = (value: unknown): ParsedUserImport => {
       password: requiredString(rawUser, 'password', context),
       attributes: attributes.filter(attribute => attribute.key !== 'groups'),
       groups: [...new Set(groupNames)],
-      applications: [...new Set(applications.map(name => name.trim()).filter(Boolean))],
+      applications: applications && [...new Set(applications.map(name => name.trim()).filter(Boolean))],
     };
   });
 
   const groupNames = [...new Set(users.flatMap(user => user.groups))].sort((left, right) => left.localeCompare(right));
-  const applicationNames = [...new Set(users.flatMap(user => user.applications))].sort((left, right) => left.localeCompare(right));
+  const applicationNames = [...new Set(users.flatMap(user => user.applications ?? []))].sort((left, right) => left.localeCompare(right));
   return {
     format: 'legacy-users-js',
     replacesGroupCatalog: false,
     replacesApplicationCatalog: false,
-    groups: groupNames.map(name => ({ name, description: '' })),
+    groups: groupNames.map(name => ({ name, description: '', applications: [] })),
     applications: applicationNames.map(name => ({ name, description: '' })),
     users,
     warnings: [...warnings, ...credentialWarnings(users)],
   };
 };
 
-const credentialWarnings = (users: BackupUser[]): string[] => {
+const credentialWarnings = (users: ImportedUser[]): string[] => {
   const credentials = new Map<string, number>();
   const warnings: string[] = [];
   users.forEach(user => {
@@ -403,7 +424,13 @@ export const createUserBackup = (
 ): UserBackup => ({
   schemaVersion: USER_BACKUP_SCHEMA_VERSION,
   exportedAt: exportedAt.toISOString(),
-  groups: groups.map(group => ({ name: group.name, description: group.description })).sort((left, right) => left.name.localeCompare(right.name)),
+  groups: groups
+    .map(group => ({
+      name: group.name,
+      description: group.description,
+      applications: group.applications.map(application => application.name).sort((left, right) => left.localeCompare(right)),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name)),
   applications: applications
     .map(application => ({ name: application.name, description: application.description }))
     .sort((left, right) => left.name.localeCompare(right.name)),
@@ -415,7 +442,7 @@ export const createUserBackup = (
       password: user.password,
       attributes: user.attributes.map(({ key, format, value, type }) => ({ key, format, value, type })),
       groups: user.groups.map(group => group.name).sort((left, right) => left.localeCompare(right)),
-      applications: user.applications.map(application => application.name).sort((left, right) => left.localeCompare(right)),
+      legacyApplications: user.legacyApplications.map(application => application.name).sort((left, right) => left.localeCompare(right)),
     }))
     .sort((left, right) => (left.id as string).localeCompare(right.id as string)),
 });

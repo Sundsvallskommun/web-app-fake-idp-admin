@@ -13,6 +13,7 @@
   "edit_row": "redigera",
   "fetch_failed": "kunde inte hämta {{resources}}",
   "filter": "filtrera",
+  "filter_resources": "filtrera {{resources}}",
   "go_back": "gå tillbaks",
   "hide_password": "dölj lösenord",
   "id": "id",
@@ -24,6 +25,7 @@
   "logout": "logga ut",
   "next_page": "nästa sida",
   "no_resources": "inga {{resources}} hittades",
+  "no_matching_resources": "inga {{resources}} matchar filtret",
   "page_of": "sida {{page}} av {{count}}",
   "previous_page": "föregående sida",
   "refresh": "ladda om",
@@ -40,5 +42,9 @@
   "welcome": "välkommen",
   "unsaved_changes": "Du har osparade ändringar",
   "updatedAt": "senast uppdaterad",
-  "do_you_want_to_leave": "Är du säker på att du vill lämna den här sidan?"
+  "do_you_want_to_leave": "Är du säker på att du vill lämna den här sidan?",
+  "picker": {
+    "selected": "Valda ({{count}})",
+    "other": "Övriga ({{count}})"
+  }
 }

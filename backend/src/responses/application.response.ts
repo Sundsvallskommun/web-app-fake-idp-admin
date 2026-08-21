@@ -2,7 +2,7 @@ import ApiResponse from '@/interfaces/api-response.interface';
 import { Type } from 'class-transformer';
 import { IsArray, IsNumber, IsString, ValidateNested } from 'class-validator';
 
-/** Medlem i en grupp/applikation. Endast identifierande fält — aldrig lösenord. */
+/** Härledd användare med access. Endast identifierande fält — aldrig lösenord. */
 export class ApplicationMember {
   @IsString()
   id: string;
@@ -10,6 +10,17 @@ export class ApplicationMember {
   name: string;
   @IsString()
   username: string;
+}
+
+export class ApplicationGroup {
+  @IsNumber()
+  id: number;
+  @IsString()
+  name: string;
+  @IsString()
+  description: string;
+  @IsNumber()
+  userCount: number;
 }
 
 export class AdminApplication {
@@ -25,6 +36,10 @@ export class AdminApplication {
   @ValidateNested({ each: true })
   @Type(() => ApplicationMember)
   users: ApplicationMember[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ApplicationGroup)
+  groups: ApplicationGroup[];
 }
 
 export class AdminApplicationResponse implements ApiResponse<AdminApplication> {

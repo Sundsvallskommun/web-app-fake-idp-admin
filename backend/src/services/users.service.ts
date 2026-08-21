@@ -1,4 +1,5 @@
 import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
+import { Prisma } from '@prisma/client';
 import prisma from '@utils/prisma';
 import { groupNamesFromAttributes, withoutGroupAttributes } from '@utils/group-claim';
 import { isMaskedAttributeKey, MASKED_VALUE } from '@utils/mask-user';
@@ -7,29 +8,122 @@ import { ParsedUserImport } from '@/user-store/user-backup';
 const withDetails = {
   include: {
     attributes: true,
-    groups: { orderBy: { name: 'asc' as const } },
-    applications: { orderBy: { name: 'asc' as const } },
+    groups: {
+      include: { applications: { orderBy: { name: 'asc' as const } } },
+      orderBy: { name: 'asc' as const },
+    },
+    legacyApplicationAccess: {
+      select: { application: true },
+    },
   },
 } as const;
 
+type UserDetails = Prisma.UserGetPayload<typeof withDetails>;
+
+type ApplicationSummary = { id: number; name: string; description: string };
+
+export const applicationsForUser = (
+  groups: Array<{ applications: ApplicationSummary[] }>,
+  legacyApplicationAccess: Array<{ application: ApplicationSummary }>,
+): ApplicationSummary[] =>
+  [
+    ...new Map(
+      [...groups.flatMap(group => group.applications), ...legacyApplicationAccess.map(access => access.application)].map(application => [
+        application.id,
+        application,
+      ]),
+    ).values(),
+  ].sort((left, right) => left.name.localeCompare(right.name, 'sv'));
+
+/** Application access is the canonical group projection plus persisted legacy
+ * assignments that have not been deliberately reclassified yet. */
+const toUser = (user: UserDetails) => {
+  const applications = applicationsForUser(user.groups, user.legacyApplicationAccess);
+
+  return {
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    password: user.password,
+    attributes: user.attributes,
+    groups: user.groups.map(group => ({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+    })),
+    applications,
+  };
+};
+
+type ImportedAccess = {
+  username: string;
+  groupNames: string[];
+  applicationNames?: string[];
+};
+
+export class UnrepresentableApplicationAccessError extends Error {}
+
+/**
+ * Preserve only the part of an imported per-user application set that is not
+ * already supplied by the current canonical group mappings. A users.js import
+ * never invents group mappings because the per-user projection contains no
+ * provenance for deciding which group should own an application.
+ */
+export const legacyApplicationsForImport = (
+  users: ImportedAccess[],
+  groups: Array<{ name: string; applications: Array<{ name: string }> }>,
+): Array<string[] | undefined> => {
+  const applicationsByGroup = new Map(groups.map(group => [group.name, new Set(group.applications.map(application => application.name))]));
+
+  return users.map(user => {
+    if (user.applicationNames === undefined) return undefined;
+
+    const expected = new Set(user.applicationNames);
+    const derived = new Set(user.groupNames.flatMap(groupName => [...(applicationsByGroup.get(groupName) ?? [])]));
+    const unexpected = [...derived].filter(applicationName => !expected.has(applicationName));
+    if (unexpected.length > 0) {
+      throw new UnrepresentableApplicationAccessError(
+        `Application assignments for user "${user.username}" conflict with existing group mappings: ${unexpected.join(', ')}`,
+      );
+    }
+
+    return [...expected].filter(applicationName => !derived.has(applicationName));
+  });
+};
+
 export class UsersService {
-  public getUsers() {
-    return prisma.user.findMany({ ...withDetails, orderBy: { name: 'asc' } });
+  public async getUsers() {
+    const users = await prisma.user.findMany({ ...withDetails, orderBy: { name: 'asc' } });
+    return users.map(toUser);
   }
 
-  public getUser(id: string) {
-    return prisma.user.findUnique({ where: { id }, ...withDetails });
+  /** Full persistence projection for versioned backups. Compatibility access
+   * stays internal and is never added to the regular admin or SAML response. */
+  public async getUsersForBackup() {
+    const users = await prisma.user.findMany({ ...withDetails, orderBy: { name: 'asc' } });
+    return users.map(user => ({
+      ...toUser(user),
+      legacyApplications: user.legacyApplicationAccess
+        .map(access => access.application)
+        .sort((left, right) => left.name.localeCompare(right.name, 'sv')),
+    }));
+  }
+
+  public async getUser(id: string) {
+    const user = await prisma.user.findUnique({ where: { id }, ...withDetails });
+    return user && toUser(user);
   }
 
   // username is not unique in the schema; callers match the password themselves.
-  public getUsersByUsername(username: string) {
-    return prisma.user.findMany({ where: { username }, ...withDetails });
+  public async getUsersByUsername(username: string) {
+    const users = await prisma.user.findMany({ where: { username }, ...withDetails });
+    return users.map(toUser);
   }
 
-  public createUser(data: CreateUserDto) {
+  public async createUser(data: CreateUserDto) {
     const submittedAttributes = data.attributes ?? [];
     const legacyGroups = groupNamesFromAttributes(submittedAttributes);
-    return prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name: data.name,
         username: data.username,
@@ -39,10 +133,17 @@ export class UsersService {
           data.groupIds !== undefined
             ? { connect: data.groupIds.map(id => ({ id })) }
             : { connectOrCreate: legacyGroups.names.map(name => ({ where: { name }, create: { name } })) },
-        ...(data.applicationIds !== undefined ? { applications: { connect: data.applicationIds.map(id => ({ id })) } } : {}),
+        ...(data.applicationIds === undefined
+          ? {}
+          : {
+              legacyApplicationAccess: {
+                create: data.applicationIds.map(applicationId => ({ application: { connect: { id: applicationId } } })),
+              },
+            }),
       },
       ...withDetails,
     });
+    return toUser(user);
   }
 
   public async updateUser(id: string, data: UpdateUserDto) {
@@ -52,7 +153,7 @@ export class UsersService {
     const submittedAttributes = data.attributes && (await this.unmaskAttributes(id, data.attributes));
     const legacyGroups = submittedAttributes && groupNamesFromAttributes(submittedAttributes);
     const attributes = submittedAttributes && withoutGroupAttributes(submittedAttributes);
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: { id },
       data: {
         name: data.name,
@@ -70,10 +171,18 @@ export class UsersService {
                 },
               }
             : {}),
-        ...(data.applicationIds !== undefined ? { applications: { set: data.applicationIds.map(applicationId => ({ id: applicationId })) } } : {}),
+        ...(data.applicationIds === undefined
+          ? {}
+          : {
+              legacyApplicationAccess: {
+                deleteMany: {},
+                create: data.applicationIds.map(applicationId => ({ application: { connect: { id: applicationId } } })),
+              },
+            }),
       },
       ...withDetails,
     });
+    return toUser(user);
   }
 
   private async unmaskAttributes(id: string, attributes: { key: string; format: string; value: string; type: string }[]) {
@@ -104,11 +213,6 @@ export class UsersService {
 
         if (document.replacesGroupCatalog) {
           await tx.group.deleteMany();
-          for (const group of document.groups) await tx.group.create({ data: group });
-        } else {
-          for (const group of document.groups) {
-            await tx.group.upsert({ where: { name: group.name }, create: group, update: {} });
-          }
         }
 
         if (document.replacesApplicationCatalog) {
@@ -120,7 +224,45 @@ export class UsersService {
           }
         }
 
-        for (const user of document.users) {
+        if (document.replacesGroupCatalog) {
+          for (const group of document.groups) {
+            await tx.group.create({
+              data: {
+                name: group.name,
+                description: group.description,
+                applications: { connect: group.applications.map(name => ({ name })) },
+              },
+            });
+          }
+        } else {
+          for (const group of document.groups) {
+            await tx.group.upsert({
+              where: { name: group.name },
+              create: { name: group.name, description: group.description },
+              update: {},
+            });
+          }
+        }
+
+        const importedGroupNames = [...new Set(document.users.flatMap(user => user.groups))];
+        const importedGroups = await tx.group.findMany({
+          where: { name: { in: importedGroupNames } },
+          select: { name: true, applications: { select: { name: true } } },
+        });
+        const legacyApplicationsByUser =
+          document.format === 'backup-v1'
+            ? document.users.map(user => user.legacyApplications ?? [])
+            : legacyApplicationsForImport(
+                document.users.map(user => ({
+                  username: user.username,
+                  groupNames: user.groups,
+                  applicationNames: user.applications,
+                })),
+                importedGroups,
+              );
+
+        for (const [index, user] of document.users.entries()) {
+          const legacyApplicationNames = legacyApplicationsByUser[index];
           await tx.user.create({
             data: {
               ...(user.id ? { id: user.id } : {}),
@@ -129,7 +271,13 @@ export class UsersService {
               password: user.password,
               attributes: { create: user.attributes },
               groups: { connect: user.groups.map(name => ({ name })) },
-              applications: { connect: user.applications.map(name => ({ name })) },
+              ...(legacyApplicationNames === undefined
+                ? {}
+                : {
+                    legacyApplicationAccess: {
+                      create: legacyApplicationNames.map(name => ({ application: { connect: { name } } })),
+                    },
+                  }),
             },
           });
         }

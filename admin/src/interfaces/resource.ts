@@ -3,6 +3,7 @@ import { LucideIcon } from 'lucide-react';
 import { FieldPath } from 'react-hook-form';
 import { Create, GetMany, GetOne, ID, Remove, Update } from './resource-services';
 import { ServiceResponse } from './services';
+import type { ResourceName } from './resource-name';
 
 export type ResourceResponse<T> = Promise<AxiosResponse<ServiceResponse<T>>>;
 
@@ -50,10 +51,17 @@ export type Resource<
   update?: Update<TUpdate, ResourceResponse<T>>;
   remove?: Remove<Promise<unknown>>;
   defaultValues?: TCreate;
+  /** Maps an API resource to the editable form shape while retaining its id. */
+  toForm?(data: T): ResourceData;
   requiredFields?: Array<FieldPath<TCreate & TUpdate>>;
   /** Fält som redigeras i flerradig textarea istället för enradigt input. */
   multilineFields?: Array<FieldPath<TCreate & TUpdate>>;
   formFields?: Array<Extract<keyof (TCreate & TUpdate), string>>;
+  /** Relations edited with the shared searchable checkbox picker. */
+  relationFields?: Array<{
+    property: FieldPath<TCreate & TUpdate>;
+    targetResource: ResourceName;
+  }>;
   /**
    * Explicit list-table columns. When set, these override the columns that are
    * otherwise auto-derived from the primitive fields of the data, and the
