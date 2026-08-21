@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 
 /**
- * Smokes för de tre kärnflödena: logga in, se listan, skapa/ta bort en grupp.
+ * Smokes för kärnflöden som behöver verifieras i en riktig webbläsare.
  * Nästan alla regressionsfel i migreringen var osynliga för tsc/lint/build —
  * de här testerna är det minsta som faktiskt öppnar appen i en webbläsare.
  *
@@ -31,6 +31,57 @@ test('testidentitetslistan renderar rubrik, filter och verktygsrad', async ({ pa
   await expect(page.getByRole('heading', { name: /testidentiteter/i })).toBeVisible();
   await expect(page.getByRole('searchbox', { name: /filtrera/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /importera testidentiteter/i })).toBeVisible();
+});
+
+test('mörkt läge består vid navigation och omladdning', async ({ page }) => {
+  await login(page);
+
+  await page.getByRole('button', { name: /följ system|ljust läge|mörkt läge/i }).click();
+  await page.getByRole('menuitemradio', { name: /mörkt läge/i }).click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('dark');
+
+  await page.getByRole('link', { name: /testidentiteter/i }).click();
+  await page.waitForURL('**/users');
+  await expect(page.locator('html')).toHaveClass(/dark/);
+
+  await page.getByRole('button', { name: 'Grupper', exact: true }).click();
+  await page.getByRole('link', { name: /lista alla grupper/i }).click();
+  await page.waitForURL('**/groups');
+  await page.reload();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark');
+});
+
+test('personnummer är maskerat tills ögat används', async ({ page }) => {
+  const uniqueId = Date.now();
+  const citizenIdentifier = '199001011234';
+
+  await login(page);
+  await page.goto('/users/new');
+  await page.locator('#user-name').fill(`E2E Personnummer ${uniqueId}`);
+  await page.locator('#user-username').fill(`e2e-${uniqueId}`);
+  await page.locator('#user-password').fill('test-password');
+  await page.locator('#known-citizenIdentifier').fill(citizenIdentifier);
+  await page.getByRole('button', { name: 'Spara' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'OK' }).click();
+  await page.waitForURL(/\/users\/(?!new$)[^/]+$/);
+
+  const citizenIdentifierInput = page.locator('#known-citizenIdentifier');
+  await expect(citizenIdentifierInput).toHaveAttribute('type', 'password');
+  await expect(citizenIdentifierInput).toHaveValue('••••••••••••');
+
+  await page.getByRole('button', { name: 'Visa personnummer' }).click();
+  await expect(citizenIdentifierInput).toHaveAttribute('type', 'text');
+  await expect(citizenIdentifierInput).toHaveValue(citizenIdentifier);
+
+  await page.reload();
+  await expect(citizenIdentifierInput).toHaveValue('••••••••••••');
+  await page.getByRole('button', { name: 'Visa personnummer' }).click();
+  await expect(citizenIdentifierInput).toHaveValue(citizenIdentifier);
+
+  await page.getByRole('button', { name: 'Ta bort' }).click();
+  await page.waitForURL('**/users');
 });
 
 test('en grupp kan skapas och tas bort', async ({ page }) => {

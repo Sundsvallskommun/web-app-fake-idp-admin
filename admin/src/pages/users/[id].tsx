@@ -15,7 +15,7 @@ import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { capitalize } from '@utils/capitalize';
 
@@ -38,9 +38,11 @@ export const UserEditPage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    resetField,
     formState: { isDirty },
   } = form;
   const [loaded, setLoaded] = useState<boolean>(isNew);
+  const [formVersion, setFormVersion] = useState(0);
 
   useRouteGuard(isDirty);
 
@@ -58,6 +60,20 @@ export const UserEditPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const revealCitizenIdentifier = useCallback(async () => {
+    if (isNew || !id) {
+      return '';
+    }
+
+    try {
+      const response = await apiClient.userControllerGetCitizenIdentifier(id);
+      return response.data.data.value;
+    } catch (error) {
+      toast.error(t('users:reveal_citizen_identifier_error'));
+      throw error;
+    }
+  }, [id, isNew, t]);
+
   const onSubmit = (data: UserForm) => {
     if (isNew) {
       handleCreate<AdminUser>(() => apiClient.userControllerCreateUser(userFormToPayload(data))).then((res) => {
@@ -70,6 +86,7 @@ export const UserEditPage: React.FC = () => {
       handleUpdate<AdminUser>(() => apiClient.userControllerUpdateUser(id, userFormToPayload(data))).then((res) => {
         if (res) {
           reset(userToForm(res));
+          setFormVersion((version) => version + 1);
           refresh();
         }
       });
@@ -107,7 +124,13 @@ export const UserEditPage: React.FC = () => {
       backLink="/users"
     >
       <form className="flex flex-col gap-8 grow max-w-xl" onSubmit={handleSubmit(onSubmit)}>
-        <UserFormFields control={control} register={register} />
+        <UserFormFields
+          key={`${id ?? 'new'}-${formVersion}`}
+          control={control}
+          register={register}
+          resetField={resetField}
+          revealCitizenIdentifier={isNew ? undefined : revealCitizenIdentifier}
+        />
 
         <div className="flex gap-4">
           <Button type="submit" disabled={!isDirty}>

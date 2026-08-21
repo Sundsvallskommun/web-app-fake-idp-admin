@@ -17,6 +17,7 @@ import {
   AdminGroupResponse,
   AdminUserListResponse,
   AdminUserResponse,
+  CitizenIdentifierResponse,
   CreateApplicationDto,
   CreateGroupDto,
   CreateUserDto,
@@ -105,6 +106,23 @@ export class Api<
   userControllerExportUsers = (params: RequestParams = {}) =>
     this.request<void, any>({
       path: `/api/users/export`,
+      method: "GET",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags User
+   * @name UserControllerGetCitizenIdentifier
+   * @summary Reveal the citizen identifier for a fake-IdP user
+   * @request GET:/api/users/{id}/citizen-identifier
+   */
+  userControllerGetCitizenIdentifier = (
+    id: string,
+    params: RequestParams = {},
+  ) =>
+    this.request<CitizenIdentifierResponse, any>({
+      path: `/api/users/${id}/citizen-identifier`,
       method: "GET",
       ...params,
     });

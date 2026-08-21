@@ -1,17 +1,18 @@
 // `citizenIdentifier` (Swedish personnummer) can be a real, sensitive value even
-// in this test IdP, and the admin UI only needs to show that a user HAS one — not
-// what it is. So the admin HTTP responses mask these attribute values; the real
-// values stay in the DB and are still issued in SAML assertions (the IdP reads
-// straight from UsersService/Prisma, which is NOT masked).
+// in this test IdP. Regular admin HTTP responses therefore mask these attribute
+// values. The real value only leaves the backend through the explicit,
+// authenticated reveal endpoint or in SAML assertions (the IdP reads straight
+// from UsersService/Prisma, which is NOT masked).
 //
 // The mask is a fixed sentinel (non-numeric, so it can never collide with a real
 // personnummer). It also round-trips: an update that submits the sentinel back
 // means "unchanged", and UsersService.updateUser restores the stored value rather
 // than overwriting it with the mask. See users.service.ts.
 export const MASKED_VALUE = '••••••••••••';
+export const CITIZEN_IDENTIFIER_KEY = 'citizenIdentifier';
 
 // Attribute keys whose values must never leave the backend in clear text.
-const MASKED_ATTRIBUTE_KEYS = new Set(['citizenIdentifier']);
+const MASKED_ATTRIBUTE_KEYS = new Set([CITIZEN_IDENTIFIER_KEY]);
 
 export const isMaskedAttributeKey = (key: string) => MASKED_ATTRIBUTE_KEYS.has(key);
 

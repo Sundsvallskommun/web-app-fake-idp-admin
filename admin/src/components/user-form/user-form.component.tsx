@@ -2,13 +2,13 @@ import { AdminApplication, AdminGroup } from '@data-contracts/backend/data-contr
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
-import { PasswordInput } from '@components/password-input/password-input';
+import { RevealableInput } from '@components/revealable-input/revealable-input';
 import { ResourceError } from '@components/resource-error/resource-error.component';
 import { ResourcePicker } from './resource-picker.component';
 import { useResource } from '@utils/use-resource';
 import { Loader2, Plus, Trash } from 'lucide-react';
 import NextLink from 'next/link';
-import { Control, Controller, UseFormRegister, useFieldArray } from 'react-hook-form';
+import { Control, Controller, UseFormRegister, UseFormResetField, useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { capitalize } from '@utils/capitalize';
 import { emptyCustomAttribute, UserForm } from './user-form.model';
@@ -17,9 +17,16 @@ import { userAttributeDefinitions, userPropertyDefinitions } from './user-form.s
 type UserFormFieldsProps = {
   control: Control<UserForm>;
   register: UseFormRegister<UserForm>;
+  resetField: UseFormResetField<UserForm>;
+  revealCitizenIdentifier?: () => Promise<string>;
 };
 
-export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, register }) => {
+export const UserFormFields: React.FC<UserFormFieldsProps> = ({
+  control,
+  register,
+  resetField,
+  revealCitizenIdentifier,
+}) => {
   const { t } = useTranslation();
   const { fields, append, remove } = useFieldArray({ control, name: 'customAttributes' });
   const {
@@ -50,10 +57,12 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
               {definition.required && <span aria-hidden="true"> *</span>}
             </Label>
             {definition.inputType === 'password' ?
-              <PasswordInput
+              <RevealableInput
                 id={`user-${definition.key}`}
                 required={definition.required}
                 autoComplete="off"
+                revealLabel={t('common:show_password')}
+                concealLabel={t('common:hide_password')}
                 {...register(definition.key, { required: definition.required })}
               />
             : <Input
@@ -171,11 +180,31 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({ control, registe
                         </span>
                       </Label>
                       {help && <p className="text-xs text-muted-foreground">{help}</p>}
-                      <Input
-                        id={`known-${definition.key}`}
-                        placeholder={definition.placeholder}
-                        {...register(`knownAttributes.${index}.value`)}
-                      />
+                      {definition.key === 'citizenIdentifier' && revealCitizenIdentifier ?
+                        <Controller
+                          control={control}
+                          name={`knownAttributes.${index}.value`}
+                          render={({ field }) => (
+                            <RevealableInput
+                              {...field}
+                              value={field.value ?? ''}
+                              id={`known-${definition.key}`}
+                              autoComplete="off"
+                              placeholder={definition.placeholder}
+                              revealLabel={t('users:show_citizen_identifier')}
+                              concealLabel={t('users:hide_citizen_identifier')}
+                              loadValue={async () => {
+                                const value = await revealCitizenIdentifier();
+                                resetField(`knownAttributes.${index}.value`, { defaultValue: value });
+                              }}
+                            />
+                          )}
+                        />
+                      : <Input
+                          id={`known-${definition.key}`}
+                          placeholder={definition.placeholder}
+                          {...register(`knownAttributes.${index}.value`)}
+                        />}
                     </div>
                   );
                 })}

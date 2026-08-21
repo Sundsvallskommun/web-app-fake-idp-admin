@@ -27,6 +27,9 @@
     "applications": "Applikationer"
   },
   "known_attributes_help": "Fälten kommer från det befintliga användarunderlaget. Tomma fält skickas inte som SAML-attribut.",
+  "show_citizen_identifier": "Visa personnummer",
+  "hide_citizen_identifier": "Dölj personnummer",
+  "reveal_citizen_identifier_error": "Kunde inte visa personnumret",
   "custom_attributes_help": "Lägg till ett eget SAML-attribut när det saknas i schemat ovan.",
   "groups_help": "Välj vilka dokumenterade grupper testidentiteten ska tillhöra. Mottagande system avgör om gruppen motsvarar en roll eller annan behörighet.",
   "no_groups": "Det finns inga dokumenterade grupper än.",
