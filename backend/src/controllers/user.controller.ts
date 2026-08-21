@@ -1,12 +1,12 @@
 import { HttpException } from '@/exceptions/HttpException';
 import { ClientUser } from '@/interfaces/users.interface';
-import { AdminUserListResponse, AdminUserResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
+import { AdminUserListResponse, AdminUserResponse, CitizenIdentifierResponse, ImportUsersResponse, UserApiResponse } from '@/responses/user.response';
 import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
 import { ApplicationsService } from '@services/applications.service';
 import { GroupsService } from '@services/groups.service';
 import { UsersService } from '@services/users.service';
-import { maskUser } from '@utils/mask-user';
+import { CITIZEN_IDENTIFIER_KEY, maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { serializeUsersModule } from '@utils/serialize-users-module';
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseBefore } from 'routing-controllers';
@@ -72,6 +72,22 @@ export class UserController {
     response.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     response.setHeader('Content-Disposition', 'attachment; filename="exported_users.js"');
     return response.send(file);
+  }
+
+  // This is the only regular admin response that intentionally returns the
+  // sensitive attribute in clear text. Authentication is applied at controller level.
+  @Get('/users/:id/citizen-identifier')
+  @OpenAPI({ summary: 'Reveal the citizen identifier for a fake-IdP user' })
+  @ResponseSchema(CitizenIdentifierResponse)
+  async getCitizenIdentifier(@Param('id') id: string, @Res() response: any) {
+    const user = await this.users.getUser(id);
+    if (!user) {
+      throw new HttpException(404, 'User not found');
+    }
+
+    const value = user.attributes.find(attribute => attribute.key === CITIZEN_IDENTIFIER_KEY)?.value ?? '';
+    response.setHeader('Cache-Control', 'no-store');
+    return response.send({ data: { value }, message: 'success' });
   }
 
   @Get('/users/:id')

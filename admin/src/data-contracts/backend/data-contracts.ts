@@ -61,6 +61,15 @@ export interface AdminUserListResponse {
   message: string;
 }
 
+export interface CitizenIdentifier {
+  value: string;
+}
+
+export interface CitizenIdentifierResponse {
+  data: CitizenIdentifier;
+  message: string;
+}
+
 export interface ImportUsersResult {
   imported: number;
 }

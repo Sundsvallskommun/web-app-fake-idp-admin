@@ -5,7 +5,7 @@ import { Button } from '@components/ui/button';
 import { Card, CardContent } from '@components/ui/card';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
-import { PasswordInput } from '@components/password-input/password-input';
+import { RevealableInput } from '@components/revealable-input/revealable-input';
 import axios from 'axios';
 import { GetServerSideProps } from 'next';
 import { useTranslation } from 'next-i18next';
@@ -74,7 +74,7 @@ export default function Login() {
 
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="login-password">{capitalize(t('login:password'))}</Label>
-                  <PasswordInput
+                  <RevealableInput
                     id="login-password"
                     name="password"
                     autoComplete="current-password"
@@ -82,6 +82,8 @@ export default function Login() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     disabled={isSubmitting}
+                    revealLabel={t('common:show_password')}
+                    concealLabel={t('common:hide_password')}
                   />
                 </div>
 

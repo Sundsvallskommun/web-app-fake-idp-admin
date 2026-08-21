@@ -104,6 +104,19 @@ export class AdminUserListResponse implements ApiResponse<AdminUser[]> {
   message: string;
 }
 
+export class CitizenIdentifier {
+  @IsString()
+  value: string;
+}
+
+export class CitizenIdentifierResponse implements ApiResponse<CitizenIdentifier> {
+  @ValidateNested()
+  @Type(() => CitizenIdentifier)
+  data: CitizenIdentifier;
+  @IsString()
+  message: string;
+}
+
 export class ImportUsersResult {
   // Number of users created from the uploaded file.
   @IsNumber()
