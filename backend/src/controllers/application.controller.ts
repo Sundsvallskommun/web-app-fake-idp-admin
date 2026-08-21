@@ -66,7 +66,7 @@ export class ApplicationController {
   }
 
   @Delete('/:id')
-  @OpenAPI({ summary: 'Delete a connected test application and its memberships' })
+  @OpenAPI({ summary: 'Delete a connected test application and its group mappings' })
   @ResponseSchema(AdminApplicationResponse)
   async removeApplication(@Param('id') id: number, @Res() response: any) {
     if (!(await this.applications.getApplication(id))) {

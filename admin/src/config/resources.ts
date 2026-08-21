@@ -66,6 +66,19 @@ const memberColumn = <
 const getAttribute = (user: AdminUser, key: string) =>
   user.attributes?.find((attribute) => attribute.key === key)?.value ?? '';
 
+const namedBadges = (items: Array<{ id: number; name: string }>, variant: 'secondary' | 'outline' = 'secondary') =>
+  createElement(
+    'span',
+    { className: 'flex flex-wrap gap-1' },
+    ...items.map((item) =>
+      createElement(
+        Badge,
+        { key: item.id, variant, className: 'font-normal' },
+        createElement(HighlightedText, null, item.name)
+      )
+    )
+  );
+
 const users: Resource<AdminUser> = {
   name: 'users',
   icon: Users,
@@ -105,20 +118,7 @@ const users: Resource<AdminUser> = {
     {
       property: 'applications',
       isColumnSortable: false,
-      // Badges som på IdP-testinloggningen. HighlightedText inuti varje badge så
-      // fritextfiltret markerar träffar även här.
-      renderColumn: (_value, item) =>
-        createElement(
-          'span',
-          { className: 'flex flex-wrap gap-1' },
-          ...item.applications.map((application) =>
-            createElement(
-              Badge,
-              { key: application.id, variant: 'secondary', className: 'font-normal' },
-              createElement(HighlightedText, null, application.name)
-            )
-          )
-        ),
+      renderColumn: (_value, item) => namedBadges(item.applications),
     },
   ],
 };
@@ -128,13 +128,16 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
   icon: Boxes,
   getOne: (id, params) => apiService.groupControllerGetGroup(Number(id), params),
   getMany: apiService.groupControllerGetGroups,
-  create: ({ name, description }, params) => apiService.groupControllerCreateGroup({ name, description }, params),
-  update: (id, { name, description }, params) =>
-    apiService.groupControllerUpdateGroup(Number(id), { name, description }, params),
+  create: ({ name, description, applicationIds }, params) =>
+    apiService.groupControllerCreateGroup({ name, description, applicationIds }, params),
+  update: (id, { name, description, applicationIds }, params) =>
+    apiService.groupControllerUpdateGroup(Number(id), { name, description, applicationIds }, params),
   remove: (id, params) => apiService.groupControllerRemoveGroup(Number(id), params),
-  defaultValues: { name: '', description: '' },
+  defaultValues: { name: '', description: '', applicationIds: [] },
+  toForm: (group) => ({ ...group, applicationIds: group.applications.map((application) => application.id) }),
   requiredFields: ['name'],
-  formFields: ['name', 'description'],
+  formFields: ['name', 'description', 'applicationIds'],
+  relationFields: [{ property: 'applicationIds', targetResource: 'applications' }],
   // Beskrivningen är gruppens dokumentation (roll? organisationstillhörighet?
   // ren testdata?) — ge den en flerradig yta att skrivas i.
   multilineFields: ['description'],
@@ -147,6 +150,11 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
       renderColumn: (value) =>
         createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
     },
+    {
+      property: 'applications',
+      isColumnSortable: false,
+      renderColumn: (_value, item) => namedBadges(item.applications),
+    },
     memberColumn<AdminGroup>(),
   ],
   // Grupper som faktiskt används överst — de oanvända är sällan det man letar
@@ -155,7 +163,7 @@ const groups: Resource<AdminGroup, CreateGroupDto, UpdateGroupDto> = {
 };
 
 // Anslutna testapplikationer. Ren verktygsmetadata (aldrig SAML-claims) som
-// driver applikationsfiltret i IdP-testinloggningen och testidentitetsformuläret.
+// kopplas till grupper och driver den härledda accessvyn och IdP-filtret.
 const applications: Resource<AdminApplication, CreateApplicationDto, UpdateApplicationDto> = {
   name: 'applications',
   icon: AppWindow,
@@ -176,6 +184,11 @@ const applications: Resource<AdminApplication, CreateApplicationDto, UpdateAppli
       property: 'description',
       renderColumn: (value) =>
         createElement('span', { className: 'line-clamp-2' }, createElement(HighlightedText, null, value as string)),
+    },
+    {
+      property: 'groups',
+      isColumnSortable: false,
+      renderColumn: (_value, item) => namedBadges(item.groups, 'outline'),
     },
     memberColumn<AdminApplication>(),
   ],

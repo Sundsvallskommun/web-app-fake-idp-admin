@@ -7,8 +7,9 @@ export type ImportUser = {
   username: string;
   password: string;
   attributes?: Record<string, ImportAttribute>;
-  /** Anslutna testapplikationer (namn). Verktygsmetadata, aldrig ett SAML-claim.
-   *  Valfritt: äldre users.js-filer saknar fältet. */
+  /** Härledd applikationsaccess (namn). Verktygsmetadata, aldrig ett SAML-claim.
+   *  Valfritt: äldre users.js-filer saknar fältet. Vid import översätts värdena
+   *  till gruppkopplingar endast när samma access kan återges exakt. */
   applications?: string[];
 };
 
@@ -42,6 +43,12 @@ export function parseUsersModule(source: string): ImportUser[] {
   users.forEach((user, index) => {
     if (!user || typeof user.name !== 'string' || typeof user.username !== 'string' || typeof user.password !== 'string') {
       throw new Error(`user at index ${index} is missing a string name/username/password`);
+    }
+    if (
+      user.applications !== undefined &&
+      (!Array.isArray(user.applications) || user.applications.some(application => typeof application !== 'string'))
+    ) {
+      throw new Error(`user at index ${index} has invalid applications metadata`);
     }
   });
 

@@ -2,6 +2,7 @@ import { HttpException } from '@/exceptions/HttpException';
 import { AdminGroupListResponse, AdminGroupResponse } from '@/responses/group.response';
 import { CreateGroupDto, UpdateGroupDto } from '@dtos/group.dto';
 import authMiddleware from '@middlewares/auth.middleware';
+import { ApplicationsService } from '@services/applications.service';
 import { GroupsService } from '@services/groups.service';
 import { Body, Controller, Delete, Get, Param, Post, Put, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
@@ -10,6 +11,13 @@ import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 @UseBefore(authMiddleware)
 export class GroupController {
   private groups = new GroupsService();
+  private applications = new ApplicationsService();
+
+  private async validateApplications(applicationIds?: number[]) {
+    if (applicationIds !== undefined && !(await this.applications.containsAll(applicationIds))) {
+      throw new HttpException(400, 'One or more applications do not exist');
+    }
+  }
 
   @Get()
   @OpenAPI({ summary: 'List documented SAML groups' })
@@ -40,6 +48,7 @@ export class GroupController {
     if (await this.groups.getGroupByName(name)) {
       throw new HttpException(409, 'Group name already exists');
     }
+    await this.validateApplications(body.applicationIds);
     return response.send({ data: await this.groups.createGroup({ ...body, name }), message: 'success' });
   }
 
@@ -62,6 +71,7 @@ export class GroupController {
       }
       body = { ...body, name };
     }
+    await this.validateApplications(body.applicationIds);
     return response.send({ data: await this.groups.updateGroup(id, body), message: 'success' });
   }
 

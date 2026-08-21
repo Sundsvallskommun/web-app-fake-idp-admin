@@ -5,7 +5,7 @@ import { CreateUserDto, ImportUsersDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
 import { ApplicationsService } from '@services/applications.service';
 import { GroupsService } from '@services/groups.service';
-import { UsersService } from '@services/users.service';
+import { UnrepresentableApplicationAccessError, UsersService } from '@services/users.service';
 import { CITIZEN_IDENTIFIER_KEY, maskUser } from '@utils/mask-user';
 import { ImportUser, parseUsersModule } from '@utils/parse-users-module';
 import { serializeUsersModule } from '@utils/serialize-users-module';
@@ -121,7 +121,15 @@ export class UserController {
     } catch (err) {
       throw new HttpException(400, (err as Error).message);
     }
-    const imported = await this.users.replaceAllUsers(users);
+    let imported: number;
+    try {
+      imported = await this.users.replaceAllUsers(users);
+    } catch (error) {
+      if (error instanceof UnrepresentableApplicationAccessError) {
+        throw new HttpException(400, error.message);
+      }
+      throw error;
+    }
     return response.send({ data: { imported }, message: 'success' });
   }
 

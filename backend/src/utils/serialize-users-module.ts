@@ -40,9 +40,10 @@ export function serializeUsersModule(users: UserWithAttributes[]): string {
       attributes: Object.fromEntries(
         attributes.map(attribute => [attribute.key, { format: attribute.format, value: attribute.value, type: attribute.type }]),
       ),
-      // Applikationer är inte claims och kan inte åka med som attribut — eget fält
-      // så tilldelningarna överlever export → import.
-      ...((user.applications ?? []).length > 0 ? { applications: user.applications.map(application => application.name) } : {}),
+      // Ett explicit fält (även när det är tomt) låter importen verifiera
+      // grupphärledd access och bevara eventuell ännu ej omklassificerad
+      // legacy-access utan att gissa nya gruppkopplingar.
+      applications: user.applications.map(application => application.name),
     };
   });
 

@@ -93,7 +93,10 @@ export interface CreateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
-  /** @uniqueItems true */
+  /**
+   * @deprecated
+   * @uniqueItems true
+   */
   applicationIds?: number[];
 }
 
@@ -108,7 +111,10 @@ export interface UpdateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
-  /** @uniqueItems true */
+  /**
+   * @deprecated
+   * @uniqueItems true
+   */
   applicationIds?: number[];
 }
 
@@ -123,12 +129,19 @@ export interface GroupMember {
   username: string;
 }
 
+export interface GroupApplication {
+  id: number;
+  name: string;
+  description: string;
+}
+
 export interface AdminGroup {
   id: number;
   name: string;
   description: string;
   userCount: number;
   users: GroupMember[];
+  applications: GroupApplication[];
 }
 
 export interface AdminGroupResponse {
@@ -148,6 +161,8 @@ export interface CreateGroupDto {
    */
   name: string;
   description: string;
+  /** @uniqueItems true */
+  applicationIds?: number[];
 }
 
 export interface UpdateGroupDto {
@@ -157,6 +172,8 @@ export interface UpdateGroupDto {
    */
   name?: string;
   description?: string;
+  /** @uniqueItems true */
+  applicationIds?: number[];
 }
 
 export interface ApplicationMember {
@@ -165,12 +182,20 @@ export interface ApplicationMember {
   username: string;
 }
 
+export interface ApplicationGroup {
+  id: number;
+  name: string;
+  description: string;
+  userCount: number;
+}
+
 export interface AdminApplication {
   id: number;
   name: string;
   description: string;
   userCount: number;
   users: ApplicationMember[];
+  groups: ApplicationGroup[];
 }
 
 export interface AdminApplicationResponse {

@@ -7,6 +7,7 @@ import { capitalize } from '@utils/capitalize';
 import { EditResourceArray } from './edit-resource-array.component';
 import { EditResourceInput } from './edit-resource-input.component';
 import { EditResourceObject } from './edit-resource-object.component';
+import { EditResourceRelation } from './edit-resource-relation.component';
 import { ResourceName } from '@interfaces/resource-name';
 import { Resource } from '@interfaces/resource';
 
@@ -17,7 +18,7 @@ interface EditResourceProps {
 
 export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const { t } = useTranslation();
-  const { formFields, requiredFields, multilineFields } = resources[resource] as Resource<FieldValues>;
+  const { formFields, requiredFields, multilineFields, relationFields } = resources[resource] as Resource<FieldValues>;
 
   type CreateType = Parameters<NonNullable<Resource<FieldValues>['create']>>[0];
   type UpdateType = Parameters<NonNullable<Resource<FieldValues>['update']>>[1];
@@ -27,23 +28,35 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const formdata = watch() as DataType;
   const editableFields = formFields ?? Object.keys(formdata);
   const visibleFields = editableFields.filter((key) => !defaultInformationFields.includes(key));
-  const complexFields = visibleFields.filter((key) => typeof formdata[key] === 'object');
+  const relationByProperty = new Map(
+    (relationFields ?? []).map((relation) => [relation.property as string, relation.targetResource])
+  );
+  const scalarFields = visibleFields.filter(
+    (key) => typeof formdata[key] !== 'object' || relationByProperty.has(key)
+  );
+  const complexFields = visibleFields.filter(
+    (key) => typeof formdata[key] === 'object' && !relationByProperty.has(key)
+  );
 
   return (
     <>
       <div className="flex flex-col gap-8">
-        {visibleFields.map((key, index) => {
+        {scalarFields.map((key, index) => {
           const isRequired = requiredFields ? requiredFields.some((requiredField) => requiredField === key) : false;
+          const targetResource = relationByProperty.get(key);
 
           return (
             <Fragment key={`formc-${index}`}>
-              <EditResourceInput
-                property={key}
-                index={index}
-                required={isRequired}
-                multiline={multilineFields?.some((multilineField) => multilineField === key)}
-                label={capitalize(t(`${resource}:properties.${key}`))}
-              />
+              {targetResource ?
+                <EditResourceRelation resource={resource} property={key} targetResource={targetResource} />
+              : <EditResourceInput
+                  property={key}
+                  index={index}
+                  required={isRequired}
+                  multiline={multilineFields?.some((multilineField) => multilineField === key)}
+                  label={capitalize(t(`${resource}:properties.${key}`))}
+                />
+              }
             </Fragment>
           );
         })}

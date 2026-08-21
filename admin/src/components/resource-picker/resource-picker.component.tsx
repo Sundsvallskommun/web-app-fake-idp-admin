@@ -1,10 +1,10 @@
 import { Checkbox } from '@components/ui/checkbox';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { capitalize } from '@utils/capitalize';
 import { Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { capitalize } from '@utils/capitalize';
 
 export interface PickerItem {
   id: number;
@@ -25,8 +25,8 @@ interface ResourcePickerProps {
 }
 
 /**
- * Kryssruteväljare för grupper respektive applikationer: fritextsök plus de
- * valda överst.
+ * Återanvändbar relationsväljare: fritextsökning med de värden som var valda
+ * när formuläret öppnades överst.
  *
  * Ordningen fryses vid montering (`useState`-initieraren körs en gång) — den
  * som bockar i en rad ska inte se den hoppa upp under muspekaren mitt i
@@ -54,15 +54,12 @@ export const ResourcePicker: React.FC<ResourcePickerProps> = ({
   );
   const selected = visible.filter((item) => initiallySelected.has(item.id));
   const rest = visible.filter((item) => !initiallySelected.has(item.id));
-  // Rubrikerna är bara meningsfulla när båda sektionerna finns.
   const showSections = selected.length > 0 && rest.length > 0;
 
   const toggle = (id: number, checked: boolean) =>
     onChange(checked ? [...value, id] : value.filter((selectedId) => selectedId !== id));
 
   const renderItem = (item: PickerItem) => (
-    // min-w-0 + break-words: långa obrutna namn (URL:er, AD-namn) ska radbrytas
-    // istället för att spränga radbredden.
     <div key={item.id} className="flex items-start gap-2 min-w-0">
       <Checkbox
         id={`${idPrefix}-${item.id}`}
@@ -102,18 +99,16 @@ export const ResourcePicker: React.FC<ResourcePickerProps> = ({
       </div>
       {visible.length === 0 ?
         <p className="text-muted-foreground">{noMatchLabel}</p>
-      : /* En kolumn på full bredd: beskrivningen är resursens dokumentation och
-           ska få plats att läsas, inte klämmas in på halv bredd. */
-        <div role="group" aria-label={capitalize(label)} className="flex flex-col gap-3 max-h-80 overflow-y-auto">
+      : <div role="group" aria-label={capitalize(label)} className="flex flex-col gap-3 max-h-80 overflow-y-auto">
           {showSections && (
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('users:picker.selected', { count: selected.length })}
+              {t('common:picker.selected', { count: selected.length })}
             </p>
           )}
           {selected.map(renderItem)}
           {showSections && (
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground border-t pt-3">
-              {t('users:picker.other', { count: rest.length })}
+              {t('common:picker.other', { count: rest.length })}
             </p>
           )}
           {rest.map(renderItem)}

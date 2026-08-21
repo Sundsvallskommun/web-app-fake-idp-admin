@@ -37,6 +37,8 @@ export class CreateUserDto {
   @IsInt({ each: true })
   groupIds?: number[];
 
+  /** @deprecated Application access is canonically assigned to groups. Kept so
+   * existing admin API clients can migrate without losing direct assignments. */
   @IsOptional()
   @IsArray()
   @ArrayUnique()
@@ -76,6 +78,8 @@ export class UpdateUserDto {
   @IsInt({ each: true })
   groupIds?: number[];
 
+  /** @deprecated Application access is canonically assigned to groups. Kept so
+   * existing admin API clients can migrate without losing direct assignments. */
   @IsOptional()
   @IsArray()
   @ArrayUnique()

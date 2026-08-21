@@ -396,7 +396,7 @@ export class Api<
    *
    * @tags Application
    * @name ApplicationControllerRemoveApplication
-   * @summary Delete a connected test application and its memberships
+   * @summary Delete a connected test application and its group mappings
    * @request DELETE:/api/applications/{id}
    */
   applicationControllerRemoveApplication = (

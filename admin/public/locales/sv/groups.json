@@ -7,6 +7,9 @@
     "id": "Id",
     "name": "Gruppnamn",
     "description": "Beskrivning och behörighet",
+    "applicationIds": "Applikationer",
+    "applications": "Applikationer",
     "userCount": "Testidentiteter"
-  }
+  },
+  "applicationIds_help": "Välj vilka applikationer medlemskap i gruppen ger access till. Kopplingen är valfri och påverkar inte gruppens SAML-claim."
 }

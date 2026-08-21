@@ -29,7 +29,7 @@ export const EditAssistant: React.FC = () => {
     router.push('/');
   }
 
-  const { create, update, getOne, defaultValues } = resources[resource as ResourceName] as Resource<FieldValues>;
+  const { create, update, getOne, defaultValues, toForm } = resources[resource as ResourceName] as Resource<FieldValues>;
   const { refresh } = useResource(resource as ResourceName);
 
   const { handleGetOne, handleCreate, handleUpdate } = useCrudHelper(resource as ResourceName);
@@ -68,7 +68,7 @@ export const EditAssistant: React.FC = () => {
   useEffect(() => {
     if (id) {
       handleGetOne(() => getOne(id)).then((res) => {
-        reset(res);
+        reset(res && toForm ? toForm(res) : res);
         setIsNew(false);
         setLoaded(true);
       });
@@ -100,7 +100,7 @@ export const EditAssistant: React.FC = () => {
       case true:
         handleCreate(() => createFunc(data as CreateType)).then((res) => {
           if (res) {
-            reset(res);
+            reset(toForm ? toForm(res) : res);
             refresh();
           }
         });
@@ -109,7 +109,7 @@ export const EditAssistant: React.FC = () => {
       case false:
         if (id) {
           handleUpdate(() => update?.(id, data) as ResourceResponse<Partial<FieldValues>>).then((res) => {
-            reset(res);
+            reset(res && toForm ? toForm(res) : res);
             refresh();
           });
         }

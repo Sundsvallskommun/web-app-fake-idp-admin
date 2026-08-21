@@ -84,6 +84,7 @@ export class AdminUser {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UserApplication)
+  /** Read-only application access derived from `groups`. */
   applications: UserApplication[];
 }
 

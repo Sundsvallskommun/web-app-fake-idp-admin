@@ -6,10 +6,14 @@ import prisma from '@utils/prisma';
  * testidentitet direkt, utan ett extra anrop per rad. Bara de fält listan
  * faktiskt visar väljs — lösenord och attribut hör inte hemma här.
  */
-const withUsers = {
+const withDetails = {
   include: {
     _count: { select: { users: true } },
     users: { select: { id: true, name: true, username: true }, orderBy: { name: 'asc' as const } },
+    applications: {
+      select: { id: true, name: true, description: true },
+      orderBy: { name: 'asc' as const },
+    },
   },
 } as const;
 
@@ -20,12 +24,12 @@ const toGroup = <T extends { _count: { users: number } }>(group: T) => {
 
 export class GroupsService {
   public async getGroups() {
-    const groups = await prisma.group.findMany({ ...withUsers, orderBy: { name: 'asc' } });
+    const groups = await prisma.group.findMany({ ...withDetails, orderBy: { name: 'asc' } });
     return groups.map(toGroup);
   }
 
   public async getGroup(id: number) {
-    const group = await prisma.group.findUnique({ where: { id }, ...withUsers });
+    const group = await prisma.group.findUnique({ where: { id }, ...withDetails });
     return group && toGroup(group);
   }
 
@@ -40,8 +44,14 @@ export class GroupsService {
 
   public async createGroup(data: CreateGroupDto) {
     const group = await prisma.group.create({
-      data: { name: data.name.trim(), description: data.description.trim() },
-      ...withUsers,
+      data: {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        ...(data.applicationIds === undefined
+          ? {}
+          : { applications: { connect: data.applicationIds.map(applicationId => ({ id: applicationId })) } }),
+      },
+      ...withDetails,
     });
     return toGroup(group);
   }
@@ -52,8 +62,9 @@ export class GroupsService {
       data: {
         ...(data.name === undefined ? {} : { name: data.name.trim() }),
         ...(data.description === undefined ? {} : { description: data.description.trim() }),
+        ...(data.applicationIds === undefined ? {} : { applications: { set: data.applicationIds.map(applicationId => ({ id: applicationId })) } }),
       },
-      ...withUsers,
+      ...withDetails,
     });
     return toGroup(group);
   }
