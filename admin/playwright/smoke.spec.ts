@@ -33,6 +33,18 @@ test('testidentitetslistan renderar rubrik, filter och verktygsrad', async ({ pa
   await expect(page.getByRole('button', { name: /importera testidentiteter/i })).toBeVisible();
 });
 
+test('fält med olika långa hjälptexter ligger på samma nivå', async ({ page }) => {
+  await login(page);
+  await page.goto('/users/new');
+
+  const citizenIdentifier = await page.locator('#known-citizenIdentifier').boundingBox();
+  const username = await page.locator('#known-username').boundingBox();
+
+  expect(citizenIdentifier).not.toBeNull();
+  expect(username).not.toBeNull();
+  expect(citizenIdentifier?.y).toBeCloseTo(username?.y ?? Number.NaN, 0);
+});
+
 test('mörkt läge består vid navigation och omladdning', async ({ page }) => {
   await login(page);
 
