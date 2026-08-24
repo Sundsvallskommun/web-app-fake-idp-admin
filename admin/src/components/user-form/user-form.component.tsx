@@ -175,7 +175,6 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
                                 value={field.value ?? ''}
                                 id={`known-${definition.key}`}
                                 autoComplete="off"
-                                placeholder={definition.placeholder}
                                 revealLabel={t('users:show_citizen_identifier')}
                                 concealLabel={t('users:hide_citizen_identifier')}
                                 loadValue={async () => {
@@ -187,7 +186,6 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
                           />
                         : <Input
                             id={`known-${definition.key}`}
-                            placeholder={definition.placeholder}
                             {...register(`knownAttributes.${index}.value`)}
                           />}
                       </div>
