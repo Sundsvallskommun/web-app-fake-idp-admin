@@ -360,7 +360,6 @@ export function renderIdentitySession(opts: {
   csrfToken: string;
   navigation: PageNavigation;
   logoutAction: string;
-  samlLoginUrl: string;
 }): string {
   return page(
     `<p class="context">Aktiv testsession</p>` +
@@ -368,8 +367,7 @@ export function renderIdentitySession(opts: {
       `<p class="description">Testidentiteten används automatiskt när en ansluten applikation startar en SAML-inloggning.</p>` +
       identityDetails(opts.identity) +
       identityGroups(opts.groups ?? []) +
-      `<div class="actions"><a class="button primary" href="${htmlEscape(opts.samlLoginUrl)}">Starta lokalt SAML-test</a>` +
-      `<form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST">` +
+      `<div class="actions"><form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST">` +
       `<input type="hidden" name="_csrf" value="${htmlEscape(opts.csrfToken)}" />` +
       `<button class="secondary" type="submit">Logga ut testidentitet</button></form></div>`,
     opts.navigation,

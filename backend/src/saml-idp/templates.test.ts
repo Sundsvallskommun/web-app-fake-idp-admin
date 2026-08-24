@@ -71,19 +71,18 @@ describe('Fake IdP pages', () => {
     expect(html).not.toContain('Fortsätt till');
   });
 
-  it('shows the active identity and separate logout action', () => {
+  it('shows the active identity and logout action without a local self-test shortcut', () => {
     const html = renderIdentitySession({
       identity: users[0],
       csrfToken,
       navigation,
       logoutAction: '/api/saml/idp/logout',
-      samlLoginUrl: '/api/saml/login',
     });
 
     expect(html).toContain('Aktiv testsession');
     expect(html).toContain('Inloggad som Test Person');
     expect(html).toContain('Logga ut testidentitet');
-    expect(html).toContain('Starta lokalt SAML-test');
+    expect(html).not.toContain('Starta lokalt SAML-test');
   });
 
   it('lists the groups of the active identity, with their documentation', () => {
@@ -93,7 +92,6 @@ describe('Fake IdP pages', () => {
       csrfToken,
       navigation,
       logoutAction: '/api/saml/idp/logout',
-      samlLoginUrl: '/api/saml/login',
     });
 
     expect(html).toContain('Grupper och behörigheter');
@@ -109,7 +107,6 @@ describe('Fake IdP pages', () => {
       csrfToken,
       navigation,
       logoutAction: '/api/saml/idp/logout',
-      samlLoginUrl: '/api/saml/login',
     });
 
     expect(html).toContain('Testidentiteten tillhör inga grupper.');
@@ -123,7 +120,6 @@ describe('Fake IdP pages', () => {
       csrfToken,
       navigation,
       logoutAction: '/api/saml/idp/logout',
-      samlLoginUrl: '/api/saml/login',
     });
 
     expect(html).toContain('&lt;b&gt;grupp&lt;/b&gt;');
