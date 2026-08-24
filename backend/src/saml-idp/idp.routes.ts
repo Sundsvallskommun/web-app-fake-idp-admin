@@ -1,4 +1,4 @@
-import { ADMIN_URL, BASE_URL_PREFIX, IDP_MOUNT_PATH, IDP_PATH_PREFIX, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
+import { ADMIN_URL, IDP_MOUNT_PATH, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
 import { generateCsrfToken } from '@middlewares/csrf.middleware';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
@@ -13,8 +13,6 @@ import { LoginTarget, PageNavigation, renderIdentitySession, renderLogin, render
 const AUTHENTICATE_ACTION = `${IDP_PUBLIC_PATH}/authenticate`;
 const LOGIN_URL = `${IDP_PUBLIC_PATH}/login`;
 const LOGOUT_ACTION = `${IDP_PUBLIC_PATH}/logout`;
-const SAML_LOGIN_URL = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/login`;
-
 const navigation: PageNavigation = {
   idpUrl: LOGIN_URL,
   adminUrl: ADMIN_URL,
@@ -158,7 +156,6 @@ async function renderIdpHome(req: Request, usersService: IdpUserStore): Promise<
     csrfToken: generateCsrfToken(req),
     navigation,
     logoutAction: LOGOUT_ACTION,
-    samlLoginUrl: SAML_LOGIN_URL,
   });
 }
 
