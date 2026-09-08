@@ -3,19 +3,18 @@ import { CreateUserDto } from '@data-contracts/backend/data-contracts';
 export const SAML_BASIC_FORMAT = 'urn:oasis:names:tc:SAML:2.0:attrname-format:basic';
 export const XML_SCHEMA_STRING = 'xs:string';
 
-type UserPropertyKey = keyof Pick<CreateUserDto, 'name' | 'username' | 'password'>;
+type UserPropertyKey = keyof Pick<CreateUserDto, 'name' | 'username'>;
 
 export type UserPropertyDefinition = {
   key: UserPropertyKey;
   labelKey: string;
-  inputType: 'text' | 'password';
+  inputType: 'text';
   required: boolean;
 };
 
 export const userPropertyDefinitions = [
   { key: 'name', labelKey: 'users:properties.name', inputType: 'text', required: true },
   { key: 'username', labelKey: 'users:properties.username', inputType: 'text', required: true },
-  { key: 'password', labelKey: 'users:properties.password', inputType: 'password', required: true },
 ] as const satisfies readonly UserPropertyDefinition[];
 
 export type UserAttributeDefinition = {

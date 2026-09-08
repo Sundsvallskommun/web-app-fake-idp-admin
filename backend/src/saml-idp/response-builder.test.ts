@@ -24,6 +24,7 @@ const signingUser: UserWithAttributes = {
   name: 'Test User',
   username: 'test-user',
   password: 'test-only',
+  requirePassword: false,
   attributes: [
     {
       id: 1,
@@ -42,6 +43,7 @@ const groupUser: UserWithAttributes = {
   name: 'Test User',
   username: 'test-user',
   password: 'test-only',
+  requirePassword: false,
   attributes: [],
   groups: [
     { id: 1, name: 'editor', description: '' },

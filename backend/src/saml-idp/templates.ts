@@ -179,6 +179,7 @@ export interface LoginUser {
   id: string;
   name: string;
   username: string;
+  requirePassword: boolean;
   /** Anslutna applikationer (namn) — driver applikationsfiltret. */
   applications?: string[];
 }
@@ -237,7 +238,7 @@ const identityDetails = (identity: IdentitySummary, label = 'Aktiv testidentitet
  * Ren klass-toggling — ingen HTML byggs från data i webbläsaren, så
  * escaping-ansvaret ligger kvar på servern. CSP tillåter inline-script.
  */
-const FILTER_SCRIPT = `
+const IDENTITY_PICKER_SCRIPT = `
 (function(){
   var search=document.getElementById('identitySearch');
   var app=document.getElementById('appFilter');
@@ -247,6 +248,21 @@ const FILTER_SCRIPT = `
   var count=document.getElementById('identityCount');
   var submit=document.getElementById('identitySubmit');
   var total=options.length;
+  var passwordFields=document.getElementById('identityPassword');
+  var password=document.getElementById('password');
+  var passwordIdentity=document.getElementById('passwordIdentity');
+  var previousIdentity=null;
+  function updatePassword(){
+    var selected=document.querySelector('.identity-option:not([hidden]) input:checked');
+    var identity=selected&&selected.value;
+    var required=!!selected&&selected.getAttribute('data-require-password')==='true';
+    if(previousIdentity!==identity&&password)password.value='';
+    previousIdentity=identity;
+    if(passwordFields)passwordFields.hidden=!required;
+    if(password){password.disabled=!required;password.required=required;}
+    if(passwordIdentity)passwordIdentity.textContent=required?selected.closest('label').querySelector('.io-name').textContent:'';
+  }
+  options.forEach(function(option){option.querySelector('input').addEventListener('change',updatePassword);});
   function apply(){
     var q=(search&&search.value||'').trim().toLowerCase();
     var a=(app&&app.value)||'';
@@ -262,13 +278,14 @@ const FILTER_SCRIPT = `
     if(empty)empty.hidden=visible!==0;
     if(submit)submit.disabled=visible===0;
     if(count)count.textContent=visible===total?total+' testidentiteter':visible+' av '+total+' testidentiteter';
+    updatePassword();
   }
   if(search)search.addEventListener('input',apply);
   if(app)app.addEventListener('change',apply);
   apply();
 })();`;
 
-const identityPicker = (users: LoginUser[]): string => {
+const identityPicker = (users: LoginUser[], selected: LoginUser): string => {
   const applicationNames = [...new Set(users.flatMap(user => user.applications ?? []))].sort((a, b) => a.localeCompare(b, 'sv'));
 
   const filters =
@@ -284,14 +301,15 @@ const identityPicker = (users: LoginUser[]): string => {
     `</div>`;
 
   const rows = users
-    .map((user, index) => {
+    .map(user => {
       const badges = (user.applications ?? []).map(name => `<span class="badge">${htmlEscape(name)}</span>`).join('');
       return (
         `<label class="identity-option" data-search="${htmlEscape(`${user.name} ${user.username}`.toLowerCase())}"` +
         ` data-apps="${htmlEscape((user.applications ?? []).join('|'))}">` +
-        `<input type="radio" name="userid" value="${htmlEscape(user.id)}"${index === 0 ? ' checked' : ''} />` +
+        `<input type="radio" name="userid" value="${htmlEscape(user.id)}" data-require-password="${user.requirePassword}"${user.id === selected.id ? ' checked' : ''} />` +
         `<span class="io-text"><span class="io-name">${htmlEscape(user.name)}</span>` +
         `<span class="io-user">${htmlEscape(user.username)}</span></span>` +
+        (user.requirePassword ? `<span class="badge">Lösenord krävs</span>` : '') +
         (badges ? `<span class="io-apps">${badges}</span>` : '') +
         `</label>`
       );
@@ -302,7 +320,11 @@ const identityPicker = (users: LoginUser[]): string => {
     filters +
     `<fieldset role="radiogroup" aria-label="Testidentitet"><div class="identity-list">${rows}</div></fieldset>` +
     `<p class="empty-filter" id="emptyFilter" hidden>Inga testidentiteter matchar filtret.</p>` +
-    `<p class="count" id="identityCount" aria-live="polite"></p>`
+    `<p class="count" id="identityCount" aria-live="polite"></p>` +
+    `<div id="identityPassword"${selected.requirePassword ? '' : ' hidden'}>` +
+    `<p class="description">Ange lösenordet för <strong id="passwordIdentity">${htmlEscape(selected.name)}</strong>.</p>` +
+    `<label for="password">Lösenord</label><input type="password" id="password" name="password" autocomplete="current-password"${selected.requirePassword ? ' required' : ' disabled'} />` +
+    `</div>`
   );
 };
 
@@ -312,6 +334,7 @@ export function renderLogin(opts: {
   navigation: PageNavigation;
   users: LoginUser[];
   enumerateUsers: boolean;
+  selectedUserId?: string;
   target?: LoginTarget;
   error?: string;
   notice?: string;
@@ -324,12 +347,13 @@ export function renderLogin(opts: {
       `<code class="target-url">${htmlEscape(opts.target.url)}</code></div>`
     : '';
 
+  const selected = opts.users.find(user => user.id === opts.selectedUserId) ?? opts.users[0];
   const credentials = opts.enumerateUsers
     ? opts.users.length > 0
-      ? identityPicker(opts.users)
+      ? identityPicker(opts.users, selected)
       : `<p class="error">Det finns inga testidentiteter. Skapa en i adminpanelen först.</p>`
     : `<label for="username">Användarnamn</label><input type="text" id="username" name="username" autocomplete="username" required />` +
-      `<label for="password">Lösenord</label><input type="password" id="password" name="password" autocomplete="current-password" required />`;
+      `<label for="password">Lösenord (om det krävs)</label><input type="password" id="password" name="password" autocomplete="current-password" />`;
 
   return page(
     `<p class="context">${opts.target ? 'SAML-testinloggning' : 'Testsession'}</p>` +
@@ -349,7 +373,7 @@ export function renderLogin(opts: {
         opts.target ? 'Logga in och fortsätt' : 'Logga in som testidentitet'
       }</button></div>` +
       `</form>` +
-      (opts.enumerateUsers && opts.users.length > 0 ? `<script>${FILTER_SCRIPT}</script>` : ''),
+      (opts.enumerateUsers && opts.users.length > 0 ? `<script>${IDENTITY_PICKER_SCRIPT}</script>` : ''),
     opts.navigation,
   );
 }

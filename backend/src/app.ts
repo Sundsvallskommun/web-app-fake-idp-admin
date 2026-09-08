@@ -327,6 +327,7 @@ class App {
             }
             delete req.session.idpRequest;
             delete req.session.idpIdentityId;
+            delete req.session.idpPasswordVerified;
             req.session.save(saveErr => {
               if (saveErr) {
                 return next(saveErr);

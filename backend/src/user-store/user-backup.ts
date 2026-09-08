@@ -1,7 +1,7 @@
 import type { Node } from 'acorn';
 import { parse } from 'acorn';
 
-export const USER_BACKUP_SCHEMA_VERSION = 1 as const;
+export const USER_BACKUP_SCHEMA_VERSION = 2 as const;
 
 export type BackupAttribute = {
   key: string;
@@ -26,6 +26,7 @@ export type BackupUser = {
   name: string;
   username: string;
   password: string;
+  requirePassword: boolean;
   attributes: BackupAttribute[];
   groups: string[];
   legacyApplications: string[];
@@ -45,7 +46,7 @@ export type UserBackup = {
 };
 
 export type ParsedUserImport = {
-  format: 'backup-v1' | 'legacy-users-js';
+  format: 'backup-v1' | 'backup-v2' | 'legacy-users-js';
   replacesGroupCatalog: boolean;
   replacesApplicationCatalog: boolean;
   groups: BackupGroup[];
@@ -59,6 +60,7 @@ type StoredUser = {
   name: string;
   username: string;
   password: string;
+  requirePassword: boolean;
   attributes: BackupAttribute[];
   groups: Array<{ name: string }>;
   legacyApplications: Array<{ name: string }>;
@@ -132,7 +134,17 @@ const parseApplication = (value: unknown, context: string): BackupApplication =>
   return { name, description: requiredString(value, 'description', context) };
 };
 
-const parseBackupUser = (value: unknown, context: string): BackupUser => {
+// v1 backups and legacy users.js predate per-user password requirements. Keep
+// this default only at the import boundary so existing backups remain usable.
+const parsePasswordSettings = (value: Record<string, unknown>, context: string, allowMissingFlag: boolean) => {
+  const requirePassword = allowMissingFlag && value.requirePassword === undefined ? false : value.requirePassword;
+  if (typeof requirePassword !== 'boolean') throw new Error(`${context}.requirePassword must be a boolean`);
+  const password = requiredString(value, 'password', context);
+  if (requirePassword && !password) throw new Error(`${context}.password must not be empty when requirePassword is true`);
+  return { password, requirePassword };
+};
+
+const parseBackupUser = (value: unknown, context: string, version: number): BackupUser => {
   if (!isRecord(value)) throw new Error(`${context} must be an object`);
   const id = requiredString(value, 'id', context).trim();
   if (!id) throw new Error(`${context}.id must not be empty`);
@@ -141,7 +153,7 @@ const parseBackupUser = (value: unknown, context: string): BackupUser => {
     id,
     name: requiredString(value, 'name', context),
     username: requiredString(value, 'username', context),
-    password: requiredString(value, 'password', context),
+    ...parsePasswordSettings(value, context, version === 1),
     attributes: value.attributes.map((attribute, index) => parseAttribute(attribute, `${context}.attributes[${index}]`)),
     groups: stringArray(value.groups, `${context}.groups`)
       .map(name => name.trim())
@@ -158,7 +170,7 @@ const validateUnique = (values: string[], context: string): void => {
 };
 
 const parseBackup = (value: Record<string, unknown>): ParsedUserImport => {
-  if (value.schemaVersion !== USER_BACKUP_SCHEMA_VERSION) {
+  if (value.schemaVersion !== 1 && value.schemaVersion !== USER_BACKUP_SCHEMA_VERSION) {
     throw new Error(`unsupported backup schema version: ${String(value.schemaVersion)}`);
   }
   if (typeof value.exportedAt !== 'string' || Number.isNaN(Date.parse(value.exportedAt))) {
@@ -170,7 +182,8 @@ const parseBackup = (value: Record<string, unknown>): ParsedUserImport => {
 
   const groups = value.groups.map((group, index) => parseGroup(group, `backup.groups[${index}]`));
   const applications = value.applications.map((application, index) => parseApplication(application, `backup.applications[${index}]`));
-  const users = value.users.map((user, index) => parseBackupUser(user, `backup.users[${index}]`));
+  const version = value.schemaVersion;
+  const users = value.users.map((user, index) => parseBackupUser(user, `backup.users[${index}]`, version));
   validateUnique(
     groups.map(group => group.name),
     'backup group names',
@@ -210,7 +223,7 @@ const parseBackup = (value: Record<string, unknown>): ParsedUserImport => {
   });
 
   return {
-    format: 'backup-v1',
+    format: version === 1 ? 'backup-v1' : 'backup-v2',
     replacesGroupCatalog: true,
     replacesApplicationCatalog: true,
     groups,
@@ -384,7 +397,7 @@ const parseLegacy = (value: unknown): ParsedUserImport => {
       id,
       name: requiredString(rawUser, 'name', context),
       username: requiredString(rawUser, 'username', context),
-      password: requiredString(rawUser, 'password', context),
+      ...parsePasswordSettings(rawUser, context, true),
       attributes: attributes.filter(attribute => attribute.key !== 'groups'),
       groups: [...new Set(groupNames)],
       applications: applications && [...new Set(applications.map(name => name.trim()).filter(Boolean))],
@@ -440,6 +453,7 @@ export const createUserBackup = (
       name: user.name,
       username: user.username,
       password: user.password,
+      requirePassword: user.requirePassword,
       attributes: user.attributes.map(({ key, format, value, type }) => ({ key, format, value, type })),
       groups: user.groups.map(group => group.name).sort((left, right) => left.localeCompare(right)),
       legacyApplications: user.legacyApplications.map(application => application.name).sort((left, right) => left.localeCompare(right)),

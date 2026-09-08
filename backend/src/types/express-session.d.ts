@@ -16,6 +16,7 @@ declare module 'express-session' {
     adminUser?: { name: string; username: string; defaultCredentials?: boolean };
     // IdP role: the selected test identity and any AuthnRequest awaiting an assertion.
     idpIdentityId?: string;
+    idpPasswordVerified?: boolean;
     idpRequest?: { destination: string; inResponseTo: string; relayState?: string };
   }
 }

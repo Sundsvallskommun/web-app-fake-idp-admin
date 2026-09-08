@@ -73,6 +73,8 @@ export class AdminUser {
   username: string;
   @IsString()
   password: string;
+  @IsBoolean()
+  requirePassword: boolean;
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UserAttribute)

@@ -9,6 +9,7 @@ const storedUser: NonNullable<Awaited<ReturnType<UsersService['getUser']>>> = {
   name: 'Test Testsson',
   username: 'testte01',
   password: 'secret',
+  requirePassword: false,
   attributes: [
     {
       id: 1,
