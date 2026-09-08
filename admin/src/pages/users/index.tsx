@@ -91,6 +91,7 @@ export const UsersListPage: React.FC = () => {
       const preview = previewResponse.data.data;
       const warningText = preview.warnings.length > 0 ? ` ${preview.warnings.join(' ')}` : '';
       const format =
+        preview.format === 'backup-v2' ? t('users:import.formats.backup_v2') :
         preview.format === 'backup-v1' ? t('users:import.formats.backup_v1') : t('users:import.formats.legacy_users_js');
       const confirmed = await showConfirmation(
         capitalize(t('users:import.confirm_title')),

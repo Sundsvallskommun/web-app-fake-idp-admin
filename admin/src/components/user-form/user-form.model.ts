@@ -3,7 +3,7 @@ import { SAML_BASIC_FORMAT, userAttributeDefinitions, XML_SCHEMA_STRING } from '
 
 export type UserFormAttribute = Pick<AttributeDto, 'key' | 'format' | 'value' | 'type'>;
 
-export type UserForm = Pick<CreateUserDto, 'name' | 'username' | 'password'> & {
+export type UserForm = Pick<AdminUser, 'name' | 'username' | 'password' | 'requirePassword'> & {
   knownAttributes: Array<{ value: string }>;
   customAttributes: UserFormAttribute[];
   groupIds: number[];
@@ -20,6 +20,7 @@ export const createEmptyUserForm = (): UserForm => ({
   name: '',
   username: '',
   password: '',
+  requirePassword: false,
   knownAttributes: userAttributeDefinitions.map(() => ({ value: '' })),
   customAttributes: [],
   groupIds: [],
@@ -57,6 +58,7 @@ export const userToForm = (user: AdminUser): UserForm => {
     name: user.name,
     username: user.username,
     password: user.password,
+    requirePassword: user.requirePassword,
     knownAttributes,
     // Unknown claims, and any duplicate occurrence of a known claim, stay fully
     // editable so loading and saving a user never silently drops them.
@@ -86,6 +88,7 @@ export const userFormToPayload = (form: UserForm): CreateUserDto => {
     name: form.name,
     username: form.username,
     password: form.password,
+    requirePassword: form.requirePassword,
     attributes: [...knownAttributes, ...customAttributes],
     groupIds: form.groupIds,
   };

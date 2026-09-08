@@ -6,7 +6,7 @@ import { UsersImportPreview } from '@data-contracts/backend/data-contracts';
  * id and both catalogues without generating or removing users.
  */
 export const isCompleteRecoveryBackup = (preview: UsersImportPreview): boolean =>
-  preview.format === 'backup-v1' &&
+  preview.format === 'backup-v2' &&
   preview.incomingUserCount === preview.currentUserCount &&
   preview.preservedUserIds === preview.currentUserCount &&
   preview.generatedUserIds === 0 &&

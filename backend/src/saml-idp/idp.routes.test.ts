@@ -42,14 +42,24 @@ const identity: UserWithAttributes = {
   name: 'Test Person',
   username: 'test.person',
   password: 'test-password',
+  requirePassword: false,
   attributes: [],
   groups: [],
 };
 
+const protectedIdentity: UserWithAttributes = {
+  ...identity,
+  id: 'protected-user',
+  name: 'Protected Person',
+  username: 'protected.person',
+  password: 'protected-password',
+  requirePassword: true,
+};
+
 const usersService: IdpUserStore = {
-  getUser: vi.fn(async id => (id === identity.id ? identity : null)),
-  getUsers: vi.fn(async () => [identity]),
-  getUsersByUsername: vi.fn(async username => (username === identity.username ? [identity] : [])),
+  getUser: vi.fn(async id => [identity, protectedIdentity].find(user => user.id === id) ?? null),
+  getUsers: vi.fn(async () => [identity, protectedIdentity]),
+  getUsersByUsername: vi.fn(async username => [identity, protectedIdentity].filter(user => user.username === username)),
 };
 
 const createApp = () => {
@@ -86,6 +96,7 @@ const csrfTokenFrom = (html: string): string => {
 describe('Fake IdP test identity session', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    identity.requirePassword = false;
   });
 
   it('keeps the selected identity across SAML requests until explicit logout', async () => {
@@ -128,6 +139,130 @@ describe('Fake IdP test identity session', () => {
     const nextSamlRequest = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
     expect(nextSamlRequest.text).toContain('Välj testidentitet');
     expect(nextSamlRequest.text).toContain('service-provider.test');
+  });
+
+  it.each([undefined, '', 'wrong-password', identity.password])(
+    'rejects a protected identity with password %s and keeps the selection',
+    async password => {
+      const agent = request.agent(createApp());
+      const page = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
+      const response = await agent
+        .post('/api/saml/idp/authenticate')
+        .type('form')
+        .send({ userid: protectedIdentity.id, password, _csrf: csrfTokenFrom(page.text) })
+        .expect(401);
+
+      expect(response.text).toContain('value="protected-user" data-require-password="true" checked');
+      expect(response.text).toContain('id="identityPassword">');
+      expect(response.text).not.toContain(protectedIdentity.password);
+      expect(createResponse).not.toHaveBeenCalled();
+      expect((await agent.get('/api/saml/idp/login')).text).not.toContain('Inloggad som');
+    },
+  );
+
+  it('verifies the selected identity once and reuses its authenticated SAML session', async () => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: protectedIdentity.id, password: protectedIdentity.password, _csrf: csrfTokenFrom(page.text) })
+      .expect(200);
+    expect(createResponse).toHaveBeenLastCalledWith(expect.anything(), protectedIdentity);
+    const next = await agent.get('/api/saml/idp/sso?SAMLRequest=next').expect(200);
+    expect(next.text).toContain('value="signed-response"');
+    expect((await agent.get('/api/saml/idp/login')).text).toContain('Inloggad som Protected Person');
+  });
+
+  it('requires verification when a password requirement is enabled for an active password-free identity', async () => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login').expect(200);
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: identity.id, _csrf: csrfTokenFrom(page.text) })
+      .expect(303);
+    identity.requirePassword = true;
+
+    const response = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
+    expect(response.text).toContain('Välj testidentitet');
+    expect(createResponse).not.toHaveBeenCalled();
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: identity.id, password: identity.password, _csrf: csrfTokenFrom(response.text) })
+      .expect(200);
+    expect(createResponse).toHaveBeenLastCalledWith(expect.anything(), identity);
+  });
+
+  it('does not carry password verification over to another selected identity', async () => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login');
+    const token = csrfTokenFrom(page.text);
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: protectedIdentity.id, password: protectedIdentity.password, _csrf: token })
+      .expect(303);
+    await agent.post('/api/saml/idp/authenticate').type('form').send({ userid: identity.id, _csrf: token }).expect(303);
+    identity.requirePassword = true;
+    expect((await agent.get('/api/saml/idp/sso?SAMLRequest=request')).text).toContain('Välj testidentitet');
+    expect(createResponse).not.toHaveBeenCalled();
+  });
+
+  it('requires the password again after logout', async () => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: protectedIdentity.id, password: protectedIdentity.password, _csrf: csrfTokenFrom(page.text) })
+      .expect(303);
+    await agent.get('/api/saml/idp/logout').expect(303);
+    const loggedOut = await agent.get('/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: protectedIdentity.id, _csrf: csrfTokenFrom(loggedOut.text) })
+      .expect(401);
+  });
+
+  it('allows manual username login without a password for an unprotected identity', async () => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ username: identity.username, _csrf: csrfTokenFrom(page.text) })
+      .expect(303);
+    expect((await agent.get('/api/saml/idp/login')).text).toContain('Inloggad som Test Person');
+  });
+
+  it.each([undefined, 'shared-password'])('rejects ambiguous usernames instead of choosing a person with password %s', async password => {
+    vi.mocked(usersService.getUsersByUsername).mockResolvedValueOnce([
+      { ...identity, password: 'shared-password' },
+      { ...protectedIdentity, username: identity.username, password: 'shared-password' },
+    ]);
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ username: identity.username, password, _csrf: csrfTokenFrom(page.text) })
+      .expect(401);
+  });
+
+  it.each([
+    ['wrong', 401],
+    [protectedIdentity.password, 303],
+  ])('checks the password in the manual username login too', async (password, status) => {
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login');
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ username: protectedIdentity.username, password, _csrf: csrfTokenFrom(page.text) })
+      .expect(status);
   });
 
   it('rejects an IdP identity change without a CSRF token', async () => {

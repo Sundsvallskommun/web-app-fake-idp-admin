@@ -1,6 +1,6 @@
 import { renderIdentitySession, renderLogin, renderSamlTest } from './templates';
 
-const users = [{ id: 'user-1', name: 'Test Person', username: 'test.person' }];
+const users = [{ id: 'user-1', name: 'Test Person', username: 'test.person', requirePassword: false }];
 const navigation = { idpUrl: '/api/saml/idp/login', adminUrl: '/start' };
 const csrfToken = 'csrf-token';
 
@@ -30,8 +30,8 @@ describe('Fake IdP pages', () => {
       csrfToken,
       navigation,
       users: [
-        { id: 'user-1', name: 'Test Person', username: 'test.person', applications: ['draken', 'katla'] },
-        { id: 'user-2', name: 'Other Person', username: 'other.person' },
+        { id: 'user-1', name: 'Test Person', username: 'test.person', requirePassword: false, applications: ['draken', 'katla'] },
+        { id: 'user-2', name: 'Other Person', username: 'other.person', requirePassword: false },
       ],
       enumerateUsers: true,
     });
@@ -173,6 +173,13 @@ describe('Fake IdP pages', () => {
     expect(html).not.toContain('undefined');
   });
 
+  it('leaves the password optional in manual login, where the backend determines the user policy', () => {
+    const html = renderLogin({ action: '/authenticate', csrfToken, navigation, users: [], enumerateUsers: false });
+    expect(html).toContain('Lösenord (om det krävs)');
+    expect(html).toContain('name="password" autocomplete="current-password" />');
+    expect(html).not.toContain('name="userid"');
+  });
+
   it('disables identity selection when the database is empty', () => {
     const html = renderLogin({
       action: '/authenticate',
@@ -193,7 +200,7 @@ describe('Fake IdP pages', () => {
       csrfToken,
       navigation: { idpUrl: '/login?a=1&b=2', adminUrl: 'https://admin.test/?q=<unsafe>' },
       target: { name: '<script>alert(1)</script>', url: 'https://example.test/?a=1&b=2' },
-      users: [{ id: 'id"', name: '<b>Person</b>', username: 'test&person' }],
+      users: [{ id: 'id"', name: '<b>Person</b>', username: 'test&person', requirePassword: false }],
       enumerateUsers: true,
     });
 

@@ -4,6 +4,7 @@ import { Badge } from '@components/ui/badge';
 import { Button } from '@components/ui/button';
 import { Input } from '@components/ui/input';
 import { Label } from '@components/ui/label';
+import { Switch } from '@components/ui/switch';
 import { RevealableInput } from '@components/revealable-input/revealable-input';
 import { ResourceError } from '@components/resource-error/resource-error.component';
 import { useResource } from '@utils/use-resource';
@@ -40,6 +41,7 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
   const groups = groupData as AdminGroup[];
   const selectedGroupIds = useWatch({ control, name: 'groupIds' }) ?? [];
   const applications = applicationsForGroups(groups, selectedGroupIds);
+  const requirePassword = useWatch({ control, name: 'requirePassword' });
 
   return (
     <>
@@ -54,24 +56,48 @@ export const UserFormFields: React.FC<UserFormFieldsProps> = ({
               {capitalize(t(definition.labelKey))}
               {definition.required && <span aria-hidden="true"> *</span>}
             </Label>
-            {definition.inputType === 'password' ?
-              <RevealableInput
-                id={`user-${definition.key}`}
-                required={definition.required}
-                autoComplete="off"
-                revealLabel={t('common:show_password')}
-                concealLabel={t('common:hide_password')}
-                {...register(definition.key, { required: definition.required })}
-              />
-            : <Input
-                id={`user-${definition.key}`}
-                type={definition.inputType}
-                required={definition.required}
-                {...register(definition.key, { required: definition.required })}
-              />
-            }
+            <Input
+              id={`user-${definition.key}`}
+              type={definition.inputType}
+              required={definition.required}
+              {...register(definition.key, { required: definition.required })}
+            />
           </div>
         ))}
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="user-requirePassword">{t('users:require_password')}</Label>
+          <Controller
+            control={control}
+            name="requirePassword"
+            render={({ field }) => (
+              <Switch
+                id="user-requirePassword"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                aria-describedby="user-password-help"
+              />
+            )}
+          />
+        </div>
+        <p id="user-password-help" className="text-sm text-muted-foreground">
+          {t('users:password_help')}
+        </p>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="user-password">
+            {t('users:properties.password')}
+            {requirePassword && <span aria-hidden="true"> *</span>}
+          </Label>
+          <RevealableInput
+            id="user-password"
+            required={requirePassword}
+            autoComplete="new-password"
+            revealLabel={t('common:show_password')}
+            concealLabel={t('common:hide_password')}
+            {...register('password', { required: requirePassword })}
+          />
+        </div>
       </section>
 
       <section className="flex flex-col gap-4">
