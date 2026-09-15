@@ -17,6 +17,12 @@ export interface AccessTokenPayload extends JwtPayload {
   sub: string;
   client_id: string;
   scope: string;
+  // jsonwebtoken ships no type declarations, so JwtPayload contributes nothing —
+  // the registered claims introspection echoes back are declared explicitly.
+  iss?: string;
+  aud?: string | string[];
+  exp?: number;
+  iat?: number;
 }
 
 /** `at_hash`: base64url of the left-most half of the SHA-256 of the access token (OIDC Core 3.1.3.6). */

@@ -318,6 +318,10 @@ samma nyckelpar. Endast authorization code med PKCE stöds.
 - `GET /api/oidc/authorize` — återanvänder vald testidentitet, annars visas väljaren.
 - `POST /api/oidc/token` — kodutbyte (`client_secret_basic`, `client_secret_post` eller enbart PKCE).
 - `GET`/`POST /api/oidc/userinfo` — claims för en access-token.
+- `POST /api/oidc/introspect` — introspektion (RFC 7662) för resursservrar: klient-autentiserad
+  (`client_secret_basic`/`client_secret_post`), svarar `{"active": true, sub, scope, ...}` för en
+  giltig access-token, annars `{"active": false}`. Tokens är statelösa JWT:er, så "active" betyder
+  signatur + issuer + giltighetstid — inget kan återkallas före `exp`.
 - `GET /api/oidc/end-session` — RP-initierad utloggning.
 - `GET /api/oidc/test` — lokal testklient som kör hela flödet och visar de claims den fick.
 

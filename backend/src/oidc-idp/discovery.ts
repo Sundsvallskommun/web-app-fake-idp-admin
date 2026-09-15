@@ -17,6 +17,8 @@ export function buildDiscoveryDocument(): Record<string, unknown> {
     token_endpoint: `${OIDC_PUBLIC_URL}/token`,
     userinfo_endpoint: `${OIDC_PUBLIC_URL}/userinfo`,
     jwks_uri: `${OIDC_PUBLIC_URL}/jwks.json`,
+    introspection_endpoint: `${OIDC_PUBLIC_URL}/introspect`,
+    introspection_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
     end_session_endpoint: `${OIDC_PUBLIC_URL}/end-session`,
     scopes_supported: [...SUPPORTED_SCOPES],
     response_types_supported: ['code'],

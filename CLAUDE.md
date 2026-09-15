@@ -43,6 +43,7 @@ Alongside SAML, the backend issues OpenID Connect tokens for the same test ident
 | `GET /api/oidc/authorize` | Parks the request in the session, then reuses or prompts for a test identity. |
 | `POST /api/oidc/token` | Back-channel code exchange. `client_secret_basic`, `client_secret_post` or PKCE-only. |
 | `GET`/`POST /api/oidc/userinfo` | Claims for a bearer access token. |
+| `POST /api/oidc/introspect` | RFC 7662 introspection for resource servers (client-authenticated). Storeless tokens: "active" = signature + issuer + expiry; no early revocation. |
 | `GET /api/oidc/end-session` | RP-initiated logout. |
 | `GET /api/oidc/test` | **Local test Relying Party** — the OIDC counterpart of `/api/saml/test`. |
 

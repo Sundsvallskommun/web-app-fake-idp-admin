@@ -147,6 +147,7 @@ describe('OIDC metadata', () => {
       token_endpoint: 'https://fake-idp.test/api/oidc/token',
       userinfo_endpoint: 'https://fake-idp.test/api/oidc/userinfo',
       jwks_uri: 'https://fake-idp.test/api/oidc/jwks.json',
+      introspection_endpoint: 'https://fake-idp.test/api/oidc/introspect',
       response_types_supported: ['code'],
       grant_types_supported: ['authorization_code'],
       id_token_signing_alg_values_supported: ['RS256'],
@@ -463,6 +464,98 @@ describe('token endpoint validation', () => {
   it('supports only the authorization_code grant', async () => {
     const response = await exchange(createApp(), { grant_type: 'client_credentials' }).expect(400);
     expect(response.body.error).toBe('unsupported_grant_type');
+  });
+});
+
+describe('introspection', () => {
+  /** Run the full flow and return the token response — the introspectable artefacts. */
+  const obtainTokens = async (app: express.Application) => {
+    const agent = request.agent(app);
+    const { verifier, challenge } = pkce();
+    const location = await authorizeAndLogin(agent, authorizeQuery({ code_challenge: challenge, code_challenge_method: 'S256' }));
+
+    const token = await request(app)
+      .post('/api/oidc/token')
+      .type('form')
+      .send({
+        grant_type: 'authorization_code',
+        code: codeFrom(location),
+        redirect_uri: REDIRECT_URI,
+        client_id: confidentialClient.clientId,
+        client_secret: CLIENT_SECRET,
+        code_verifier: verifier,
+      })
+      .expect(200);
+    return token.body as { access_token: string; id_token: string };
+  };
+
+  it('reports a live access token active, with the RFC 7662 members', async () => {
+    const app = createApp();
+    const { access_token } = await obtainTokens(app);
+
+    const response = await request(app)
+      .post('/api/oidc/introspect')
+      .auth(confidentialClient.clientId, CLIENT_SECRET)
+      .type('form')
+      .send({ token: access_token })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      active: true,
+      sub: identity.id,
+      scope: 'openid profile email',
+      client_id: confidentialClient.clientId,
+      token_type: 'Bearer',
+      iss: 'https://fake-idp.test/api/oidc',
+    });
+    expect(response.body.exp).toEqual(expect.any(Number));
+    expect(response.headers['cache-control']).toContain('no-store');
+  });
+
+  it('accepts client_secret_post as well, without a CSRF token', async () => {
+    const app = createApp();
+    const { access_token } = await obtainTokens(app);
+
+    const response = await request(app)
+      .post('/api/oidc/introspect')
+      .type('form')
+      .send({ token: access_token, client_id: confidentialClient.clientId, client_secret: CLIENT_SECRET })
+      .expect(200);
+
+    expect(response.body.active).toBe(true);
+  });
+
+  it('reports garbage as inactive rather than erroring — RFC 7662 §2.2', async () => {
+    const response = await request(createApp())
+      .post('/api/oidc/introspect')
+      .auth(confidentialClient.clientId, CLIENT_SECRET)
+      .type('form')
+      .send({ token: 'nonsense' })
+      .expect(200);
+
+    expect(response.body).toEqual({ active: false });
+  });
+
+  it('reports an ID token as inactive — only access tokens are introspectable', async () => {
+    const app = createApp();
+    const { id_token } = await obtainTokens(app);
+
+    const response = await request(app)
+      .post('/api/oidc/introspect')
+      .auth(confidentialClient.clientId, CLIENT_SECRET)
+      .type('form')
+      .send({ token: id_token })
+      .expect(200);
+
+    expect(response.body).toEqual({ active: false });
+  });
+
+  it('requires client authentication, so tokens cannot be scanned anonymously', async () => {
+    const app = createApp();
+    const { access_token } = await obtainTokens(app);
+
+    await request(app).post('/api/oidc/introspect').type('form').send({ token: access_token }).expect(401);
+    await request(app).post('/api/oidc/introspect').auth(confidentialClient.clientId, 'wrong').type('form').send({ token: access_token }).expect(401);
   });
 });
 

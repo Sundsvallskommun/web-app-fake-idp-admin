@@ -8,10 +8,11 @@ import { Request } from 'express';
  * SAML: the HTTP-POST bindings are cross-site by protocol and are protected by
  * signed assertions plus InResponseTo instead.
  *
- * OIDC: `/token` and `/userinfo` are called by the RP's *server*, not a browser —
- * no cookie is involved, so there is no session to ride on. They authenticate with
- * client credentials and a bearer token respectively. `/authorize` is a GET and is
- * covered by the exact-match redirect_uri check rather than a token.
+ * OIDC: `/token`, `/userinfo` and `/introspect` are called by the RP's or resource
+ * server's *server*, not a browser — no cookie is involved, so there is no session
+ * to ride on. They authenticate with client credentials or a bearer token.
+ * `/authorize` is a GET and is covered by the exact-match redirect_uri check
+ * rather than a token.
  */
 const unprotectedPostBindings = new Set([
   `${BASE_URL_PREFIX}/saml/idp/sso`,
@@ -22,6 +23,8 @@ const unprotectedPostBindings = new Set([
   `${OIDC_PUBLIC_PATH}/token`,
   `${OIDC_MOUNT_PATH}/userinfo`,
   `${OIDC_PUBLIC_PATH}/userinfo`,
+  `${OIDC_MOUNT_PATH}/introspect`,
+  `${OIDC_PUBLIC_PATH}/introspect`,
 ]);
 
 const requestToken = (req: Request): string | undefined => {

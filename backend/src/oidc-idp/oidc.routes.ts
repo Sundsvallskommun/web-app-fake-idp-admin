@@ -330,6 +330,58 @@ export function registerOidcRoutes(
     }),
   );
 
+  // ---- Introspection (RFC 7662) --------------------------------------------
+  // The online verification path for a resource server (a microservice holding a
+  // forwarded token). Back-channel only, like /token: it requires client
+  // credentials a browser app cannot hold — hence no CSRF (allowlisted) and
+  // deliberately no CORS entry. Tokens are storeless JWTs, so "active" means
+  // signature + issuer + expiry hold; nothing can be revoked earlier than `exp`.
+  router.post(
+    '/introspect',
+    wrap(async (req, res) => {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+
+      const basic = /^Basic (.+)$/i.exec(req.headers.authorization ?? '');
+      const [basicId, basicSecret] = basic ? splitBasic(basic[1]) : [undefined, undefined];
+      const clientId = basicId ?? param(body, 'client_id');
+      const clientSecret = basicSecret ?? param(body, 'client_secret');
+
+      if (!clientId) {
+        res.status(401).set('WWW-Authenticate', 'Basic realm="oidc-introspection"');
+        tokenError(res, 401, 'invalid_client', 'client_id saknas');
+        return;
+      }
+      const client = await clientStore.getClient(clientId);
+      if (!client || !authenticateClient(client, clientSecret)) {
+        tokenError(res, 401, 'invalid_client', 'Klienten kunde inte autentiseras');
+        return;
+      }
+
+      // RFC 7662 §2.2: an unknown, expired or foreign token is NOT an error — the
+      // resource server just learns it must not accept it. `token_type_hint` is
+      // ignored; access tokens are the only introspectable kind here, and an ID
+      // token fails verifyAccessToken's shape check into the same `active: false`.
+      const token = param(body, 'token');
+      const payload = token ? verifyAccessToken(token) : null;
+      if (!payload) {
+        res.set('Cache-Control', 'no-store').json({ active: false });
+        return;
+      }
+
+      res.set('Cache-Control', 'no-store').json({
+        active: true,
+        sub: payload.sub,
+        scope: payload.scope,
+        client_id: payload.client_id,
+        token_type: 'Bearer',
+        aud: payload.aud,
+        iss: payload.iss,
+        exp: payload.exp,
+        iat: payload.iat,
+      });
+    }),
+  );
+
   // ---- UserInfo ------------------------------------------------------------
   // Both verbs, as OIDC Core 5.3 requires. POST is in the CSRF allowlist for the
   // same reason /token is: the caller holds a bearer token, not a session.
