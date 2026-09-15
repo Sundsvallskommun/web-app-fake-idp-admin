@@ -56,6 +56,12 @@ export type Resource<
   requiredFields?: Array<FieldPath<TCreate & TUpdate>>;
   /** Fält som redigeras i flerradig textarea istället för enradigt input. */
   multilineFields?: Array<FieldPath<TCreate & TUpdate>>;
+  /**
+   * Fält som maskeras med visa/dölj-öga (som lösenord). Värdet redigeras normalt
+   * men döljs tills operatören klickar fram det — för hemligheter som ändå måste
+   * gå att läsa tillbaka för att konfigurera en klient (t.ex. `clientSecret`).
+   */
+  secretFields?: Array<FieldPath<TCreate & TUpdate>>;
   formFields?: Array<Extract<keyof (TCreate & TUpdate), string>>;
   /** Relations edited with the shared searchable checkbox picker. */
   relationFields?: Array<{

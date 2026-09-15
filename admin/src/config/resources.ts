@@ -229,10 +229,15 @@ const oidcClients: Resource<AdminOidcClient, CreateOidcClientDto, UpdateOidcClie
     'description',
     'isPublic',
     'requirePkce',
+    // Grupperad med autentiseringsvalen. Tom vid skapande → backend genererar en;
+    // maskerad men läsbar via ögat, så en konfidentiell klient faktiskt går att
+    // konfigurera i RP:n. Ignoreras för publika (PKCE-only) klienter.
+    'clientSecret',
     'redirectUris',
     'postLogoutRedirectUris',
   ],
   multilineFields: ['description'],
+  secretFields: ['clientSecret'],
   columns: [
     { property: 'clientId' },
     { property: 'name' },
