@@ -120,6 +120,9 @@ export interface PageNavigation {
   adminUrl: string;
   /** Bas-URL där adminens statiska filer (t.ex. /fonts) kan nås. */
   assetsUrl?: string;
+  /** Lokala testapplikationerna. Utelämnas de visas ingen länk. */
+  samlTestUrl?: string;
+  oidcTestUrl?: string;
 }
 
 /** Sätter valt tema före första målningen så sidan inte blinkar. */
@@ -171,7 +174,10 @@ const page = (body: string, navigation: PageNavigation): string =>
   `<body><header class="topbar"><div class="shell topbar-inner">` +
   `<a class="brand" href="${htmlEscape(navigation.idpUrl)}"><span>${TITLE}</span><span class="brand-context">Testläge</span></a>` +
   `<div class="topbar-actions">${themeToggle()}` +
-  `<nav aria-label="Huvudnavigation"><a class="button secondary" href="${htmlEscape(navigation.adminUrl)}">Administration</a></nav></div>` +
+  `<nav aria-label="Huvudnavigation">` +
+  (navigation.samlTestUrl ? `<a class="button secondary" href="${htmlEscape(navigation.samlTestUrl)}">SAML-test</a>` : '') +
+  (navigation.oidcTestUrl ? `<a class="button secondary" href="${htmlEscape(navigation.oidcTestUrl)}">OIDC-test</a>` : '') +
+  `<a class="button secondary" href="${htmlEscape(navigation.adminUrl)}">Administration</a></nav></div>` +
   `</div></header><main class="shell"><section class="surface">${body}</section></main>` +
   `<script>${THEME_TOGGLE_SCRIPT}</script></body></html>`;
 
@@ -186,6 +192,8 @@ export interface LoginUser {
 export interface LoginTarget {
   name: string;
   url: string;
+  /** Which protocol started this login, e.g. 'SAML-testinloggning'. */
+  protocolLabel?: string;
 }
 
 export interface IdentitySummary {
@@ -332,12 +340,12 @@ export function renderLogin(opts: {
       `<label for="password">Lösenord</label><input type="password" id="password" name="password" autocomplete="current-password" required />`;
 
   return page(
-    `<p class="context">${opts.target ? 'SAML-testinloggning' : 'Testsession'}</p>` +
+    `<p class="context">${htmlEscape(opts.target ? (opts.target.protocolLabel ?? 'Testinloggning') : 'Testsession')}</p>` +
       `<h1>Välj testidentitet</h1>` +
       `<p class="description">${
         opts.target
           ? 'Välj vilken identitet den anslutna testapplikationen ska ta emot.'
-          : 'Välj den identitet som ska användas vid kommande SAML-inloggningar.'
+          : 'Välj den identitet som ska användas vid kommande inloggningar.'
       }</p>` +
       targetHtml +
       noticeHtml +
@@ -364,7 +372,7 @@ export function renderIdentitySession(opts: {
   return page(
     `<p class="context">Aktiv testsession</p>` +
       `<h1>Inloggad som ${htmlEscape(opts.identity.name)}</h1>` +
-      `<p class="description">Testidentiteten används automatiskt när en ansluten applikation startar en SAML-inloggning.</p>` +
+      `<p class="description">Testidentiteten används automatiskt när en ansluten applikation startar en inloggning, oavsett om den sker via SAML eller OIDC.</p>` +
       identityDetails(opts.identity) +
       identityGroups(opts.groups ?? []) +
       `<div class="actions"><form class="inline-form" action="${htmlEscape(opts.logoutAction)}" method="POST">` +
@@ -452,5 +460,104 @@ export function renderPostResponse(opts: { action: string; samlResponse: string;
     `<input type="hidden" name="SAMLResponse" value="${htmlEscape(opts.samlResponse)}" />` +
     `<input type="hidden" name="RelayState" value="${htmlEscape(opts.relayState || '')}" />` +
     `</form></body></html>`
+  );
+}
+
+/** Ett namn/värde-par som redan är formaterat till text av anroparen. */
+export interface ClaimRow {
+  name: string;
+  value: string;
+}
+
+const claimList = (label: string, rows: ClaimRow[]): string => {
+  if (rows.length === 0) {
+    return '';
+  }
+  return (
+    `<dl class="identity"><dt>${htmlEscape(label)}</dt><dd></dd>` +
+    rows.map(row => `<dt>${htmlEscape(row.name)}</dt><dd>${htmlEscape(row.value)}</dd>`).join('') +
+    `</dl>`
+  );
+};
+
+/**
+ * Översätter felkoden från den lokala OIDC-testklienten till något en operatör kan
+ * agera på. Koden visas fortfarande i klartext — den är det som går att söka på.
+ */
+const oidcTestError = (error: string, detail?: string): string => {
+  const explanations: Record<string, string> = {
+    OIDC_AUTHORIZE_ERROR: 'Auktoriseringen avbröts av OP:n. Felet nedan kommer från /authorize.',
+    OIDC_STATE_MISMATCH:
+      'Svaret hörde inte ihop med den här webbläsarsessionen. Starta om testet — händer typiskt om sessionen hann gå ut eller om länken återanvändes.',
+    OIDC_NO_CODE: 'OP:n skickade tillbaka varken kod eller fel. Kontrollera backendens logg.',
+    OIDC_TOKEN_REQUEST_FAILED:
+      'Kodutbytet mot /token misslyckades. Kontrollera att backenden når sig själv på OIDC_INTERNAL_URL (loopback), och backendens logg.',
+    OIDC_INVALID_ID_TOKEN:
+      'ID-token gick inte att verifiera mot nyckeln i /jwks.json. Det är exakt det en riktig klient skulle råka ut för — kontrollera signeringsnyckeln och issuern.',
+    OIDC_USERINFO_FAILED: 'Access-token accepterades inte av /userinfo.',
+  };
+  const explanation = explanations[error] ?? 'Kontrollera backendens logg för detaljer.';
+
+  return (
+    `<p class="error" role="alert"><strong>OIDC-inloggningen misslyckades</strong>${explanation}` +
+    (detail ? `<span class="error-code">${htmlEscape(detail)}</span>` : '') +
+    `<span class="error-code">Felkod: ${htmlEscape(error)}</span></p>`
+  );
+};
+
+const OIDC_TEST_DESCRIPTION =
+  'Det här är backendens egen testklient (Relying Party). Den kör ett riktigt OIDC-flöde — authorization code med PKCE — mot den här providern, hämtar nyckeln ur /jwks.json och verifierar ID-token med den. Ett sätt att kontrollera signering, claims och session utan att koppla in en riktig applikation.';
+
+const OIDC_TEST_STEPS =
+  `<div class="steps"><p class="steps-title">Så går testet till</p><ol>` +
+  `<li>Du skickas till /authorize — eller vidare direkt om en testidentitet redan är vald.</li>` +
+  `<li>Klienten byter koden mot tokens på /token och verifierar ID-token mot /jwks.json.</li>` +
+  `<li>Sidan visar de claims klienten fick i ID-token och från /userinfo.</li>` +
+  `</ol></div>`;
+
+export function renderOidcTest(opts: {
+  navigation: PageNavigation;
+  loginUrl: string;
+  logoutUrl: string;
+  discoveryUrl: string;
+  result?: {
+    idTokenClaims: ClaimRow[];
+    userinfoClaims: ClaimRow[];
+    scope: string;
+  };
+  error?: string;
+  errorDetail?: string;
+}): string {
+  const errorHtml = opts.error ? oidcTestError(opts.error, opts.errorDetail) : '';
+  const discovery =
+    `<div class="target"><span class="target-label">Discovery för en riktig klient</span>` +
+    `<code class="target-url">${htmlEscape(opts.discoveryUrl)}</code></div>`;
+
+  if (!opts.result) {
+    return page(
+      `<p class="context">Lokal testapplikation</p>` +
+        `<h1>Testa OIDC-inloggning</h1>` +
+        `<p class="description">${OIDC_TEST_DESCRIPTION}</p>` +
+        errorHtml +
+        discovery +
+        OIDC_TEST_STEPS +
+        `<div class="actions"><a class="button primary" href="${htmlEscape(opts.loginUrl)}">Starta OIDC-test</a>` +
+        `<a class="button secondary" href="${htmlEscape(opts.navigation.idpUrl)}">Öppna testsession</a></div>`,
+      opts.navigation,
+    );
+  }
+
+  return page(
+    `<p class="context">Lokal testapplikation</p>` +
+      `<h1>OIDC-inloggningen lyckades</h1>` +
+      `<p class="description">Testklienten bytte koden mot tokens och verifierade ID-token mot providerns publicerade nyckel. ` +
+      `Beviljade scopes: ${htmlEscape(opts.result.scope || '(inga)')}.</p>` +
+      claimList('Claims från /userinfo', opts.result.userinfoClaims) +
+      claimList('ID-token', opts.result.idTokenClaims) +
+      discovery +
+      `<div class="actions"><a class="button primary" href="${htmlEscape(opts.loginUrl)}">Testa igen</a>` +
+      `<a class="button secondary" href="${htmlEscape(opts.logoutUrl)}">Logga ut via OP:n</a>` +
+      `<a class="button secondary" href="${htmlEscape(opts.navigation.idpUrl)}">Hantera testsession</a></div>`,
+    opts.navigation,
   );
 }

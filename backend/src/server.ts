@@ -6,9 +6,18 @@ import { HealthController } from './controllers/health.controller';
 import { AdminAuthController } from './controllers/admin-auth.controller';
 import { GroupController } from './controllers/group.controller';
 import { ApplicationController } from './controllers/application.controller';
+import { OidcClientController } from './controllers/oidc-client.controller';
 
 validateEnv();
 
-const app = new App([IndexController, AdminAuthController, UserController, GroupController, ApplicationController, HealthController]);
+const app = new App([
+  IndexController,
+  AdminAuthController,
+  UserController,
+  GroupController,
+  ApplicationController,
+  OidcClientController,
+  HealthController,
+]);
 
 app.listen();

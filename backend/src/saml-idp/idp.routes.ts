@@ -1,10 +1,11 @@
-import { ADMIN_URL, IDP_MOUNT_PATH, IDP_PUBLIC_PATH, SAML_IDP_ENUMERATE_USERS } from '@config';
+import { ADMIN_URL, IDP_MOUNT_PATH, IDP_PUBLIC_PATH, OIDC_TEST_PATH, SAML_IDP_ENUMERATE_USERS, SAML_TEST_PATH } from '@config';
 import { generateCsrfToken } from '@middlewares/csrf.middleware';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import { isValidUrl } from '@utils/util';
 import express, { NextFunction, Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { completeAuthorization } from '../oidc-idp/flow';
 import { buildIdpMetadata } from './idp-metadata';
 import { parseRequest } from './request-parser';
 import { createResponse, UserWithAttributes } from './response-builder';
@@ -17,6 +18,8 @@ const navigation: PageNavigation = {
   idpUrl: LOGIN_URL,
   adminUrl: ADMIN_URL,
   assetsUrl: ADMIN_URL,
+  samlTestUrl: SAML_TEST_PATH,
+  oidcTestUrl: OIDC_TEST_PATH,
 };
 
 const idpRateLimit = rateLimit({
@@ -75,11 +78,17 @@ async function validateIdpUser(req: Request, usersService: IdpUserStore): Promis
   return null;
 }
 
-const describeTarget = (destination: string): LoginTarget => {
+const describeTarget = (request: NonNullable<Request['session']['idpRequest']>): LoginTarget => {
+  if (request.protocol === 'oidc') {
+    // An OIDC client is registered by name, so say who it is rather than guessing from a host.
+    return { name: request.clientName, url: request.redirectUri, protocolLabel: 'OIDC-testinloggning' };
+  }
+
+  const destination = request.destination;
   try {
-    return { name: new URL(destination).host, url: destination };
+    return { name: new URL(destination).host, url: destination, protocolLabel: 'SAML-testinloggning' };
   } catch {
-    return { name: 'Ansluten testapplikation', url: destination };
+    return { name: 'Ansluten testapplikation', url: destination, protocolLabel: 'SAML-testinloggning' };
   }
 };
 
@@ -96,15 +105,26 @@ async function selectedIdentity(req: Request, usersService: IdpUserStore): Promi
   return user;
 }
 
-async function respondWithAssertion(req: Request, res: Response, user: UserWithAttributes): Promise<void> {
+/**
+ * Answer whichever authorization request is parked in the session. SAML gets a
+ * signed assertion auto-POSTed back; OIDC gets a single-use code on a redirect.
+ * Either way the pending request is consumed first, so a reload cannot replay it.
+ */
+async function resumePendingRequest(req: Request, res: Response, user: UserWithAttributes): Promise<void> {
   const request = req.session.idpRequest;
   if (!request) {
-    throw new Error('No SAML request in session');
+    throw new Error('No authorization request in session');
+  }
+
+  delete req.session.idpRequest;
+  await saveSession(req);
+
+  if (request.protocol === 'oidc') {
+    completeAuthorization(req, res, request, user.id);
+    return;
   }
 
   const built = createResponse(request, user);
-  delete req.session.idpRequest;
-  await saveSession(req);
   res.send(renderPostResponse({ action: built.action, samlResponse: built.samlResponse, relayState: built.relayState }));
 }
 
@@ -125,13 +145,14 @@ async function renderLoginPage(req: Request, usersService: IdpUserStore, options
     navigation,
     users,
     enumerateUsers: SAML_IDP_ENUMERATE_USERS,
-    target: request ? describeTarget(request.destination) : undefined,
+    target: request ? describeTarget(request) : undefined,
     error: options?.error,
     notice: options?.notice,
   });
 }
 async function endIdentitySession(req: Request, res: Response): Promise<void> {
   delete req.session.idpIdentityId;
+  delete req.session.idpAuthTime;
   await saveSession(req);
 
   const relayState = req.query.RelayState;
@@ -170,7 +191,7 @@ async function handleSso(
 
   const user = await selectedIdentity(req, usersService);
   if (user) {
-    await respondWithAssertion(req, res, user);
+    await resumePendingRequest(req, res, user);
     return;
   }
 
@@ -201,8 +222,9 @@ export function registerIdpRoutes(app: express.Application, usersService: IdpUse
       }
 
       req.session.idpIdentityId = user.id;
+      req.session.idpAuthTime = Math.floor(Date.now() / 1000);
       if (req.session.idpRequest) {
-        await respondWithAssertion(req, res, user);
+        await resumePendingRequest(req, res, user);
         return;
       }
 

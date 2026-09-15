@@ -43,6 +43,7 @@ model Application {
   description             String                    @default("")
   groups                  Group[]
   legacyApplicationAccess LegacyApplicationAccess[]
+  oidcClients             OidcClient[]
 }
 
 /// Compatibility owner for persisted per-user assignments created before
@@ -73,4 +74,34 @@ model Attribute {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// An OIDC Relying Party registered with the fake IdP. SAML needs no registration
+/// here — an AuthnRequest carries its own AssertionConsumerServiceURL — but OIDC
+/// has no signed request to lean on, so exact-match `redirectUris` IS the security
+/// boundary. `clientSecret` is plaintext for the same reason `User.password` is:
+/// this is a test/simulator IdP and the operator must be able to read it back.
+model OidcClient {
+  id                     Int          @id @default(autoincrement())
+  /// Public identifier the RP sends as `client_id`.
+  clientId               String       @unique
+  /// Empty for public clients (PKCE-only, no client authentication).
+  clientSecret           String       @default("")
+  name                   String
+  description            String       @default("")
+  /// JSON array of exact-match redirect URIs. SQLite has no scalar list type, so
+  /// the list is stored encoded and parsed at the store boundary.
+  redirectUris           String       @default("[]")
+  /// JSON array, same encoding. Used by RP-initiated logout (`end_session`).
+  postLogoutRedirectUris String       @default("[]")
+  /// Public clients MUST use PKCE; confidential ones may opt out for older RPs.
+  requirePkce            Boolean      @default(true)
+  /// Public clients authenticate with PKCE alone and hold no usable secret.
+  isPublic               Boolean      @default(false)
+  /// Optional link to the tool-metadata Application, so a registered RP shows up
+  /// in the same access view as the SAML-side test applications.
+  applicationId          Int?
+  application            Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
 }

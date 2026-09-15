@@ -114,5 +114,19 @@
     "alias_help": "Alternativa nycklar för samma uppgifter, från LDAP/katalogstandarden (sn = efternamn, uid = användar-id) eller äldre appar. SAML-claims är skiftlägeskänsliga, så varianterna kan inte slås ihop — fyll i ett alias med samma värde som standardfältet när en ansluten app kräver just den nyckeln."
   },
   "applications_help": "Applikationsaccess härleds automatiskt från de valda grupperna och kan inte redigeras direkt på testidentiteten.",
-  "no_application_access": "De valda grupperna ger inte access till någon dokumenterad applikation."
+  "no_application_access": "De valda grupperna ger inte access till någon dokumenterad applikation.",
+  "claim": {
+    "name": "claim",
+    "value": "värde",
+    "type": "typ"
+  },
+  "claims_preview": {
+    "title": "OIDC-förhandsvisning",
+    "help": "Visar de claims en OIDC-klient får för den senast sparade testidentiteten. Attributnamn med en standardmotsvarighet döps om (givenName blir given_name) och grupper skickas som en JSON-array i stället för SAML:s kommaseparerade sträng.",
+    "show": "Visa sparade claims",
+    "unsaved": "Du har osparade ändringar. Förhandsvisningen visar fortfarande den sparade versionen.",
+    "error": "Kunde inte hämta OIDC-förhandsvisningen.",
+    "no_claims": "Inga claims skickas för testidentiteten.",
+    "masked": "Känsliga värden är maskerade i adminvyn. De tokens som utfärdas till en ansluten klient använder det sparade originalvärdet."
+  }
 }

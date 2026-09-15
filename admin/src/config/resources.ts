@@ -3,17 +3,20 @@ import { Badge } from '@components/ui/badge';
 import {
   AdminApplication,
   AdminGroup,
+  AdminOidcClient,
   AdminUser,
   CreateApplicationDto,
   CreateGroupDto,
+  CreateOidcClientDto,
   CreateUserDto,
   UpdateApplicationDto,
   UpdateGroupDto,
+  UpdateOidcClientDto,
   UpdateUserDto,
 } from '@data-contracts/backend/data-contracts';
 import { Resource, ResourceColumn } from '@interfaces/resource';
 import { apiClient as apiService } from '@services/api-client';
-import { AppWindow, Boxes, Users } from 'lucide-react';
+import { AppWindow, Boxes, KeyRound, Users } from 'lucide-react';
 import { createElement } from 'react';
 
 /** Så många medlemsbadges får plats innan resten läggs i en "+N"-badge. */
@@ -195,6 +198,78 @@ const applications: Resource<AdminApplication, CreateApplicationDto, UpdateAppli
   defaultSort: { property: 'userCount', desc: true },
 };
 
-const resources = { users, groups, applications };
+// Registrerade OIDC-klienter (Relying Parties). SAML behöver ingen motsvarighet —
+// en AuthnRequest bär sin egen ACS-URL — men OIDC saknar signerad förfrågan, så
+// den här listan ÄR säkerhetsgränsen: `redirectUris` matchas exakt.
+const oidcClients: Resource<AdminOidcClient, CreateOidcClientDto, UpdateOidcClientDto> = {
+  name: 'oidc-clients',
+  icon: KeyRound,
+  getOne: (id, params) => apiService.oidcClientControllerGetOidcClient(Number(id), params),
+  getMany: apiService.oidcClientControllerGetOidcClients,
+  create: (data, params) => apiService.oidcClientControllerCreateOidcClient(data as CreateOidcClientDto, params),
+  update: (id, data, params) =>
+    apiService.oidcClientControllerUpdateOidcClient(Number(id), data as UpdateOidcClientDto, params),
+  remove: (id, params) => apiService.oidcClientControllerRemoveOidcClient(Number(id), params),
+
+  defaultValues: {
+    clientId: '',
+    name: '',
+    description: '',
+    // En tom sträng, inte en tom lista: arrayfältet klonar sin första post när
+    // man lägger till en rad, och en klient utan redirect-URI kan aldrig logga in.
+    redirectUris: [''],
+    postLogoutRedirectUris: [''],
+    isPublic: false,
+    requirePkce: true,
+  },
+  requiredFields: ['clientId', 'name'],
+  formFields: [
+    'clientId',
+    'name',
+    'description',
+    'isPublic',
+    'requirePkce',
+    'redirectUris',
+    'postLogoutRedirectUris',
+  ],
+  multilineFields: ['description'],
+  columns: [
+    { property: 'clientId' },
+    { property: 'name' },
+    {
+      property: 'redirectUris',
+      isColumnSortable: false,
+      renderColumn: (_value, item) =>
+        createElement(
+          'span',
+          { className: 'flex flex-col gap-0.5 font-mono text-xs' },
+          ...item.redirectUris.map((uri, index) =>
+            createElement('span', { key: `${uri}-${index}`, className: 'break-all' }, uri)
+          )
+        ),
+    },
+    {
+      // Hur klienten autentiserar sig är det som oftast felkonfigureras i RP:n,
+      // så det ska synas utan att man öppnar posten.
+      property: 'isPublic',
+      renderColumn: (_value, item) =>
+        createElement(
+          Badge,
+          { variant: item.isPublic ? 'outline' : 'secondary', className: 'font-normal' },
+          item.isPublic ? 'PKCE (publik)' : 'client_secret'
+        ),
+    },
+    {
+      property: 'application',
+      isColumnSortable: false,
+      renderColumn: (_value, item) =>
+        item.application ?
+          namedBadges([item.application], 'outline')
+        : createElement('span', { className: 'text-muted-foreground' }, '–'),
+    },
+  ],
+};
+
+const resources = { users, groups, applications, 'oidc-clients': oidcClients };
 
 export default resources;

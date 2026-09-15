@@ -111,7 +111,8 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 
    Öppna IdP-testsessionen på `http://localhost:7001/api/saml/idp/login` för att
    välja vilken testidentitet som ska användas. Testa sedan ett komplett lokalt
-   SAML-flöde på `http://localhost:7001/api/saml/test`.
+   flöde på `http://localhost:7001/api/saml/test` (SAML) eller
+   `http://localhost:7001/api/oidc/test` (OIDC).
 
    Logga in i adminpanelen med `admin` / `admin`. Kontot kan ändras med
    `ADMIN_USERNAME`, `ADMIN_PASSWORD` och `ADMIN_DISPLAY_NAME` i root-`.env` och är
@@ -124,6 +125,8 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 | Admin-gränssnitt | http://localhost:7001/login |
 | IdP-testsession | http://localhost:7001/api/saml/idp/login |
 | Lokal SAML-testapp | http://localhost:7001/api/saml/test |
+| Lokal OIDC-testapp | http://localhost:7001/api/oidc/test |
+| OIDC discovery | http://localhost:7001/api/oidc/.well-known/openid-configuration |
 | Backend-API | http://localhost:7000/api |
 | Swagger | http://localhost:7000/api/api-docs |
 
@@ -302,11 +305,34 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 - `GET /api/saml/idp/metadata` — IdP-metadata för att konfigurera en Service Provider.
 - `GET /api/saml/test` — lokal testapp som startar SAML och visar mottagen identitet.
 
+OIDC-rollen (OpenID Provider) ligger parallellt under `/api/oidc` och signerar med
+samma nyckelpar. Endast authorization code med PKCE stöds.
+
+- `GET /api/oidc/.well-known/openid-configuration` — discovery, peka din klient hit.
+- `GET /api/oidc/jwks.json` — signeringsnyckeln (RS256).
+- `GET /api/oidc/authorize` — återanvänder vald testidentitet, annars visas väljaren.
+- `POST /api/oidc/token` — kodutbyte (`client_secret_basic`, `client_secret_post` eller enbart PKCE).
+- `GET`/`POST /api/oidc/userinfo` — claims för en access-token.
+- `GET /api/oidc/end-session` — RP-initierad utloggning.
+- `GET /api/oidc/test` — lokal testklient som kör hela flödet och visar de claims den fick.
+
+Klienter (client_id, secret, redirect-URI:er) registreras under **OIDC-klienter** i
+adminpanelen; `client_secret` genereras automatiskt om det lämnas tomt och visas i
+klartext (som lösenord — det här är en simulator). Publika klienter sparas utan
+hemlighet och autentiseras enbart med PKCE. Den lokala testklienten är inbyggd och
+behöver ingen registrering. På en testidentitet visas en OIDC-förhandsvisning
+bredvid SAML-förhandsvisningen, så att man ser exakt vilka claims en klient får. Claims speglar
+SAML-assertionen: attribut med en standardmotsvarighet döps om (`givenName` →
+`given_name`), övriga följer med oförändrade, och `groups` skickas som en JSON-array
+i stället för SAML:s kommaseparerade sträng.
+
 Muterande admin- och IdP-anrop skyddas med en sessionsbunden CSRF-token. Admin-GUI:t
 hämtar och skickar token automatiskt. Egna API-klienter hämtar den från
 `GET /api/admin-auth/csrf` och skickar den i headern `x-csrf-token`. De externa
 SAML POST-bindningarna (`/saml/idp/sso` och `/saml/login/callback`) är undantagna,
 eftersom anropen kommer från en Service Provider respektive Identity Provider.
+Detsamma gäller `POST /api/oidc/token` och `POST /api/oidc/userinfo`, som anropas
+server-till-server av klienten och därför inte har någon session att bindas mot.
 IdP-routes och adminlogin har även lokal IP-baserad rate limiting.
 
 ### Peka en Service Provider mot IdP:n

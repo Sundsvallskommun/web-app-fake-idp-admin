@@ -26,11 +26,40 @@ The old standalone fake-idp served its routes at the root (governed by `BASEPATH
 | `POST /sso` | `POST /api/saml/idp/sso` | SSO, HTTP-POST binding |
 | `POST /authenticate` | `POST /api/saml/idp/authenticate` | Validate creds → post signed assertion |
 | `GET /` | `GET /api/saml/idp/login` | Select or inspect the persistent IdP test identity |
-| `GET /logout` | `POST /api/saml/idp/logout` | Clear only the IdP test identity session |
+| `GET /logout` | `GET`/`POST /api/saml/idp/logout` | Clear only the IdP test identity session |
 | *(none)* | `GET /api/saml/idp/metadata` | **New** — IdP metadata for SP config |
 | *(none)* | `GET /api/saml/test` | **New** — local SP result/test page |
 
-Notes: the old root `/` becomes `/login` (the `/api/saml/idp` prefix already namespaces the IdP, and a bare `/` would collide with the app root). The selected identity is stored as `idpIdentityId` in the SAML session and is reused for SSO until `POST /logout`; it never authorizes the admin API. The old `pure-min.css` static asset has no equivalent (the pages inline their CSS); assertions are signed with SHA-1 for parity with the original (this is a test/simulator IdP). New env vars: `SAML_IDP_PRIVATE_KEY`, `SAML_IDP_ENTITY_ID`, `SAML_SP_AUDIENCE`, `SAML_IDP_ENUMERATE_USERS`, `ADMIN_URL`, plus the existing `SAML_IDP_PUBLIC_CERT` reused as the IdP's own signing cert.
+Notes: the old root `/` becomes `/login` (the `/api/saml/idp` prefix already namespaces the IdP, and a bare `/` would collide with the app root). The selected identity is stored as `idpIdentityId` in the SAML session and is reused for SSO until logout; it never authorizes the admin API. Logout is exposed on both verbs: `POST /logout` is the IdP page's own CSRF-protected form, while `GET /logout?RelayState=<absolute url>` exists for **external** SPs — they cannot hold a synchronizer token, and csrf-sync only guards state-changing methods, so the GET passes without loosening the allowlist in `csrf.middleware.ts`. `RelayState` is validated with `isValidUrl` only (no origin allow-list) so any SP can use the shared test IdP without being added to `ORIGIN`. `GET /api/saml/logout` (SP role) also clears `idpIdentityId`, since both roles share one session — otherwise the next login silently re-issues an assertion. The old `pure-min.css` static asset has no equivalent (the pages inline their CSS); assertions are signed with SHA-1 for parity with the original (this is a test/simulator IdP). New env vars: `SAML_IDP_PRIVATE_KEY`, `SAML_IDP_ENTITY_ID`, `SAML_SP_AUDIENCE`, `SAML_IDP_ENUMERATE_USERS`, `ADMIN_URL`, plus the existing `SAML_IDP_PUBLIC_CERT` reused as the IdP's own signing cert.
+
+## OIDC OpenID Provider role
+
+Alongside SAML, the backend issues OpenID Connect tokens for the same test identities. Module: `backend/src/oidc-idp/`, mounted under `/api/oidc/*` (wired in `oidc.routes.ts` from `app.ts`). Only **authorization code + PKCE** is implemented; implicit, hybrid, refresh tokens, dynamic registration and revocation are deliberately absent and are not advertised in discovery.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/oidc/.well-known/openid-configuration` | Discovery. Lives below the issuer, so an RP library's default `issuer + /.well-known/...` resolves. |
+| `GET /api/oidc/jwks.json` | Signing key (RSA, RS256). `kid` is the RFC 7638 JWK thumbprint. |
+| `GET /api/oidc/authorize` | Parks the request in the session, then reuses or prompts for a test identity. |
+| `POST /api/oidc/token` | Back-channel code exchange. `client_secret_basic`, `client_secret_post` or PKCE-only. |
+| `GET`/`POST /api/oidc/userinfo` | Claims for a bearer access token. |
+| `GET /api/oidc/end-session` | RP-initiated logout. |
+| `GET /api/oidc/test` | **Local test Relying Party** — the OIDC counterpart of `/api/saml/test`. |
+
+Key facts:
+
+- **One keypair, two protocols.** The OP signs with `SAML_IDP_PRIVATE_KEY`/`SAML_IDP_PUBLIC_CERT` — the same pair the SAML role uses. SAML keeps SHA-1 for parity with the original fake-sso-idp; JWTs are RS256.
+- **One session, one identity.** `/authorize` redirects to the shared picker at `/api/saml/idp/login`; `session.idpRequest` is a **tagged union** (`protocol: 'saml' | 'oidc'`) so the one `/authenticate` handler can finish either flow. Logging out anywhere clears `idpIdentityId` for both roles.
+- **The client registry is the security boundary.** SAML needs none (an AuthnRequest names its own ACS URL), but OIDC has no signed request, so `OidcClient` (Prisma) holds exact-match `redirectUris`. An unregistered `redirect_uri` or unknown `client_id` is reported **on screen**, never redirected to. `clientSecret` is plaintext by design, like `User.password`.
+- **Storeless tokens.** Access tokens are JWTs so `/userinfo` validates by signature; only authorization codes are kept server-side (in-memory, single-use, short TTL). Issued tokens therefore cannot be revoked before expiry — hence no revocation endpoint.
+- **Claims mirror the assertion.** `claims.ts` maps SAML attribute keys onto standard claims (`givenName`→`given_name`, LDAP OIDs, …) and passes everything else through verbatim, so `citizenIdentifier` survives. `groups` is emitted as a JSON **array** (SAML sends CSV). Scopes gate only the standard claim groups; `groups` and custom attributes are always present.
+- **Issuer.** `OIDC_ISSUER` defaults to the `SAML_IDP_ENTITY_ID` origin + `PUBLIC_PREFIX` + `/api/oidc`, so it is correct in the bundled *and* external-proxy topologies with no extra configuration. Optional env: `OIDC_ISSUER`, `OIDC_ID_TOKEN_TTL`, `OIDC_ACCESS_TOKEN_TTL`, `OIDC_CODE_TTL`.
+- **Managed from the admin UI.** `oidc-clients` is a normal entry in the config-driven registry (`admin/src/config/resources.ts`, namespace `public/locales/sv/oidc-clients.json`); the generic form renders the booleans as switches and the URI lists as add/remove rows, so no bespoke page was needed. `client_id` is validated against a conservative character set and the built-in test client's id is reserved. The user edit page shows a **claims preview** (`GET /users/:id/claims-preview`) beside the existing SAML assertion preview — same masking, and the two side by side are how you see that `groups` is an array here and a CSV string there.
+- **The loop tests itself.** `GET /api/oidc/test` is a real RP in this same process: it runs authorization code + PKCE against this OP, exchanges the code over HTTP at `/token`, and verifies the ID token against the key published in `/jwks.json` — not against the in-process signing key, so a broken JWKS actually fails the test. Its client (`fake-idp-local-test`) is **built in** (`local-client.ts`), resolved ahead of the database so the loop works on a freshly created DB; an admin-created row with the same `client_id` cannot shadow it.
+- **Two base URLs.** The test RP's back-channel calls go to `OIDC_INTERNAL_URL` (default `http://127.0.0.1:$PORT/api/oidc`). Inside a container the public host/port is the browser's view of the proxy and is not reachable from the backend — the same split a real RP behind a proxy has to make.
+- **The test page is origin-agnostic.** Every URL it emits is derived from the incoming request (`req.baseUrl` + `Host`), not from the issuer origin, so it works on the proxy port *and* on the backend container's own published port, prefixed or bare, under whatever hostnames the operator's hosts file points at the stack (`idp.test`, `dev.test`, `localhost`, …). The built-in client's redirect URIs are therefore resolved per browsing origin; the fixed part is the PATH, which is always this app's own test callback, so it cannot become an open redirect — and this applies to the built-in client only, never to database-registered ones. Only the discovery URL shown on the page stays canonical, since that is what an external client must be pointed at.
+- **Middleware exceptions.** `/api/oidc` joins the SAML paths in `app.ts`'s `idpPaths`, so it gets the `fake-idp.sid` session (the admin cookie is `sameSite: 'strict'` and would be dropped on the redirect back from an RP) and opts out of the app-wide CORS middleware — the OIDC endpoints set their own permissive CORS instead. `POST /api/oidc/token` and `POST /api/oidc/userinfo` are in the CSRF allowlist because they are server-to-server calls with no cookie.
+
 
 ## Commands
 

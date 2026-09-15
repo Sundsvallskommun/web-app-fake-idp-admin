@@ -138,6 +138,38 @@ export class AssertionPreview {
   attributes: AssertionPreviewAttribute[];
 }
 
+/**
+ * One claim as the admin preview shows it. `value` is already rendered to text so
+ * the UI stays dumb; `type` survives because "groups is a JSON array here but a
+ * comma-separated string in SAML" is exactly the difference an operator is looking
+ * for on this screen.
+ */
+export class ClaimsPreviewEntry {
+  @IsString()
+  name: string;
+  @IsString()
+  value: string;
+  @IsString()
+  type: string;
+}
+
+export class ClaimsPreview {
+  @IsString()
+  sub: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClaimsPreviewEntry)
+  claims: ClaimsPreviewEntry[];
+}
+
+export class ClaimsPreviewResponse implements ApiResponse<ClaimsPreview> {
+  @ValidateNested()
+  @Type(() => ClaimsPreview)
+  data: ClaimsPreview;
+  @IsString()
+  message: string;
+}
+
 export class AssertionPreviewResponse implements ApiResponse<AssertionPreview> {
   @ValidateNested()
   @Type(() => AssertionPreview)

@@ -53,6 +53,7 @@ describe('SAML response signing contract', () => {
   it('keeps the externally visible RSA-SHA1 contract and produces a verifiable signature', () => {
     const response = createResponse(
       {
+        protocol: 'saml',
         destination: 'https://service-provider.test/saml/acs',
         inResponseTo: '_request-1',
         relayState: 'return-here',
@@ -79,6 +80,7 @@ describe('SAML group claim', () => {
   it('serializes normalized memberships using the established claim format', () => {
     const response = createResponse(
       {
+        protocol: 'saml',
         destination: 'https://service-provider.test/saml/acs',
         inResponseTo: '_request-1',
       },

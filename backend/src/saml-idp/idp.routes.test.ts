@@ -6,15 +6,17 @@ import type { UserWithAttributes } from './response-builder';
 import { IdpUserStore, registerIdpRoutes } from './idp.routes';
 import { createResponse } from './response-builder';
 
-vi.mock('@config', () => ({
+/**
+ * Delmocka istället för att räkna upp exporterna: en handskriven lista måste
+ * utökas varje gång @config får en ny export som någon importerad modul läser vid
+ * import — annars laddas hela den här filen inte alls, och testerna räknas som
+ * "passerade" utan att ha körts. vitest.setup.ts sätter redan miljön, så den
+ * riktiga konfigurationen ger samma sökvägar som listan gjorde.
+ */
+vi.mock('@config', async importOriginal => ({
+  ...(await importOriginal<typeof import('@config')>()),
+  // Avsiktligt övertramp: sidorna ska länka till en förutsägbar admin-URL.
   ADMIN_URL: '/start',
-  // Krävs av @utils/util som idp.routes importerar isValidUrl från.
-  BASE_URL_PREFIX: '/api',
-  IDP_MOUNT_PATH: '/api/saml/idp',
-  IDP_PATH_PREFIX: '',
-  IDP_PUBLIC_PATH: '/api/saml/idp',
-  SAML_IDP_ENTITY_ID: 'https://fake-idp.test/api/saml/idp/metadata',
-  SAML_IDP_ENUMERATE_USERS: true,
 }));
 
 vi.mock('@utils/logger', () => ({
