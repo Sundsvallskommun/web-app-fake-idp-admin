@@ -6,15 +6,17 @@ import type { UserWithAttributes } from './response-builder';
 import { IdpUserStore, registerIdpRoutes } from './idp.routes';
 import { createResponse } from './response-builder';
 
-vi.mock('@config', () => ({
+/**
+ * Delmocka istället för att räkna upp exporterna: en handskriven lista måste
+ * utökas varje gång @config får en ny export som någon importerad modul läser vid
+ * import — annars laddas hela den här filen inte alls, och testerna räknas som
+ * "passerade" utan att ha körts. vitest.setup.ts sätter redan miljön, så den
+ * riktiga konfigurationen ger samma sökvägar som listan gjorde.
+ */
+vi.mock('@config', async importOriginal => ({
+  ...(await importOriginal<typeof import('@config')>()),
+  // Avsiktligt övertramp: sidorna ska länka till en förutsägbar admin-URL.
   ADMIN_URL: '/start',
-  // Krävs av @utils/util som idp.routes importerar isValidUrl från.
-  BASE_URL_PREFIX: '/api',
-  IDP_MOUNT_PATH: '/api/saml/idp',
-  IDP_PATH_PREFIX: '',
-  IDP_PUBLIC_PATH: '/api/saml/idp',
-  SAML_IDP_ENTITY_ID: 'https://fake-idp.test/api/saml/idp/metadata',
-  SAML_IDP_ENUMERATE_USERS: true,
 }));
 
 vi.mock('@utils/logger', () => ({
@@ -100,7 +102,7 @@ describe('Fake IdP test identity session', () => {
       .type('form')
       .send({ userid: identity.id, _csrf: initialCsrfToken })
       .expect(303)
-      .expect('Location', '/api/saml/idp/login');
+      .expect('Location', '/api/idp/login');
 
     const activePage = await agent.get('/api/saml/idp/login').expect(200);
     expect(activePage.text).toContain('Inloggad som Test Person');
@@ -119,7 +121,7 @@ describe('Fake IdP test identity session', () => {
       .type('form')
       .send({ _csrf: activeCsrfToken })
       .expect(303)
-      .expect('Location', '/api/saml/idp/login?loggedout=1');
+      .expect('Location', '/api/idp/login?loggedout=1');
 
     const loggedOutPage = await agent.get('/api/saml/idp/login?loggedout=1').expect(200);
     expect(loggedOutPage.text).toContain('Testidentiteten är utloggad');
@@ -161,7 +163,7 @@ describe('Fake IdP test identity session', () => {
       await selectIdentity(agent);
       expect((await agent.get('/api/saml/idp/login').expect(200)).text).toContain('Inloggad som Test Person');
 
-      await agent.get('/api/saml/idp/logout').expect(303).expect('Location', '/api/saml/idp/login?loggedout=1');
+      await agent.get('/api/saml/idp/logout').expect(303).expect('Location', '/api/idp/login?loggedout=1');
 
       const nextSamlRequest = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
       expect(nextSamlRequest.text).toContain('Välj testidentitet');
@@ -183,11 +185,45 @@ describe('Fake IdP test identity session', () => {
       const agent = request.agent(createApp());
       await selectIdentity(agent);
 
+      await agent.get('/api/saml/idp/logout').query({ RelayState: '/not-absolute' }).expect(303).expect('Location', '/api/idp/login?loggedout=1');
+    });
+  });
+
+  describe('protocol-neutral picker path', () => {
+    // Väljaren delas av SAML- och OIDC-rollerna, så dess kanoniska hem är
+    // /api/idp/* — en OIDC-inloggning ska inte se ut att skickas in i SAML-flödet.
+    // SAML-erans sökvägar finns kvar som alias för befintliga uppsättningar.
+    it('serves the picker at /api/idp with forms posting to the neutral path', async () => {
+      const agent = request.agent(createApp());
+
+      const page = await agent.get('/api/idp/login').expect(200);
+      expect(page.text).toContain('Välj testidentitet');
+      expect(page.text).toContain('action="/api/idp/authenticate"');
+
       await agent
-        .get('/api/saml/idp/logout')
-        .query({ RelayState: '/not-absolute' })
+        .post('/api/idp/authenticate')
+        .type('form')
+        .send({ userid: identity.id, _csrf: csrfTokenFrom(page.text) })
         .expect(303)
-        .expect('Location', '/api/saml/idp/login?loggedout=1');
+        .expect('Location', '/api/idp/login');
+
+      // Ett och samma val: identiteten som pekades ut på den neutrala vägen
+      // besvarar SAML-flödet på den gamla.
+      const samlResponse = await agent.get('/api/saml/idp/sso?SAMLRequest=request').expect(200);
+      expect(samlResponse.text).toContain('value="signed-response"');
+
+      await agent.get('/api/idp/logout').expect(303).expect('Location', '/api/idp/login?loggedout=1');
+    });
+
+    it('keeps the SAML-era path as a working alias', async () => {
+      const agent = request.agent(createApp());
+
+      const page = await agent.get('/api/saml/idp/login').expect(200);
+      expect(page.text).toContain('Välj testidentitet');
+
+      // Inga SAML-specifika routes på den neutrala vägen.
+      await agent.get('/api/idp/metadata').expect(404);
+      await agent.get('/api/idp/sso?SAMLRequest=request').expect(404);
     });
   });
 });

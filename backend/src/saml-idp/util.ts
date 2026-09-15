@@ -9,20 +9,9 @@ export const createId = (seed: string): string => `_${createHash('sha256').updat
 /** Random 32-byte hex string used for the assertion's SessionIndex. */
 export const createSessionId = (): string => randomBytes(32).toString('hex');
 
-/**
- * PEM keys/certs are stored in env as single-line strings with literal `\n`.
- * passport-saml un-escapes these internally, but xml-crypto does not, so we
- * must turn the literal `\n` back into real newlines before handing it to the
- * signer (otherwise OpenSSL throws an opaque PEM-routines error).
- */
-export const normalizePem = (pem: string): string => pem.replace(/\\n/g, '\n');
-
-/** Strip PEM armor + whitespace, leaving the bare base64 body for <ds:X509Certificate>. */
-export const pemCertBody = (cert: string): string =>
-  normalizePem(cert)
-    .replace(/-----BEGIN CERTIFICATE-----/g, '')
-    .replace(/-----END CERTIFICATE-----/g, '')
-    .replace(/\s+/g, '');
+// PEM handling moved to @utils/pem when the OIDC role started signing with the
+// same keypair. Re-exported so SAML call sites keep their existing import.
+export { normalizePem, pemCertBody } from '@utils/pem';
 
 /** Escape a value for safe inclusion in XML text/attribute content. */
 export const xmlEscape = (value: string): string =>

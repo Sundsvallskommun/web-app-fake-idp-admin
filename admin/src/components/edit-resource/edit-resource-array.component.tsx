@@ -118,7 +118,7 @@ export const EditResourceArray: React.FC<EditResourceArrayProps> = ({
               <div key={`res-array-${index}`} className="flex justify-between items-end gap-3">
                 <div key={`formc-${index}`} className="flex flex-col gap-2 grow">
                   <Label htmlFor={`${dataTypeKey}.${index}`}>
-                    {capitalize(t(`${resource}:properties.${i18nKey}`))}
+                    {capitalize(t(`${resource}:properties.${i18nKey}.DEFAULT`))}
                     {isRequired && <span aria-hidden="true"> *</span>}
                   </Label>
                   <Input

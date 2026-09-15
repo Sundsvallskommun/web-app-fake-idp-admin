@@ -68,6 +68,15 @@ services:
       SAML_IDP_ENTITY_ID: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/saml/idp/metadata
       SAML_SP_AUDIENCE: passport-saml
       SAML_IDP_ENUMERATE_USERS: "true"
+      # OIDC OpenID Provider role (issue). Signs with the SAME keypair as the SAML
+      # role. `iss` and the endpoint URLs default to the SAML entityID's origin plus
+      # PUBLIC_PREFIX + /api/oidc, so no variable is needed here for the bundled
+      # topologies; discovery lands at <iss>/.well-known/openid-configuration.
+      # Uncomment only to pin the issuer to a different identifier:
+      # OIDC_ISSUER: ${BASE_URL:-http://localhost}:${ADMIN_PORT:-7001}${PUBLIC_PREFIX:-}/api/oidc
+      # Access-token lifetime in seconds. The OP issues no refresh tokens, so match
+      # this to the longest RP session you demo against (e.g. 43200 = 12 h).
+      OIDC_ACCESS_TOKEN_TTL: ${OIDC_ACCESS_TOKEN_TTL:-3600}
       # Admin operator account. This is separate from test identities in SQLite.
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}

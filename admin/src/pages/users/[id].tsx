@@ -1,5 +1,6 @@
 import LoaderFullScreen from '@components/loader/loader-fullscreen';
 import { AssertionPreview } from '@components/assertion-preview/assertion-preview.component';
+import { ClaimsPreview } from '@components/claims-preview/claims-preview.component';
 import { useConfirm } from '@components/confirm/confirm-context';
 import { ResourceError } from '@components/resource-error/resource-error.component';
 import { UserFormFields } from '@components/user-form/user-form.component';
@@ -164,7 +165,8 @@ export const UserEditPage: React.FC = () => {
           revealCitizenIdentifier={isNew ? undefined : revealCitizenIdentifier}
         />
 
-        {!isNew && id && <AssertionPreview key={`${id}-${formVersion}`} userId={id} hasUnsavedChanges={isDirty} />}
+        {!isNew && id && <AssertionPreview key={`saml-${id}-${formVersion}`} userId={id} hasUnsavedChanges={isDirty} />}
+        {!isNew && id && <ClaimsPreview key={`oidc-${id}-${formVersion}`} userId={id} hasUnsavedChanges={isDirty} />}
 
         <div className="flex gap-4">
           <Button type="submit" disabled={!isDirty || isSubmitting || deleting}>

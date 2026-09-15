@@ -8,7 +8,11 @@ import {
   ORIGIN,
   PORT,
   IDP_PATH_PREFIX,
-  IDP_PUBLIC_PATH,
+  IDP_SHARED_MOUNT_PATH,
+  IDP_SHARED_PUBLIC_PATH,
+  OIDC_MOUNT_PATH,
+  OIDC_PUBLIC_PATH,
+  OIDC_TEST_PATH,
   SAML_CALLBACK_URL,
   SAML_ENTRY_SSO,
   SAML_FAILURE_REDIRECT,
@@ -53,6 +57,8 @@ import { User } from './interfaces/users.interface';
 import { additionalConverters } from './utils/custom-validation-classes';
 import { isValidOrigin } from './utils/isValidOrigin';
 import { isValidUrl } from './utils/util';
+import { registerOidcRoutes } from './oidc-idp/oidc.routes';
+import { registerOidcTestRoutes } from './oidc-idp/test-rp';
 import { registerIdpRoutes } from './saml-idp/idp.routes';
 import { renderSamlTest } from './saml-idp/templates';
 
@@ -191,7 +197,22 @@ class App {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     this.app.use(cookieParser());
 
-    const samlPaths = [`${BASE_URL_PREFIX}/saml`, `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml`];
+    // Paths owned by the two identity-provider roles: the SAML SP/IdP and the OIDC
+    // provider. They share one browser session (fake-idp.sid) because they share one
+    // selected test identity — and because the admin session is sameSite: 'strict',
+    // which a browser drops on the cross-site redirect back from a connected app.
+    // They also opt out of the app-wide CORS middleware: SAML's bindings are form
+    // POSTs that need no CORS headers at all, while the OIDC endpoints set their own
+    // (see oidc.routes.ts), since browser-based RPs fetch /token and /userinfo.
+    const idpPaths = [
+      `${BASE_URL_PREFIX}/saml`,
+      `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml`,
+      IDP_SHARED_MOUNT_PATH,
+      IDP_SHARED_PUBLIC_PATH,
+      OIDC_MOUNT_PATH,
+      OIDC_PUBLIC_PATH,
+    ];
+    const isIdpPath = (path: string) => idpPaths.some(idpPath => path === idpPath || path.startsWith(`${idpPath}/`));
     const adminSessionMiddleware = session({
       name: 'fake-idp-admin.sid',
       secret: SECRET_KEY,
@@ -212,8 +233,7 @@ class App {
     });
 
     this.app.use((req, res, next) => {
-      const usesSamlSession = samlPaths.some(path => req.path === path || req.path.startsWith(`${path}/`));
-      const middleware = usesSamlSession ? samlSessionMiddleware : adminSessionMiddleware;
+      const middleware = isIdpPath(req.path) ? samlSessionMiddleware : adminSessionMiddleware;
       return middleware(req, res, next);
     });
 
@@ -236,7 +256,7 @@ class App {
       },
     });
     this.app.use((req, res, next) => {
-      if (samlPaths.some(path => req.path === path || req.path.startsWith(`${path}/`))) {
+      if (isIdpPath(req.path)) {
         return next();
       }
       return corsMiddleware(req, res, next);
@@ -270,7 +290,7 @@ class App {
       res.send(
         renderSamlTest({
           identity: user ? { name: user.name, username: user.username } : undefined,
-          navigation: { idpUrl: `${IDP_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL },
+          navigation: { idpUrl: `${IDP_SHARED_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL, oidcTestUrl: OIDC_TEST_PATH },
           samlLoginUrl,
           error,
           missingAttributes,
@@ -327,6 +347,7 @@ class App {
             }
             delete req.session.idpRequest;
             delete req.session.idpIdentityId;
+            delete req.session.idpAuthTime;
             req.session.save(saveErr => {
               if (saveErr) {
                 return next(saveErr);
@@ -427,6 +448,10 @@ class App {
     });
 
     registerIdpRoutes(this.app);
+    registerOidcRoutes(this.app);
+    // The OIDC counterpart of GET /api/saml/test. Registered after the provider so
+    // the provider's own routes win any path it already owns.
+    registerOidcTestRoutes(this.app);
   }
 
   private initializeRoutes(controllers: Function[]) {

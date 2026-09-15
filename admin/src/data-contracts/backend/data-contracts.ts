@@ -1,6 +1,5 @@
 /* eslint-disable */
 /* tslint:disable */
-// @ts-nocheck
 /*
  * ---------------------------------------------------------------
  * ## THIS FILE WAS GENERATED VIA SWAGGER-TYPESCRIPT-API        ##
@@ -82,6 +81,22 @@ export interface AssertionPreview {
   attributes: AssertionPreviewAttribute[];
 }
 
+export interface ClaimsPreviewEntry {
+  name: string;
+  value: string;
+  type: string;
+}
+
+export interface ClaimsPreview {
+  sub: string;
+  claims: ClaimsPreviewEntry[];
+}
+
+export interface ClaimsPreviewResponse {
+  data: ClaimsPreview;
+  message: string;
+}
+
 export interface AssertionPreviewResponse {
   data: AssertionPreview;
   message: string;
@@ -131,10 +146,7 @@ export interface CreateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
-  /**
-   * @deprecated
-   * @uniqueItems true
-   */
+  /** @uniqueItems true */
   applicationIds?: number[];
 }
 
@@ -154,10 +166,7 @@ export interface UpdateUserDto {
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
-  /**
-   * @deprecated
-   * @uniqueItems true
-   */
+  /** @uniqueItems true */
   applicationIds?: number[];
 }
 
@@ -261,4 +270,61 @@ export interface UpdateApplicationDto {
   /** @minLength 1 */
   name?: string;
   description?: string;
+}
+
+export interface OidcClientApplication {
+  id: number;
+  name: string;
+}
+
+export interface AdminOidcClient {
+  id: number;
+  clientId: string;
+  clientSecret: string;
+  name: string;
+  description: string;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  requirePkce: boolean;
+  isPublic: boolean;
+  applicationId?: number;
+  application?: OidcClientApplication;
+}
+
+export interface AdminOidcClientResponse {
+  data: AdminOidcClient;
+  message: string;
+}
+
+export interface AdminOidcClientListResponse {
+  data: AdminOidcClient[];
+  message: string;
+}
+
+export interface CreateOidcClientDto {
+  /** @minLength 1 */
+  clientId: string;
+  /** @minLength 1 */
+  name: string;
+  description: string;
+  redirectUris: string[];
+  postLogoutRedirectUris?: string[];
+  isPublic?: boolean;
+  requirePkce?: boolean;
+  clientSecret?: string;
+  applicationId?: number;
+}
+
+export interface UpdateOidcClientDto {
+  /** @minLength 1 */
+  clientId?: string;
+  /** @minLength 1 */
+  name?: string;
+  description?: string;
+  redirectUris?: string[];
+  postLogoutRedirectUris?: string[];
+  isPublic?: boolean;
+  requirePkce?: boolean;
+  clientSecret?: string;
+  applicationId?: number;
 }

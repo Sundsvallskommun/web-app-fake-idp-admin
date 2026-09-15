@@ -18,7 +18,7 @@ interface EditResourceProps {
 
 export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
   const { t } = useTranslation();
-  const { formFields, requiredFields, multilineFields, relationFields } = resources[resource] as Resource<FieldValues>;
+  const { formFields, requiredFields, multilineFields, secretFields, relationFields } = resources[resource] as Resource<FieldValues>;
 
   type CreateType = Parameters<NonNullable<Resource<FieldValues>['create']>>[0];
   type UpdateType = Parameters<NonNullable<Resource<FieldValues>['update']>>[1];
@@ -54,6 +54,7 @@ export const EditResource: React.FC<EditResourceProps> = ({ resource }) => {
                   index={index}
                   required={isRequired}
                   multiline={multilineFields?.some((multilineField) => multilineField === key)}
+                  secret={secretFields?.some((secretField) => secretField === key)}
                   label={capitalize(t(`${resource}:properties.${key}`))}
                 />
               }
