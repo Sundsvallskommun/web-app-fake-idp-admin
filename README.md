@@ -109,7 +109,7 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
    docker compose up --build
    ```
 
-   Öppna IdP-testsessionen på `http://localhost:7001/api/saml/idp/login` för att
+   Öppna IdP-testsessionen på `http://localhost:7001/api/idp/login` för att
    välja vilken testidentitet som ska användas. Testa sedan ett komplett lokalt
    flöde på `http://localhost:7001/api/saml/test` (SAML) eller
    `http://localhost:7001/api/oidc/test` (OIDC).
@@ -123,7 +123,7 @@ Docker läser alltså **aldrig** `*.env.*.local`-filerna, och `yarn dev` läser 
 | Tjänst | URL |
 |---|---|
 | Admin-gränssnitt | http://localhost:7001/login |
-| IdP-testsession | http://localhost:7001/api/saml/idp/login |
+| IdP-testsession (delad väljare) | http://localhost:7001/api/idp/login |
 | Lokal SAML-testapp | http://localhost:7001/api/saml/test |
 | Lokal OIDC-testapp | http://localhost:7001/api/oidc/test |
 | OIDC discovery | http://localhost:7001/api/oidc/.well-known/openid-configuration |
@@ -242,7 +242,7 @@ docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d 
 
 Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-party. Det är ren HTTP, så sätt **inte** `X-Forwarded-Proto https` – cookies är icke-`Secure` by design, vilket är rätt här. Verifiera efteråt att `…/idp2/api/saml/idp/metadata` anger `SingleSignOnService` på `http://172.16.124.2/idp2/api/saml/idp/sso` (utan `:7101`), och att adminens nätverksanrop går till `http://172.16.124.2/idp2/api/...`.
 
-**`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`localhost`) istället för klientens, så du hamnar på `http://localhost/idp2/admin/`. Backend påverkas inte (den bygger sina SAML-URL:er från `PUBLIC_ORIGIN`). Behöver en annan app i samma vhost se `localhost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
+**`ProxyPreserveHost On` krävs.** Admin-GUI:t är Next.js och bygger sina redirects (t.ex. den avslutande slashen `/idp2/admin` → `/idp2/admin/`) från `Host`-headern. Med `ProxyPreserveHost Off` skickar Apache uppströmsvärden (`localhost`) istället för klientens, så du hamnar på `http://localhost/idp2/admin/`. Backend bygger sina SAML-URL:er från `PUBLIC_ORIGIN`, men OIDC-discovery besvaras bara när `Host` matchar issuerns origin (se OIDC-avsnittet) — även den kräver alltså att headern bevaras. Behöver en annan app i samma vhost se `localhost`, scope:a direktivet i ett `<Location /idp2>`-block istället för vhost-nivå.
 
 ### Testidentiteter: import och persistens
 
@@ -299,11 +299,16 @@ openssl req -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 365 -nodes
 ### Endpoints
 
 - `GET`/`POST /api/saml/idp/sso` — tar emot AuthnRequest (HTTP-Redirect respektive HTTP-POST).
-- `POST /api/saml/idp/authenticate` — väljer testidentitet och postar en signerad assertion om en AuthnRequest väntar.
-- `GET /api/saml/idp/login` — visar väljare eller aktuell IdP-testsession.
-- `POST /api/saml/idp/logout` — loggar ut testidentiteten utan att påverka adminsessionen.
+- `POST /api/idp/authenticate` — väljer testidentitet och postar en signerad assertion om en AuthnRequest väntar.
+- `GET /api/idp/login` — visar väljare eller aktuell IdP-testsession.
+- `POST /api/idp/logout` — loggar ut testidentiteten utan att påverka adminsessionen.
 - `GET /api/saml/idp/metadata` — IdP-metadata för att konfigurera en Service Provider.
 - `GET /api/saml/test` — lokal testapp som startar SAML och visar mottagen identitet.
+
+Identitetsväljaren (`login`/`authenticate`/`logout`) delas av SAML- och OIDC-rollerna
+— en testsession, en vald identitet — och bor därför på den protokollneutrala vägen
+`/api/idp/*`. De äldre `/api/saml/idp/login|authenticate|logout` finns kvar som alias,
+så befintliga uppsättningar och bokmärken fortsätter fungera.
 
 OIDC-rollen (OpenID Provider) ligger parallellt under `/api/oidc` och signerar med
 samma nyckelpar. Endast authorization code med PKCE stöds.
@@ -315,6 +320,19 @@ samma nyckelpar. Endast authorization code med PKCE stöds.
 - `GET`/`POST /api/oidc/userinfo` — claims för en access-token.
 - `GET /api/oidc/end-session` — RP-initierad utloggning.
 - `GET /api/oidc/test` — lokal testklient som kör hela flödet och visar de claims den fick.
+
+`/authorize` skickar webbläsaren till den delade identitetsväljaren på
+`/api/idp/login` — samma testsession och valda identitet som SAML-rollen, inte en
+omväg in i SAML-flödet.
+
+**Discovery besvaras bara på issuerns origin** (proxyn, `BASE_URL:ADMIN_PORT`).
+Backendens direktport svarar på övriga OIDC-endpoints, men en konform klient
+(RFC 8414) förkastar ett discovery-dokument vars `issuer` inte matchar adressen det
+hämtades från — därför svarar fel origin med `404` och en pekare till den kanoniska
+URL:en istället för att låta klienten gå på en förvirrande "issuer mismatch". Peka
+alltså klienten på exakt `http://localhost:7001/api/oidc/.well-known/openid-configuration`
+(eller motsvarande `PUBLIC_ORIGIN`-adress bakom egen proxy — proxyn måste då bevara
+`Host`-huvudet, t.ex. `ProxyPreserveHost On` i Apache).
 
 Klienter (client_id, secret, redirect-URI:er) registreras under **OIDC-klienter** i
 adminpanelen; `client_secret` genereras automatiskt om det lämnas tomt och visas i

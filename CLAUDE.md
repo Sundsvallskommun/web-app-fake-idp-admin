@@ -14,7 +14,7 @@ There is no root-level package manager — `cd` into the package you're working 
 
 ## SAML IdP role
 
-The backend plays two SAML roles. As a **Service Provider** it *consumes* SAML to log users into the app (passport-saml / `@node-saml/passport-saml` strategy, raw routes registered inline in `backend/src/app.ts` under `/api/saml/*` — login, login/callback (ACS), logout, logout/callback, metadata). It also doubles as a fake **Identity Provider**: it *issues* signed SAML assertions for users in the Prisma store (`User` + `Attribute`), which lets it replace the standalone `web-app-fake-sso-idp`. The IdP routes are mounted under `/api/saml/idp/*` (module: `backend/src/saml-idp/`, wired in `idp.routes.ts`; assertion signing/XML logic lives in `response-builder.ts`, `assertion-template.ts`, `idp-metadata.ts`).
+The backend plays two SAML roles. As a **Service Provider** it *consumes* SAML to log users into the app (passport-saml / `@node-saml/passport-saml` strategy, raw routes registered inline in `backend/src/app.ts` under `/api/saml/*` — login, login/callback (ACS), logout, logout/callback, metadata). It also doubles as a fake **Identity Provider**: it *issues* signed SAML assertions for users in the Prisma store (`User` + `Attribute`), which lets it replace the standalone `web-app-fake-sso-idp`. The SAML-specific IdP routes (`sso`, `metadata`) are mounted under `/api/saml/idp/*`; the identity picker (`login`/`authenticate`/`logout`) is shared with the OIDC role and lives canonically on the protocol-neutral `/api/idp/*`, with `/api/saml/idp/login|authenticate|logout` kept as aliases (module: `backend/src/saml-idp/`, wired in `idp.routes.ts`; assertion signing/XML logic lives in `response-builder.ts`, `assertion-template.ts`, `idp-metadata.ts`).
 
 The IdP test-identity store is a local **SQLite** DB (`backend/data/database/database.db`, Prisma). It is the canonical runtime owner of users, attributes, groups, applications, and memberships. `User.password` is plaintext by design (test/simulator). Seed it with `yarn prisma:seed` (imports the repo-root `users.js`) or manage identities through the admin UI. `users.js` is only a seed/legacy-import format; live changes are never written back to disk. Full backup/export uses the versioned JSON format in `backend/src/user-store/user-backup.ts`. The admin operator is configured separately with `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `ADMIN_DISPLAY_NAME` and uses its own session cookie.
 
@@ -24,9 +24,9 @@ The old standalone fake-idp served its routes at the root (governed by `BASEPATH
 |---|---|---|
 | `GET /sso` | `GET /api/saml/idp/sso` | SSO, HTTP-Redirect binding |
 | `POST /sso` | `POST /api/saml/idp/sso` | SSO, HTTP-POST binding |
-| `POST /authenticate` | `POST /api/saml/idp/authenticate` | Validate creds → post signed assertion |
-| `GET /` | `GET /api/saml/idp/login` | Select or inspect the persistent IdP test identity |
-| `GET /logout` | `GET`/`POST /api/saml/idp/logout` | Clear only the IdP test identity session |
+| `POST /authenticate` | `POST /api/idp/authenticate` (alias: `/api/saml/idp/authenticate`) | Validate creds → post signed assertion |
+| `GET /` | `GET /api/idp/login` (alias: `/api/saml/idp/login`) | Select or inspect the persistent IdP test identity |
+| `GET /logout` | `GET`/`POST /api/idp/logout` (alias: `/api/saml/idp/logout`) | Clear only the IdP test identity session |
 | *(none)* | `GET /api/saml/idp/metadata` | **New** — IdP metadata for SP config |
 | *(none)* | `GET /api/saml/test` | **New** — local SP result/test page |
 
@@ -38,7 +38,7 @@ Alongside SAML, the backend issues OpenID Connect tokens for the same test ident
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/oidc/.well-known/openid-configuration` | Discovery. Lives below the issuer, so an RP library's default `issuer + /.well-known/...` resolves. |
+| `GET /api/oidc/.well-known/openid-configuration` | Discovery. Lives below the issuer, so an RP library's default `issuer + /.well-known/...` resolves. Served **only** on the issuer's host — any other host (e.g. the backend's direct port) gets a 404 naming the canonical URL, since a conformant RP (RFC 8414) would otherwise hard-fail on issuer mismatch. |
 | `GET /api/oidc/jwks.json` | Signing key (RSA, RS256). `kid` is the RFC 7638 JWK thumbprint. |
 | `GET /api/oidc/authorize` | Parks the request in the session, then reuses or prompts for a test identity. |
 | `POST /api/oidc/token` | Back-channel code exchange. `client_secret_basic`, `client_secret_post` or PKCE-only. |
@@ -49,7 +49,7 @@ Alongside SAML, the backend issues OpenID Connect tokens for the same test ident
 Key facts:
 
 - **One keypair, two protocols.** The OP signs with `SAML_IDP_PRIVATE_KEY`/`SAML_IDP_PUBLIC_CERT` — the same pair the SAML role uses. SAML keeps SHA-1 for parity with the original fake-sso-idp; JWTs are RS256.
-- **One session, one identity.** `/authorize` redirects to the shared picker at `/api/saml/idp/login`; `session.idpRequest` is a **tagged union** (`protocol: 'saml' | 'oidc'`) so the one `/authenticate` handler can finish either flow. Logging out anywhere clears `idpIdentityId` for both roles.
+- **One session, one identity.** `/authorize` redirects to the shared picker at `/api/idp/login` (protocol-neutral, so an OIDC login never appears to detour into `/api/saml/*`; the SAML-era path remains an alias); `session.idpRequest` is a **tagged union** (`protocol: 'saml' | 'oidc'`) so the one `/authenticate` handler can finish either flow. Logging out anywhere clears `idpIdentityId` for both roles.
 - **The client registry is the security boundary.** SAML needs none (an AuthnRequest names its own ACS URL), but OIDC has no signed request, so `OidcClient` (Prisma) holds exact-match `redirectUris`. An unregistered `redirect_uri` or unknown `client_id` is reported **on screen**, never redirected to. `clientSecret` is plaintext by design, like `User.password`.
 - **Storeless tokens.** Access tokens are JWTs so `/userinfo` validates by signature; only authorization codes are kept server-side (in-memory, single-use, short TTL). Issued tokens therefore cannot be revoked before expiry — hence no revocation endpoint.
 - **Claims mirror the assertion.** `claims.ts` maps SAML attribute keys onto standard claims (`givenName`→`given_name`, LDAP OIDs, …) and passes everything else through verbatim, so `citizenIdentifier` survives. `groups` is emitted as a JSON **array** (SAML sends CSV). Scopes gate only the standard claim groups; `groups` and custom attributes are always present.

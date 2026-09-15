@@ -1,4 +1,4 @@
-import { IDP_PUBLIC_PATH, OIDC_MOUNT_PATH, OIDC_PUBLIC_PATH } from '@config';
+import { IDP_SHARED_PUBLIC_PATH, OIDC_MOUNT_PATH, OIDC_PUBLIC_PATH, OIDC_PUBLIC_URL } from '@config';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import { isValidUrl } from '@utils/util';
@@ -22,7 +22,7 @@ import { CodeChallengeMethod, isCodeChallengeMethod, verifyCodeChallenge } from 
 import { bearerToken, createAccessToken, createIdToken, verifyAccessToken } from './tokens';
 
 /** The identity picker is shared with the SAML role — there is one test session. */
-const LOGIN_URL = `${IDP_PUBLIC_PATH}/login`;
+const LOGIN_URL = `${IDP_SHARED_PUBLIC_PATH}/login`;
 
 /**
  * The user lookup the OP needs. Narrower than the SAML role's store: OIDC never
@@ -123,7 +123,34 @@ export function registerOidcRoutes(
   // Served below the issuer (issuer + /.well-known/openid-configuration), which is
   // what an RP library builds by default and what keeps the sub-path deployments
   // working without touching nginx.
-  router.get(DISCOVERY_PATH, (_req, res) => {
+  //
+  // ONLY below the issuer, though: the other endpoints answer on every origin the
+  // backend is reachable at (proxy, direct port, host aliases), but `issuer` is
+  // pinned, and RFC 8414 §3.3 obliges a conformant RP to reject a document whose
+  // issuer does not match the URL it was fetched from. Answering on the direct
+  // backend port would hand such an RP a guaranteed "issuer mismatch"; a 404 that
+  // names the canonical URL fails faster and says how to fix it. Only host:port is
+  // compared — that is what separates the origins in every documented topology,
+  // while the scheme may be offloaded by a proxy that never sets X-Forwarded-Proto.
+  const issuerHost = (() => {
+    try {
+      return new URL(OIDC_PUBLIC_URL).host.toLowerCase();
+    } catch {
+      // Relative issuer (no configured entity-ID origin): nothing to compare against.
+      return undefined;
+    }
+  })();
+
+  router.get(DISCOVERY_PATH, (req, res) => {
+    const requestHost = (req.get('host') ?? '').toLowerCase();
+    if (issuerHost && requestHost !== issuerHost) {
+      logger.warn(`OIDC discovery requested on host '${requestHost}', but the issuer lives on '${issuerHost}'`);
+      res.status(404).json({
+        error: 'invalid_request',
+        error_description: `Discovery serveras bara på issuerns origin. Peka klienten på ${OIDC_PUBLIC_URL}${DISCOVERY_PATH}.`,
+      });
+      return;
+    }
     res.json(buildDiscoveryDocument());
   });
 

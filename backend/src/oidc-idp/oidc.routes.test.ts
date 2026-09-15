@@ -115,11 +115,13 @@ const codeFrom = (location: string): string => {
 
 /** Drive the browser half of the flow: authorize -> pick an identity -> back to the RP. */
 const authorizeAndLogin = async (agent: ReturnType<typeof request.agent>, query: Record<string, string>) => {
-  await agent.get('/api/oidc/authorize').query(query).expect(303).expect('Location', '/api/saml/idp/login');
+  // The shared picker lives on the protocol-neutral path, so an OIDC login never
+  // appears to detour into /api/saml/*.
+  await agent.get('/api/oidc/authorize').query(query).expect(303).expect('Location', '/api/idp/login');
 
-  const page = await agent.get('/api/saml/idp/login').expect(200);
+  const page = await agent.get('/api/idp/login').expect(200);
   const response = await agent
-    .post('/api/saml/idp/authenticate')
+    .post('/api/idp/authenticate')
     .type('form')
     .send({ userid: identity.id, _csrf: csrfTokenFrom(page.text) })
     .expect(303);
@@ -132,8 +134,12 @@ beforeEach(() => {
 });
 
 describe('OIDC metadata', () => {
+  // Discovery answers only on the issuer's own host (see oidc.routes.ts) — supertest
+  // requests otherwise arrive as 127.0.0.1:<ephemeral port>.
+  const ISSUER_HOST = 'fake-idp.test';
+
   it('publishes discovery below the issuer, with only the flows it implements', async () => {
-    const response = await request(createApp()).get('/api/oidc/.well-known/openid-configuration').expect(200);
+    const response = await request(createApp()).get('/api/oidc/.well-known/openid-configuration').set('Host', ISSUER_HOST).expect(200);
 
     expect(response.body).toMatchObject({
       issuer: 'https://fake-idp.test/api/oidc',
@@ -157,7 +163,24 @@ describe('OIDC metadata', () => {
   });
 
   it('lets a browser-based RP read discovery cross-origin', async () => {
-    await request(createApp()).get('/api/oidc/.well-known/openid-configuration').expect('Access-Control-Allow-Origin', '*').expect(200);
+    await request(createApp())
+      .get('/api/oidc/.well-known/openid-configuration')
+      .set('Host', ISSUER_HOST)
+      .expect('Access-Control-Allow-Origin', '*')
+      .expect(200);
+  });
+
+  it('refuses discovery on a non-issuer host, pointing at the canonical URL', async () => {
+    // Both the proxy and the backend's direct port answer, but the document pins
+    // the issuer — an RP that validates issuer-vs-discovery-URL (RFC 8414) would
+    // hard-fail with a confusing mismatch. A 404 with a pointer fails clearly.
+    const response = await request(createApp()).get('/api/oidc/.well-known/openid-configuration').expect(404);
+
+    expect(response.body.error_description).toContain('https://fake-idp.test/api/oidc/.well-known/openid-configuration');
+  });
+
+  it('keeps every other endpoint origin-agnostic — only discovery is host-bound', async () => {
+    await request(createApp()).get('/api/oidc/jwks.json').expect(200);
   });
 
   it('answers the preflight a client_secret_basic exchange triggers', async () => {
@@ -254,7 +277,7 @@ describe('authorization code flow', () => {
       .get('/api/oidc/authorize')
       .query(authorizeQuery({ code_challenge: challenge, code_challenge_method: 'S256', prompt: 'login' }))
       .expect(303)
-      .expect('Location', '/api/saml/idp/login');
+      .expect('Location', '/api/idp/login');
   });
 
   it('authenticates a public client with PKCE and no secret', async () => {
@@ -484,6 +507,6 @@ describe('RP-initiated logout', () => {
       .get('/api/oidc/end-session')
       .query({ client_id: confidentialClient.clientId, post_logout_redirect_uri: 'https://attacker.test/steal' })
       .expect(303)
-      .expect('Location', '/api/saml/idp/login?loggedout=1');
+      .expect('Location', '/api/idp/login?loggedout=1');
   });
 });

@@ -1,4 +1,13 @@
-import { ADMIN_URL, IDP_MOUNT_PATH, IDP_PUBLIC_PATH, OIDC_TEST_PATH, SAML_IDP_ENUMERATE_USERS, SAML_TEST_PATH } from '@config';
+import {
+  ADMIN_URL,
+  IDP_MOUNT_PATH,
+  IDP_PUBLIC_PATH,
+  IDP_SHARED_MOUNT_PATH,
+  IDP_SHARED_PUBLIC_PATH,
+  OIDC_TEST_PATH,
+  SAML_IDP_ENUMERATE_USERS,
+  SAML_TEST_PATH,
+} from '@config';
 import { generateCsrfToken } from '@middlewares/csrf.middleware';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
@@ -11,9 +20,9 @@ import { parseRequest } from './request-parser';
 import { createResponse, UserWithAttributes } from './response-builder';
 import { LoginTarget, PageNavigation, renderIdentitySession, renderLogin, renderPostResponse } from './templates';
 
-const AUTHENTICATE_ACTION = `${IDP_PUBLIC_PATH}/authenticate`;
-const LOGIN_URL = `${IDP_PUBLIC_PATH}/login`;
-const LOGOUT_ACTION = `${IDP_PUBLIC_PATH}/logout`;
+const AUTHENTICATE_ACTION = `${IDP_SHARED_PUBLIC_PATH}/authenticate`;
+const LOGIN_URL = `${IDP_SHARED_PUBLIC_PATH}/login`;
+const LOGOUT_ACTION = `${IDP_SHARED_PUBLIC_PATH}/logout`;
 const navigation: PageNavigation = {
   idpUrl: LOGIN_URL,
   adminUrl: ADMIN_URL,
@@ -199,59 +208,79 @@ async function handleSso(
 }
 
 export function registerIdpRoutes(app: express.Application, usersService: IdpUserStore = new UsersService()): void {
-  const router = express.Router();
-  router.use(idpCsp);
-  router.use(idpRateLimit);
+  const authenticateHandler = wrap(async (req: Request, res: Response) => {
+    const user = await validateIdpUser(req, usersService);
+    if (!user) {
+      res.status(401).send(await renderLoginPage(req, usersService, { error: 'Fel användarnamn eller lösenord' }));
+      return;
+    }
 
-  router.get(
+    req.session.idpIdentityId = user.id;
+    req.session.idpAuthTime = Math.floor(Date.now() / 1000);
+    if (req.session.idpRequest) {
+      await resumePendingRequest(req, res, user);
+      return;
+    }
+
+    await saveSession(req);
+    res.redirect(303, LOGIN_URL);
+  });
+
+  const logoutHandler = wrap(endIdentitySession);
+
+  const loginHandler = wrap(async (req: Request, res: Response) => {
+    res.send(await renderIdpHome(req, usersService));
+  });
+
+  // The picker and its session routes serve both protocol roles, so they exist on
+  // two routers: canonically on the protocol-neutral mount, and as aliases on the
+  // SAML-era mount. Two routers rather than one mounted twice, so a request only
+  // passes the CSP/rate-limit middleware once — the limiter instance is shared,
+  // which keeps the counting shared too.
+  const addPickerRoutes = (router: express.Router) => {
+    router.post('/authenticate', authenticateHandler);
+    router.get('/logout', logoutHandler);
+    router.post('/logout', logoutHandler);
+    router.get('/login', loginHandler);
+  };
+
+  const samlRouter = express.Router();
+  samlRouter.use(idpCsp);
+  samlRouter.use(idpRateLimit);
+
+  samlRouter.get(
     '/sso',
     wrap((req, res) => handleSso(req, res, req.query as { SAMLRequest?: string; RelayState?: string }, usersService)),
   );
-  router.post(
+  samlRouter.post(
     '/sso',
     wrap((req, res) => handleSso(req, res, req.body as { SAMLRequest?: string; RelayState?: string }, usersService)),
   );
 
-  router.post(
-    '/authenticate',
-    wrap(async (req, res) => {
-      const user = await validateIdpUser(req, usersService);
-      if (!user) {
-        res.status(401).send(await renderLoginPage(req, usersService, { error: 'Fel användarnamn eller lösenord' }));
-        return;
-      }
+  addPickerRoutes(samlRouter);
 
-      req.session.idpIdentityId = user.id;
-      req.session.idpAuthTime = Math.floor(Date.now() / 1000);
-      if (req.session.idpRequest) {
-        await resumePendingRequest(req, res, user);
-        return;
-      }
-
-      await saveSession(req);
-      res.redirect(303, LOGIN_URL);
-    }),
-  );
-
-  router.get('/logout', wrap(endIdentitySession));
-  router.post('/logout', wrap(endIdentitySession));
-
-  router.get(
-    '/login',
-    wrap(async (req, res) => {
-      res.send(await renderIdpHome(req, usersService));
-    }),
-  );
-
-  router.get('/metadata', (_req, res) => {
+  samlRouter.get('/metadata', (_req, res) => {
     res.type('application/xml').send(buildIdpMetadata());
   });
 
-  app.use(IDP_MOUNT_PATH, router);
+  const pickerRouter = express.Router();
+  pickerRouter.use(idpCsp);
+  pickerRouter.use(idpRateLimit);
+  addPickerRoutes(pickerRouter);
+
+  app.use(IDP_MOUNT_PATH, samlRouter);
   if (IDP_PUBLIC_PATH !== IDP_MOUNT_PATH) {
-    app.use(IDP_PUBLIC_PATH, router);
+    app.use(IDP_PUBLIC_PATH, samlRouter);
     logger.info(`SAML IdP routes mounted at ${IDP_MOUNT_PATH} and ${IDP_PUBLIC_PATH}`);
   } else {
     logger.info(`SAML IdP routes mounted at ${IDP_MOUNT_PATH}`);
+  }
+
+  app.use(IDP_SHARED_MOUNT_PATH, pickerRouter);
+  if (IDP_SHARED_PUBLIC_PATH !== IDP_SHARED_MOUNT_PATH) {
+    app.use(IDP_SHARED_PUBLIC_PATH, pickerRouter);
+    logger.info(`Shared identity picker mounted at ${IDP_SHARED_MOUNT_PATH} and ${IDP_SHARED_PUBLIC_PATH}`);
+  } else {
+    logger.info(`Shared identity picker mounted at ${IDP_SHARED_MOUNT_PATH}`);
   }
 }

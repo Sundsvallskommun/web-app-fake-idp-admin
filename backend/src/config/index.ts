@@ -54,6 +54,13 @@ export const IDP_PATH_PREFIX = process.env.SAML_IDP_BASE_PATH ? `/${process.env.
 // sub-path whether the request hits the backend directly or via a reverse proxy.
 export const IDP_PUBLIC_PATH = `${IDP_PATH_PREFIX}${IDP_MOUNT_PATH}`;
 
+// Shared identity picker: login/authenticate/logout serve BOTH protocol roles
+// (one test session), so their canonical home is a protocol-neutral path — an
+// OIDC login that visibly routed through /api/saml/* read as "I was sent into
+// the SAML flow". The SAML-era paths stay mounted as aliases.
+export const IDP_SHARED_MOUNT_PATH = `${BASE_URL_PREFIX}/idp`;
+export const IDP_SHARED_PUBLIC_PATH = `${IDP_PATH_PREFIX}${IDP_SHARED_MOUNT_PATH}`;
+
 // SP role: the local test page, as a browser-facing path (used for cross-links).
 export const SAML_TEST_PATH = `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml/test`;
 

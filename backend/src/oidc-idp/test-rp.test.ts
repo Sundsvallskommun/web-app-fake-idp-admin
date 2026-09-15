@@ -117,10 +117,10 @@ const runTestFlow = async (agent: ReturnType<typeof request.agent>) => {
   const start = await agent.get('/api/oidc/test/login').expect(303);
   const authorize = await agent.get(asPath(start.headers.location)).expect(303);
 
-  expect(authorize.headers.location).toBe('/api/saml/idp/login');
-  const page = await agent.get('/api/saml/idp/login').expect(200);
+  expect(authorize.headers.location).toBe('/api/idp/login');
+  const page = await agent.get('/api/idp/login').expect(200);
   const authenticated = await agent
-    .post('/api/saml/idp/authenticate')
+    .post('/api/idp/authenticate')
     .type('form')
     .send({ userid: identity.id, _csrf: csrfTokenFrom(page.text) })
     .expect(303);

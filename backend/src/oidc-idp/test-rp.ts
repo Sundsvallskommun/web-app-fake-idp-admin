@@ -1,6 +1,6 @@
 import {
   ADMIN_URL,
-  IDP_PUBLIC_PATH,
+  IDP_SHARED_PUBLIC_PATH,
   OIDC_INTERNAL_URL,
   SAML_TEST_PATH,
   OIDC_ISSUER,
@@ -35,7 +35,7 @@ const TEST_SCOPE = 'openid profile email';
 const BACKCHANNEL_TIMEOUT_MS = 5_000;
 
 const navigation = {
-  idpUrl: `${IDP_PUBLIC_PATH}/login`,
+  idpUrl: `${IDP_SHARED_PUBLIC_PATH}/login`,
   adminUrl: ADMIN_URL,
   assetsUrl: ADMIN_URL,
   samlTestUrl: SAML_TEST_PATH,

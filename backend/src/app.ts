@@ -8,7 +8,8 @@ import {
   ORIGIN,
   PORT,
   IDP_PATH_PREFIX,
-  IDP_PUBLIC_PATH,
+  IDP_SHARED_MOUNT_PATH,
+  IDP_SHARED_PUBLIC_PATH,
   OIDC_MOUNT_PATH,
   OIDC_PUBLIC_PATH,
   OIDC_TEST_PATH,
@@ -203,7 +204,14 @@ class App {
     // They also opt out of the app-wide CORS middleware: SAML's bindings are form
     // POSTs that need no CORS headers at all, while the OIDC endpoints set their own
     // (see oidc.routes.ts), since browser-based RPs fetch /token and /userinfo.
-    const idpPaths = [`${BASE_URL_PREFIX}/saml`, `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml`, OIDC_MOUNT_PATH, OIDC_PUBLIC_PATH];
+    const idpPaths = [
+      `${BASE_URL_PREFIX}/saml`,
+      `${IDP_PATH_PREFIX}${BASE_URL_PREFIX}/saml`,
+      IDP_SHARED_MOUNT_PATH,
+      IDP_SHARED_PUBLIC_PATH,
+      OIDC_MOUNT_PATH,
+      OIDC_PUBLIC_PATH,
+    ];
     const isIdpPath = (path: string) => idpPaths.some(idpPath => path === idpPath || path.startsWith(`${idpPath}/`));
     const adminSessionMiddleware = session({
       name: 'fake-idp-admin.sid',
@@ -282,7 +290,7 @@ class App {
       res.send(
         renderSamlTest({
           identity: user ? { name: user.name, username: user.username } : undefined,
-          navigation: { idpUrl: `${IDP_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL, oidcTestUrl: OIDC_TEST_PATH },
+          navigation: { idpUrl: `${IDP_SHARED_PUBLIC_PATH}/login`, adminUrl: ADMIN_URL, oidcTestUrl: OIDC_TEST_PATH },
           samlLoginUrl,
           error,
           missingAttributes,
