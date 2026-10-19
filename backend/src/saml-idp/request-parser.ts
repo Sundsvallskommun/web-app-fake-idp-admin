@@ -1,8 +1,14 @@
 import { DOMParser } from '@xmldom/xmldom';
+import { HttpException } from '@exceptions/HttpException';
 import { promisify } from 'util';
 import { inflateRaw } from 'zlib';
 
 const inflateRawAsync = promisify(inflateRaw);
+
+// Bound both the encoded form/query value and the inflated XML. The HTTP body
+// limit alone cannot bound compressed input, and DOM parsing happens before login.
+const MAX_ENCODED_REQUEST_LENGTH = 1024 * 1024;
+const MAX_INFLATED_REQUEST_BYTES = 1024 * 1024;
 
 export interface ParsedAuthnRequest {
   /** SP AssertionConsumerServiceURL — where the signed Response is POSTed back. */
@@ -25,7 +31,18 @@ export async function parseRequest(source: { SAMLRequest?: string; RelayState?: 
     throw new Error('Missing SAMLRequest');
   }
 
-  const inflated = await inflateRawAsync(Buffer.from(source.SAMLRequest, 'base64'));
+  if (source.SAMLRequest.length > MAX_ENCODED_REQUEST_LENGTH) {
+    throw new HttpException(413, 'Encoded SAMLRequest exceeds 1 MiB limit');
+  }
+
+  const inflated = await inflateRawAsync(Buffer.from(source.SAMLRequest, 'base64'), {
+    maxOutputLength: MAX_INFLATED_REQUEST_BYTES,
+  }).catch((error: unknown) => {
+    if (error instanceof Error && 'code' in error && error.code === 'ERR_BUFFER_TOO_LARGE') {
+      throw new HttpException(413, 'Inflated SAMLRequest exceeds 1 MiB limit');
+    }
+    throw error;
+  });
   const xml = inflated.toString('utf8');
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
   const root = doc.documentElement;

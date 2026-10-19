@@ -352,6 +352,11 @@ self-referential SAML-flöde. Efter callback visar den vilken identitet som togs
 emot, i stället för att skicka användaren till adminpanelen. Externa Service
 Providers fortsätter att få assertionen till sin egen ACS-URL.
 
+IdP:ns SSO-parser tillåter högst 1 MiB tecken i det base64-kodade
+`SAMLRequest`-värdet och högst 1 MiB byte efter dekomprimering. Överskrids
+någon gräns avbryts behandlingen med HTTP 413 innan XML-parsningen.
+Gränser i HTTP-servern eller proxyn kan avvisa anrop tidigare.
+
 ### Miljövariabler
 
 Lägg till i `backend/.env.development.local` (se även `backend/.env.example.local`). Värden för nycklar/cert anges på en rad med `\n` som radbrytning, precis som övriga SAML-värden.
