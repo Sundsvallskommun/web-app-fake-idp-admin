@@ -21,6 +21,7 @@ const identity: UserWithAttributes = {
   name: 'Test Person',
   username: 'test.person',
   password: 'test-password',
+  requirePassword: false,
   attributes: [
     { id: 1, userId: 'user-1', key: 'givenName', format: 'basic', value: 'Test', type: 'xs:string' },
     { id: 2, userId: 'user-1', key: 'citizenIdentifier', format: 'basic', value: '196001011234', type: 'xs:string' },
@@ -48,10 +49,12 @@ const publicClient: OidcClientRecord = {
   isPublic: true,
 };
 
+let currentIdentity = identity;
+
 const usersService = {
-  getUser: vi.fn(async (id: string) => (id === identity.id ? identity : null)),
-  getUsers: vi.fn(async () => [identity]),
-  getUsersByUsername: vi.fn(async (username: string) => (username === identity.username ? [identity] : [])),
+  getUser: vi.fn(async (id: string) => (id === currentIdentity.id ? currentIdentity : null)),
+  getUsers: vi.fn(async () => [currentIdentity]),
+  getUsersByUsername: vi.fn(async (username: string) => (username === currentIdentity.username ? [currentIdentity] : [])),
 };
 
 const clientStore: OidcClientStore = {
@@ -130,6 +133,7 @@ const authorizeAndLogin = async (agent: ReturnType<typeof request.agent>, query:
 };
 
 beforeEach(() => {
+  currentIdentity = identity;
   vi.clearAllMocks();
 });
 
@@ -267,6 +271,64 @@ describe('authorization code flow', () => {
 
     expect(response.headers.location.startsWith(`${REDIRECT_URI}?`)).toBe(true);
     expect(new URL(response.headers.location).searchParams.get('state')).toBe('state-456');
+  });
+
+  it('requires password verification when protection is enabled after a passwordless login', async () => {
+    const agent = request.agent(createApp());
+    const { challenge } = pkce();
+    const query = authorizeQuery({ code_challenge: challenge, code_challenge_method: 'S256' });
+    await authorizeAndLogin(agent, query);
+
+    currentIdentity = { ...identity, requirePassword: true };
+    await agent.get('/api/oidc/authorize').query(query).expect(303).expect('Location', '/api/idp/login');
+    const page = await agent.get('/api/idp/login').expect(200);
+    const form = { userid: identity.id, _csrf: csrfTokenFrom(page.text) };
+    await agent.post('/api/idp/authenticate').type('form').send(form).expect(401);
+    await agent
+      .post('/api/idp/authenticate')
+      .type('form')
+      .send({ ...form, password: 'wrong' })
+      .expect(401);
+    const authenticated = await agent
+      .post('/api/idp/authenticate')
+      .type('form')
+      .send({ ...form, password: identity.password })
+      .expect(303);
+    expect(authenticated.headers.location.startsWith(`${REDIRECT_URI}?code=`)).toBe(true);
+
+    const reused = await agent.get('/api/oidc/authorize').query(query).expect(303);
+    expect(reused.headers.location.startsWith(`${REDIRECT_URI}?code=`)).toBe(true);
+    await agent
+      .get('/api/idp/login')
+      .expect(200)
+      .expect(/Inloggad som Test Person/);
+
+    await agent.get('/api/oidc/end-session').expect(303);
+    await agent.get('/api/oidc/authorize').query(query).expect(303).expect('Location', '/api/idp/login');
+    const loggedOut = await agent.get('/api/idp/login').expect(200);
+    await agent
+      .post('/api/idp/authenticate')
+      .type('form')
+      .send({ userid: identity.id, _csrf: csrfTokenFrom(loggedOut.text) })
+      .expect(401);
+  });
+
+  it('reuses password verification from the SAML login alias in OIDC', async () => {
+    currentIdentity = { ...identity, requirePassword: true };
+    const agent = request.agent(createApp());
+    const page = await agent.get('/api/saml/idp/login').expect(200);
+    await agent
+      .post('/api/saml/idp/authenticate')
+      .type('form')
+      .send({ userid: identity.id, password: identity.password, _csrf: csrfTokenFrom(page.text) })
+      .expect(303);
+
+    const { challenge } = pkce();
+    const response = await agent
+      .get('/api/oidc/authorize')
+      .query(authorizeQuery({ code_challenge: challenge, code_challenge_method: 'S256' }))
+      .expect(303);
+    expect(response.headers.location.startsWith(`${REDIRECT_URI}?code=`)).toBe(true);
   });
 
   it('re-prompts when the RP asks for prompt=login', async () => {

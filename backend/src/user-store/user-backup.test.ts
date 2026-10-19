@@ -5,6 +5,7 @@ const storedUser = {
   name: 'Test Person',
   username: 'test.person',
   password: 'test-password',
+  requirePassword: true,
   attributes: [
     { key: 'role', value: 'editor', format: 'basic', type: 'xs:string' },
     { key: 'role', value: 'reviewer', format: 'basic', type: 'xs:string' },
@@ -30,7 +31,7 @@ describe('versioned user backup', () => {
     );
 
     expect(parseUserImport(serializeUserBackup(source))).toMatchObject({
-      format: 'backup-v1',
+      format: 'backup-v2',
       replacesGroupCatalog: true,
       replacesApplicationCatalog: true,
       groups: [
@@ -41,6 +42,7 @@ describe('versioned user backup', () => {
       users: [
         {
           id: 'stable-subject',
+          requirePassword: true,
           groups: ['editors'],
           legacyApplications: ['legacy-app'],
           attributes: [
@@ -50,6 +52,28 @@ describe('versioned user backup', () => {
         },
       ],
     });
+  });
+
+  it('imports v1 backups without a password requirement', () => {
+    const backup = createUserBackup([{ ...storedUser, groups: [], legacyApplications: [] }], [], []);
+    const { requirePassword, ...oldUser } = backup.users[0];
+    expect(requirePassword).toBe(true);
+    const parsed = parseUserImport(JSON.stringify({ ...backup, schemaVersion: 1, users: [oldUser] }));
+    expect(parsed).toMatchObject({ format: 'backup-v1', users: [{ password: storedUser.password, requirePassword: false }] });
+  });
+
+  it.each([undefined, null, 'true', 1])('rejects an invalid or missing v2 password flag: %s', requirePassword => {
+    const backup = createUserBackup([{ ...storedUser, groups: [], legacyApplications: [] }], [], []);
+    expect(() => parseUserImport(JSON.stringify({ ...backup, users: [{ ...backup.users[0], requirePassword }] }))).toThrow(
+      'requirePassword must be a boolean',
+    );
+  });
+
+  it('rejects protected users without a configured password', () => {
+    const backup = createUserBackup([{ ...storedUser, password: '', groups: [], legacyApplications: [] }], [], []);
+    expect(() => parseUserImport(serializeUserBackup(backup))).toThrow('password must not be empty');
+    backup.users[0].requirePassword = false;
+    expect(parseUserImport(serializeUserBackup(backup)).users[0].password).toBe('');
   });
 
   it('rejects unknown schema versions and dangling catalogue references', () => {
@@ -96,7 +120,7 @@ describe('legacy users.js import', () => {
       replacesApplicationCatalog: false,
       groups: [{ name: 'editor' }, { name: 'reviewer' }],
       applications: [{ name: 'test-app' }],
-      users: [{ id: 'legacy-id', groups: ['editor', 'reviewer'], applications: ['test-app'] }],
+      users: [{ id: 'legacy-id', requirePassword: false, groups: ['editor', 'reviewer'], applications: ['test-app'] }],
     });
   });
 

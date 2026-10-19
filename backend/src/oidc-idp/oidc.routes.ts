@@ -1,4 +1,6 @@
 import { IDP_SHARED_PUBLIC_PATH, OIDC_MOUNT_PATH, OIDC_PUBLIC_PATH, OIDC_PUBLIC_URL } from '@config';
+import type { User } from '@prisma/client';
+import { selectedIdentity } from '../saml-idp/idp.routes';
 import { UsersService } from '@services/users.service';
 import { logger } from '@utils/logger';
 import { isValidUrl } from '@utils/util';
@@ -29,7 +31,7 @@ const LOGIN_URL = `${IDP_SHARED_PUBLIC_PATH}/login`;
  * enumerates or password-checks here, because both happen on the shared login page.
  */
 export interface OidcUserStore {
-  getUser(id: string): Promise<ClaimsSubject | null>;
+  getUser(id: string): Promise<(ClaimsSubject & Pick<User, 'requirePassword'>) | null>;
 }
 
 const oidcRateLimit = rateLimit({
@@ -233,7 +235,7 @@ export function registerOidcRoutes(
       // SSO: an already-selected test identity is reused without a second prompt,
       // exactly as the SAML role does. `prompt=login` forces the picker back up.
       const forceLogin = param(query, 'prompt') === 'login';
-      const user = !forceLogin && req.session.idpIdentityId ? await usersService.getUser(req.session.idpIdentityId) : null;
+      const user = !forceLogin ? await selectedIdentity(req, usersService) : null;
       if (user) {
         delete req.session.idpRequest;
         await saveSession(req);
@@ -243,6 +245,7 @@ export function registerOidcRoutes(
 
       if (forceLogin) {
         delete req.session.idpIdentityId;
+        delete req.session.idpPasswordVerified;
         delete req.session.idpAuthTime;
         await saveSession(req);
       }
@@ -423,6 +426,7 @@ export function registerOidcRoutes(
       const state = param(query, 'state');
 
       delete req.session.idpIdentityId;
+      delete req.session.idpPasswordVerified;
       delete req.session.idpAuthTime;
       delete req.session.idpRequest;
       await saveSession(req);

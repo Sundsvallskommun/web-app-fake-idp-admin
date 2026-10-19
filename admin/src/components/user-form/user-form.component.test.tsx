@@ -12,8 +12,8 @@ vi.mock('@utils/use-resource', () => ({
   useResource: () => ({ data: [], loaded: true, loading: false, error: false, refresh: vi.fn() }),
 }));
 
-const Form = ({ editing = false }: { editing?: boolean }) => {
-  const form = useForm<UserForm>({ defaultValues: createEmptyUserForm() });
+const Form = ({ editing = false, requirePassword = false }: { editing?: boolean; requirePassword?: boolean }) => {
+  const form = useForm<UserForm>({ defaultValues: { ...createEmptyUserForm(), requirePassword } });
 
   return (
     <UserFormFields
@@ -26,6 +26,13 @@ const Form = ({ editing = false }: { editing?: boolean }) => {
 };
 
 describe('UserFormFields', () => {
+  it.each([false, true])('requires the password field only when the user flag is %s', (requirePassword) => {
+    const container = document.createElement('div');
+    container.innerHTML = renderToStaticMarkup(<Form requirePassword={requirePassword} />);
+    expect(container.querySelector<HTMLInputElement>('#user-password')?.required).toBe(requirePassword);
+    expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe(String(requirePassword));
+  });
+
   it.each([
     ['create', false],
     ['edit', true],

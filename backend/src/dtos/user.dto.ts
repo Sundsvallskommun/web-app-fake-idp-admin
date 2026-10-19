@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayUnique, IsArray, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayUnique, IsArray, IsBoolean, IsInt, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 
 export class AttributeDto {
   @IsString()
@@ -22,8 +22,13 @@ export class CreateUserDto {
   @IsString()
   username: string;
 
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsString()
-  password: string;
+  password?: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsBoolean()
+  requirePassword?: boolean;
 
   @IsOptional()
   @IsArray()
@@ -69,9 +74,13 @@ export class UpdateUserDto {
   @IsString()
   username?: string;
 
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsString()
   password?: string;
+
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsBoolean()
+  requirePassword?: boolean;
 
   // When provided, the attribute set is replaced wholesale.
   @IsOptional()

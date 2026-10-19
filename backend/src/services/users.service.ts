@@ -1,3 +1,4 @@
+import { HttpException } from '@/exceptions/HttpException';
 import { CreateUserDto, UpdateUserDto } from '@dtos/user.dto';
 import { Prisma } from '@prisma/client';
 import prisma from '@utils/prisma';
@@ -45,6 +46,7 @@ const toUser = (user: UserDetails) => {
     name: user.name,
     username: user.username,
     password: user.password,
+    requirePassword: user.requirePassword,
     attributes: user.attributes,
     groups: user.groups.map(group => ({
       id: group.id,
@@ -121,13 +123,17 @@ export class UsersService {
   }
 
   public async createUser(data: CreateUserDto) {
+    if (data.requirePassword && !data.password) {
+      throw new HttpException(400, 'Ange ett lösenord när lösenordskravet är aktiverat.');
+    }
     const submittedAttributes = data.attributes ?? [];
     const legacyGroups = groupNamesFromAttributes(submittedAttributes);
     const user = await prisma.user.create({
       data: {
         name: data.name,
         username: data.username,
-        password: data.password,
+        password: data.password ?? '',
+        requirePassword: data.requirePassword ?? false,
         attributes: { create: withoutGroupAttributes(submittedAttributes).map(attributeData) },
         groups:
           data.groupIds !== undefined
@@ -147,6 +153,13 @@ export class UsersService {
   }
 
   public async updateUser(id: string, data: UpdateUserDto) {
+    if (data.requirePassword !== undefined || data.password !== undefined) {
+      const current = await this.getUser(id);
+      if (!current) throw new HttpException(404, 'User not found');
+      if ((data.requirePassword ?? current.requirePassword) && !(data.password ?? current.password)) {
+        throw new HttpException(400, 'Ange ett lösenord när lösenordskravet är aktiverat.');
+      }
+    }
     // The admin UI receives masked values for sensitive attributes (see mask-user.ts).
     // When the edit form submits the mask sentinel back unchanged, restore the stored
     // value so saving the form never clobbers a real personnummer with the mask.
@@ -159,6 +172,7 @@ export class UsersService {
         name: data.name,
         username: data.username,
         password: data.password,
+        requirePassword: data.requirePassword,
         // Replace the attribute set wholesale when provided.
         ...(attributes ? { attributes: { deleteMany: {}, create: attributes.map(attributeData) } } : {}),
         ...(data.groupIds !== undefined
@@ -250,7 +264,7 @@ export class UsersService {
           select: { name: true, applications: { select: { name: true } } },
         });
         const legacyApplicationsByUser =
-          document.format === 'backup-v1'
+          document.format !== 'legacy-users-js'
             ? document.users.map(user => user.legacyApplications ?? [])
             : legacyApplicationsForImport(
                 document.users.map(user => ({
@@ -269,6 +283,7 @@ export class UsersService {
               name: user.name,
               username: user.username,
               password: user.password,
+              requirePassword: user.requirePassword,
               attributes: { create: user.attributes },
               groups: { connect: user.groups.map(name => ({ name })) },
               ...(legacyApplicationNames === undefined

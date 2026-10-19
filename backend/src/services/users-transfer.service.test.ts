@@ -10,6 +10,7 @@ const storedUsers: Awaited<ReturnType<UsersService['getUsersForBackup']>> = [
     name: 'Existing',
     username: 'existing',
     password: 'secret',
+    requirePassword: false,
     attributes: [],
     groups: [],
     applications: [],
@@ -33,7 +34,7 @@ describe('UsersTransferService', () => {
     const replace = vi.spyOn(UsersService.prototype, 'replaceAllUsers').mockResolvedValue(1);
 
     await expect(transfer.importUsers(content, 'invalid-token')).rejects.toBeInstanceOf(ImportConfirmationError);
-    await expect(transfer.importUsers(content, preview.confirmationToken)).resolves.toEqual({ imported: 1, format: 'backup-v1' });
+    await expect(transfer.importUsers(content, preview.confirmationToken)).resolves.toEqual({ imported: 1, format: 'backup-v2' });
     expect(replace).toHaveBeenCalledWith(expect.objectContaining({ users: [expect.objectContaining({ id: 'existing-id' })] }));
   });
 
@@ -48,6 +49,7 @@ describe('UsersTransferService', () => {
         name: 'New',
         username: 'new',
         password: 'new',
+        requirePassword: false,
         attributes: [],
         groups: [],
         applications: [],

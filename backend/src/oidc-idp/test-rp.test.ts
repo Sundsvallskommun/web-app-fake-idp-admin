@@ -34,6 +34,7 @@ const identity: UserWithAttributes = {
   name: 'Test Person',
   username: 'test.person',
   password: 'test-password',
+  requirePassword: false,
   attributes: [
     { id: 1, userId: 'user-1', key: 'givenName', format: 'basic', value: 'Test', type: 'xs:string' },
     { id: 2, userId: 'user-1', key: 'citizenIdentifier', format: 'basic', value: '196001011234', type: 'xs:string' },

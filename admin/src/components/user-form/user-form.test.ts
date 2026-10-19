@@ -15,9 +15,35 @@ describe('user form model', () => {
   it('creates one optional form field for every known claim', () => {
     const form = createEmptyUserForm();
 
-    expect(form).toMatchObject({ name: '', username: '', password: '', customAttributes: [], groupIds: [] });
+    expect(form).toMatchObject({
+      name: '',
+      username: '',
+      password: '',
+      requirePassword: false,
+      customAttributes: [],
+      groupIds: [],
+    });
     expect(form.knownAttributes).toHaveLength(userAttributeDefinitions.length);
     expect(form.knownAttributes.every(({ value }) => value === '')).toBe(true);
+  });
+
+  it('preserves the per-user password requirement through editing and saving', () => {
+    const user: AdminUser = {
+      id: 'protected-user',
+      name: 'Protected',
+      username: 'protected',
+      password: 'secret',
+      requirePassword: true,
+      attributes: [],
+      groups: [],
+      applications: [],
+    };
+    const form = userToForm(user);
+    expect(form.requirePassword).toBe(true);
+    expect(userFormToPayload(form)).toMatchObject({ requirePassword: true, password: 'secret' });
+    form.requirePassword = false;
+    form.password = '';
+    expect(userFormToPayload(form)).toMatchObject({ requirePassword: false, password: '' });
   });
 
   it('derives unique application access from the selected groups', () => {
@@ -38,6 +64,7 @@ describe('user form model', () => {
       name: 'Testperson',
       username: 'testperson',
       password: 'secret',
+      requirePassword: false,
       applications: [{ id: 1, name: 'draken', description: '' }],
       groups: [{ id: 7, name: 'editor', description: 'Can edit' }],
       attributes: [
@@ -73,6 +100,7 @@ describe('user form model', () => {
       name: 'Testperson',
       username: 'testperson',
       password: 'secret',
+      requirePassword: false,
       attributes: [{ key: 'applicationRole', value: 'editor', format: SAML_BASIC_FORMAT, type: XML_SCHEMA_STRING }],
       groupIds: [7],
     });

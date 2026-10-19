@@ -18,6 +18,7 @@ model User {
   name                    String
   username                String
   password                String
+  requirePassword         Boolean                   @default(false)
   attributes              Attribute[]
   groups                  Group[]
   legacyApplicationAccess LegacyApplicationAccess[]

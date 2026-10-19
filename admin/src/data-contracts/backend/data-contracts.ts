@@ -45,6 +45,7 @@ export interface AdminUser {
   name: string;
   username: string;
   password: string;
+  requirePassword: boolean;
   attributes: UserAttribute[];
   groups: UserGroup[];
   applications: UserApplication[];
@@ -142,7 +143,8 @@ export interface AttributeDto {
 export interface CreateUserDto {
   name: string;
   username: string;
-  password: string;
+  password?: string;
+  requirePassword?: boolean;
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];
@@ -163,6 +165,7 @@ export interface UpdateUserDto {
   name?: string;
   username?: string;
   password?: string;
+  requirePassword?: boolean;
   attributes?: AttributeDto[];
   /** @uniqueItems true */
   groupIds?: number[];

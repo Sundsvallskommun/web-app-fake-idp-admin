@@ -18,6 +18,7 @@ declare module 'express-session' {
     adminUser?: { name: string; username: string; defaultCredentials?: boolean };
     // IdP role: the selected test identity, shared by the SAML and OIDC roles.
     idpIdentityId?: string;
+    idpPasswordVerified?: boolean;
     // Seconds since epoch when that identity was picked — the OIDC `auth_time` claim.
     idpAuthTime?: number;
     /**
