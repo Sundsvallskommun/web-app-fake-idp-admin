@@ -28,6 +28,8 @@
 
 services:
   backend:
+    # Recover after Docker/host restarts, while respecting an explicit operator stop.
+    restart: unless-stopped
     build:
       context: ./backend
     ports:
@@ -82,8 +84,24 @@ services:
       # The ONLY required secret — the self-signed signing keypair (see .env.example).
       SAML_IDP_PRIVATE_KEY: ${SAML_IDP_PRIVATE_KEY:?set SAML_IDP_PRIVATE_KEY in .env}
       SAML_IDP_PUBLIC_CERT: ${SAML_IDP_PUBLIC_CERT:?set SAML_IDP_PUBLIC_CERT in .env}
+    # The entrypoint finishes SQLite migrations before starting the HTTP server.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health/up',
+          { signal: AbortSignal.timeout(4000), redirect: 'error' })
+          .then(response => process.exit(response.status === 200 ? 0 : 1))
+          .catch(() => process.exit(1));
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 6
 
   admin:
+    restart: unless-stopped
     build:
       context: ./admin
       args:
@@ -101,6 +119,9 @@ services:
         DOMAIN_NAME: localhost
         NEXT_PUBLIC_FEATURE_SHOW_USER_PASSWORDS: "false"
     environment:
+      # Standalone Next.js must accept both proxy traffic and loopback health probes.
+      HOSTNAME: "0.0.0.0"
+      BASE_PATH: ${ADMIN_BASE_PATH:-}
       HEALTH_AUTH: ${HEALTH_AUTH:-false}
       HEALTH_USERNAME: ${HEALTH_USERNAME:-}
       HEALTH_PASSWORD: ${HEALTH_PASSWORD:-}
@@ -108,7 +129,28 @@ services:
     expose:
       - "3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const headers = {};
+          if (process.env.HEALTH_AUTH === 'true') {
+            headers.Authorization = 'Basic ' + Buffer.from(
+              process.env.HEALTH_USERNAME + ':' + process.env.HEALTH_PASSWORD
+            ).toString('base64');
+          }
+          fetch('http://127.0.0.1:3000' + process.env.BASE_PATH + '/api/health/up',
+          { headers, signal: AbortSignal.timeout(4000), redirect: 'error' })
+          .then(response => process.exit(response.status === 200 ? 0 : 1))
+          .catch(() => process.exit(1));
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
 
   # Same-origin reverse proxy — the app's single entry point (see nginx.conf.template).
   # Routes the API to the backend and everything else to the admin UI. This is what
@@ -117,6 +159,7 @@ services:
   # (NGINX_ENVSUBST_FILTER keeps nginx's own $vars intact), so the same file serves
   # the default root layout and the prefixed (/idp2) layout.
   proxy:
+    restart: unless-stopped
     image: nginx:1.27-alpine
     ports:
       - "${ADMIN_PORT:-7001}:80"
@@ -131,8 +174,17 @@ services:
       - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./nginx-set-resolver.envsh:/docker-entrypoint.d/15-set-resolver.envsh:ro
     depends_on:
-      - admin
-      - backend
+      admin:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    # Probe nginx itself; app health is reported by backend/admin independently.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "-T", "4", "http://127.0.0.1:8080/health/up"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
   # frontend:
   #   build:

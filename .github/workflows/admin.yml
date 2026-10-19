@@ -20,7 +20,9 @@ on:
       - 'admin/**'
       - 'backend/**'
       - 'docker-compose.yml'
+      - 'docker-compose.external-proxy.yml'
       - 'nginx.conf.template'
+      - 'tests/compose.test.mjs'
 
 permissions:
   contents: read
@@ -90,6 +92,9 @@ jobs:
           cache: yarn
           cache-dependency-path: admin/yarn.lock
 
+      - name: Validate Compose lifecycle and health probes without containers
+        run: node --test --test-concurrency=1 tests/compose.test.mjs
+
       # Enda hemligheten stacken kräver är ett självsignerat nyckelpar — samma
       # recept som i README, med \n-escapade rader för .env-interpolationen.
       - name: Generate SAML keypair and .env
@@ -104,15 +109,29 @@ jobs:
           } > .env
 
       - name: Build and start the stack
-        run: docker compose up -d --build
+        run: docker compose up -d --build --wait --wait-timeout 300
 
-      - name: Wait for the proxy to serve the admin UI
+      - name: Verify recovery after Docker daemon restart
         run: |
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://localhost:7001/login; then exit 0; fi
+          # Do not run compose up/start here: Docker must recover the existing containers.
+          # Live-restore would keep containers running and skip the recovery being tested.
+          test "$(docker info --format '{{.LiveRestoreEnabled}}')" = false
+          ids=$(docker compose ps -q)
+          test "$(echo "$ids" | wc -l)" -eq 3
+          sudo systemctl restart docker
+          for i in $(seq 1 90); do
+            healthy=true
+            for id in $ids; do
+              if [ "$(docker inspect --format '{{.State.Running}} {{.State.Health.Status}}' "$id")" != 'true healthy' ]; then
+                healthy=false
+              fi
+            done
+            if [ "$healthy" = true ] && curl -sf -o /dev/null http://localhost:7001/login; then
+              exit 0
+            fi
             sleep 2
           done
-          echo 'Stacken svarade aldrig på :7001' >&2
+          echo 'Stacken återhämtade sig inte efter Docker-omstart' >&2
           docker compose logs --tail 50
           exit 1
 

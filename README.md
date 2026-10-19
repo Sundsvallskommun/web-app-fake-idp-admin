@@ -74,6 +74,73 @@ yarn prisma:migrate
 
 `docker-compose.yml` startar en fristående lokal stack (backend som agerar både SP och fejk-IdP, samt admin-gränssnittet) som fungerar direkt utan WSO2-uppkoppling.
 
+### Serverdrift, återstart och hälsokontroller
+
+Alla aktiva tjänster använder `restart: unless-stopped`. De startar automatiskt
+efter en Docker-/serveromstart och återstartas om huvudprocessen avslutas.
+Ett uttryckligt `docker compose stop` respekteras även efter serveromstart;
+starta då stacken igen med `docker compose up -d --wait`. `docker compose down`
+tar bort containrarna, så de kan inte återstartas förrän de har skapats igen.
+
+Docker måste själv starta vid serverns boot. På Linux med systemd kontrolleras det med:
+
+```sh
+systemctl is-enabled docker.service containerd.service
+systemctl is-active docker.service containerd.service
+```
+
+Om tjänsterna inte är aktiverade, aktivera dem enligt serverns driftrutiner
+(`sudo systemctl enable docker.service containerd.service` för en vanlig
+Docker Engine-installation). Vid extern proxy måste även den tjänstens autostart
+vara konfigurerad på servern.
+
+Vid `docker compose up` väntar admin på frisk backend och den bundlade proxyn
+på frisk backend och admin. Backend svarar på `/api/health/up` först efter att
+entrypointen har kört SQLite-migreringarna och HTTP-servern har startat.
+Admin använder sin befintliga hälsoendpoint med rätt `ADMIN_BASE_PATH` och,
+om `HEALTH_AUTH=true`, `HEALTH_USERNAME`/`HEALTH_PASSWORD`. Nginx kontrolleras
+separat via `127.0.0.1:8080/health/up` inne i containern; porten publiceras inte.
+
+Hälsokontrollerna visar att respektive HTTP-process svarar, inte att hela
+SAML-flödet eller alla databasoperationer fungerar. `unhealthy` i sig startar
+inte om en container. Vid en ren Docker-/serveromstart körs inte heller
+Compose-beroendeordningen igen; tjänsterna kan starta samtidigt och ge tillfälliga
+fel tills de är redo. Nginx fortsätter att slå upp backend/admin via Docker-DNS
+och kan återhämta sig när dessa blir tillgängliga.
+
+**Driftsätt ändrad konfiguration** genom att köra `up` med samma Compose-filer,
+projektnamn och `.env` som tidigare. `docker compose restart` applicerar inte
+ändrad restart-policy eller nya hälsokontroller. Kör från projektroten:
+
+```sh
+# Bundlad nginx
+docker compose up -d --build --wait --wait-timeout 300
+
+# Alternativt: befintlig extern proxy
+docker compose -f docker-compose.yml -f docker-compose.external-proxy.yml up -d --build --wait --wait-timeout 300
+```
+
+`--wait` rapporterar fel om tjänsterna inte blir friska inom tidsgränsen.
+Använd samma `-f`-flaggor även för felsökning i varianten med extern proxy:
+
+```sh
+docker compose ps -a
+docker compose logs --tail 100 backend admin
+docker inspect --format '{{.Name}} restart={{.HostConfig.RestartPolicy.Name}} state={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{end}}' $(docker compose ps -aq)
+```
+
+Verifiera efter en planerad serveromstart att befintliga containrar blir
+`running`/`healthy` utan manuellt `up` eller `start`, och att admin samt ett
+SAML-inloggningsflöde fungerar via den publika adressen. Vid migrationsfel,
+åtgärda orsaken utifrån backend-loggen; radera inte datavolymen. För återställning
+av denna konfigurationsändring: återgå till föregående revision och kör samma
+`up`-kommando. Ändringen inför ingen databasmigrering och behåller `backend-data`.
+
+Kontraktskontrollerna kan köras utan containerstart eller paketinstallation med
+Node.js-versionen i `.nvmrc` och Docker Compose:
+`node --test --test-concurrency=1 tests/compose.test.mjs`.
+Admin CI kör även en faktisk Docker-omstart före sina befintliga E2E-tester.
+
 ### Miljöfiler – så hänger det ihop
 
 Det finns två separata sätt att köra appen, med varsin uppsättning miljöfiler. Blanda inte ihop dem:
