@@ -16,6 +16,18 @@
 # Default layout  (both empty):  /api/* -> backend,  /* -> admin
 # Prefixed layout (/idp2):       /idp2/api/* -> backend,  /idp2/admin/* -> admin
 
+# Container-local liveness endpoint, independent of app paths and health auth.
+# Port 8080 is bound only to loopback and is not published by Compose.
+server {
+    listen 127.0.0.1:8080;
+    access_log off;
+
+    location = /health/up {
+        default_type text/plain;
+        return 200 "OK\n";
+    }
+}
+
 server {
     listen 80;
     server_name _;
