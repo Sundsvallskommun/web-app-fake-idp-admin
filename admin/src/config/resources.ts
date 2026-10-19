@@ -94,9 +94,10 @@ const users: Resource<AdminUser> = {
     name: '',
     username: '',
     password: '',
+    requirePassword: false,
     attributes: [],
   },
-  requiredFields: ['name', 'username', 'password'],
+  requiredFields: ['name', 'username'],
   columns: [
     { property: 'username' },
     { property: 'name' },

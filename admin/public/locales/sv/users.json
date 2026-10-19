@@ -27,7 +27,9 @@
     "applications": "Applikationer"
   },
   "known_attributes_help": "Detta är uppgifterna som mottagande system får i SAML-svaret. Tomma fält skickas inte.",
-  "account_help": "Namn, användarnamn och lösenord används i den lokala testinloggningen. De blir inte automatiskt SAML-attribut.",
+  "require_password": "Kräv lösenord vid inloggning",
+  "password_help": "Normalt räcker det att välja testanvändaren. Aktivera kravet om just den här användaren ska behöva ange lösenord. Lösenordet är annars valfritt.",
+  "account_help": "Kontouppgifterna används i den lokala testinloggningen. De blir inte automatiskt SAML-attribut.",
   "show_citizen_identifier": "Visa personnummer",
   "hide_citizen_identifier": "Dölj personnummer",
   "reveal_citizen_identifier_error": "Kunde inte visa personnumret",
@@ -77,6 +79,7 @@
     "confirm_text": "Format: {{format}}. Nuvarande testidentiteter: {{current}}. Efter import: {{incoming}}. ID:n som behålls: {{preserved}}. ID:n som skapas: {{generated}}. ID:n som tas bort: {{removed}}. Grupper i filen: {{groups}} (katalogen {{groupCatalog}}). Applikationer i filen: {{applications}} (katalogen {{applicationCatalog}}). En verifierad återställningsbackup laddas ned och måste bekräftas innan importen startar.",
     "confirm_button": "förbered import",
     "formats": {
+      "backup_v2": "versionerad backup v2",
       "backup_v1": "versionerad backup v1",
       "legacy_users_js": "äldre users.js"
     },

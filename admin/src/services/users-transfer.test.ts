@@ -4,7 +4,7 @@ import { isCompleteRecoveryBackup } from './users-transfer';
 
 const completePreview: UsersImportPreview = {
   confirmationToken: 'token',
-  format: 'backup-v1',
+  format: 'backup-v2',
   currentUserCount: 2,
   incomingUserCount: 2,
   preservedUserIds: 2,
@@ -23,6 +23,7 @@ describe('recovery backup validation', () => {
   });
 
   it.each([
+    ['backup without password policy', { format: 'backup-v1' as const }],
     ['legacy format', { format: 'legacy-users-js' as const }],
     ['missing user id', { preservedUserIds: 1 }],
     ['generated user id', { generatedUserIds: 1 }],

@@ -122,3 +122,118 @@ test('en grupp kan skapas och tas bort', async ({ page }) => {
   await page.getByRole('searchbox', { name: /filtrera/i }).fill(groupName);
   await expect(page.getByRole('heading', { name: /inga grupper/i })).toBeVisible();
 });
+
+test('lösenordskrav gäller per testanvändare i admin och IdP-inloggningen', async ({ page }) => {
+  const suffix = Date.now();
+  const freeName = `E2E Fri ${suffix}`;
+  const protectedName = `E2E Skyddad ${suffix}`;
+  const password = 'test-only-password';
+  const userIds: string[] = [];
+  await login(page);
+
+  try {
+    for (const [name, protectedUser] of [
+      [freeName, false],
+      [protectedName, true],
+    ] as const) {
+      await page.goto('/users/new');
+      await page.locator('#user-name').fill(name);
+      await page.locator('#user-username').fill(name);
+      const toggle = page.getByRole('switch', { name: 'Kräv lösenord vid inloggning' });
+      await expect(toggle).not.toBeChecked();
+      await expect(page.locator('#user-password')).not.toHaveAttribute('required');
+      if (protectedUser) {
+        await toggle.check();
+        await expect(page.locator('#user-password')).toHaveAttribute('required');
+        await page.locator('#user-password').fill(password);
+      }
+      await page.getByRole('button', { name: 'Spara' }).click();
+      await page.waitForURL(/\/users\/(?!new$)[^/]+$/);
+      userIds.push(new URL(page.url()).pathname.split('/').pop()!);
+      await page.reload();
+      await expect(toggle).toBeChecked({ checked: protectedUser });
+    }
+
+    // Fetch after the UI has loaded its CSRF token, so parallel initial page
+    // requests cannot leave this test holding an earlier token.
+    const csrfResponse: { data: { token: string } } = await (await page.request.get('/api/admin-auth/csrf')).json();
+    const headers = { 'x-csrf-token': csrfResponse.data.token };
+
+    // Direct API writes must preserve a usable password for protected users.
+    const invalidCreate = await page.request.post('/api/users', {
+      headers,
+      data: { name: 'Invalid', username: 'invalid', requirePassword: true },
+    });
+    expect(invalidCreate.status()).toBe(400);
+    const invalidUpdate = await page.request.put(`/api/users/${userIds[1]}`, { headers, data: { password: '' } });
+    expect(invalidUpdate.status()).toBe(400);
+    const invalidEnable = await page.request.put(`/api/users/${userIds[0]}`, {
+      headers,
+      data: { requirePassword: true },
+    });
+    expect(invalidEnable.status()).toBe(400);
+
+    await page.goto('/api/saml/idp/login');
+    const freeChoice = page.getByRole('radio', { name: freeName, exact: false });
+    const protectedChoice = page.getByRole('radio', { name: protectedName, exact: false });
+    await freeChoice.check();
+    await expect(page.getByLabel('Lösenord', { exact: true })).toBeHidden();
+    await protectedChoice.check();
+    const passwordInput = page.getByLabel('Lösenord', { exact: true });
+    await expect(passwordInput).toBeVisible();
+    await expect(passwordInput).toHaveAttribute('required');
+    await passwordInput.fill('wrong');
+    await freeChoice.check();
+    await protectedChoice.check();
+    await expect(passwordInput).toHaveValue('');
+
+    // Filtering can select another person and must update the password field too.
+    await page.getByRole('searchbox').fill(freeName);
+    await expect(passwordInput).toBeHidden();
+    await page.getByRole('searchbox').fill(protectedName);
+    await expect(passwordInput).toBeVisible();
+    await passwordInput.fill('wrong');
+    await page.getByRole('button', { name: 'Logga in som testidentitet' }).click();
+    await expect(page.getByRole('alert')).toContainText('Fel användare eller lösenord');
+    await expect(protectedChoice).toBeChecked();
+    await expect(passwordInput).toHaveValue('');
+    await passwordInput.fill(password);
+    await page.getByRole('button', { name: 'Logga in som testidentitet' }).click();
+    await expect(page.getByRole('heading', { name: `Inloggad som ${protectedName}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Logga ut testidentitet' }).click();
+    await freeChoice.check();
+    await page.getByRole('button', { name: 'Logga in som testidentitet' }).click();
+    await expect(page.getByRole('heading', { name: `Inloggad som ${freeName}` })).toBeVisible();
+
+    // Enabling the requirement invalidates a session established without a password.
+    const enable = await page.request.put(`/api/users/${userIds[0]}`, {
+      headers,
+      data: { requirePassword: true, password },
+    });
+    expect(enable.ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Välj testidentitet' })).toBeVisible();
+    await freeChoice.check();
+    await expect(passwordInput).toBeVisible();
+
+    // Disable and clear the password together: password-free login works again.
+    const disable = await page.request.put(`/api/users/${userIds[0]}`, {
+      headers,
+      data: { requirePassword: false, password: '' },
+    });
+    expect(disable.ok()).toBe(true);
+    await page.reload();
+    await freeChoice.check();
+    await expect(passwordInput).toBeHidden();
+    await page.getByRole('button', { name: 'Logga in som testidentitet' }).click();
+    await expect(page.getByRole('heading', { name: `Inloggad som ${freeName}` })).toBeVisible();
+  } finally {
+    const csrfResponse: { data: { token: string } } = await (await page.request.get('/api/admin-auth/csrf')).json();
+    for (const id of userIds) {
+      const response = await page.request.delete(`/api/users/${id}`, {
+        headers: { 'x-csrf-token': csrfResponse.data.token },
+      });
+      expect.soft(response.ok(), `Could not delete test user ${id}: ${response.status()}`).toBe(true);
+    }
+  }
+});

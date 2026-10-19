@@ -61,18 +61,23 @@ function idpCsp(_req: Request, res: Response, next: NextFunction) {
 }
 
 async function validateIdpUser(req: Request, usersService: IdpUserStore): Promise<UserWithAttributes | null> {
-  const form = { ...(req.query as Record<string, unknown>), ...(req.body as Record<string, unknown>) };
+  const form: Record<string, unknown> = req.body ?? {};
+
+  const passwordMatches = (user: UserWithAttributes): boolean =>
+    typeof form.password === 'string' && form.password.length > 0 && user.password === form.password;
+  let user: UserWithAttributes | null = null;
 
   if (typeof form.userid === 'string' && form.userid) {
-    return usersService.getUser(form.userid);
-  }
-
-  if (typeof form.username === 'string' && typeof form.password === 'string' && form.username && form.password) {
+    user = await usersService.getUser(form.userid);
+  } else if (typeof form.username === 'string' && form.username) {
     const candidates = await usersService.getUsersByUsername(form.username);
-    return candidates.find(user => user.password === form.password) ?? null;
+    // Usernames are not unique. A password can disambiguate manual login, but
+    // never select the first matching record silently.
+    const matches = candidates.length === 1 ? candidates : candidates.filter(passwordMatches);
+    user = matches.length === 1 ? matches[0] : null;
   }
 
-  return null;
+  return user && (!user.requirePassword || passwordMatches(user)) ? user : null;
 }
 
 const describeTarget = (destination: string): LoginTarget => {
@@ -89,9 +94,11 @@ async function selectedIdentity(req: Request, usersService: IdpUserStore): Promi
   }
 
   const user = await usersService.getUser(req.session.idpIdentityId);
-  if (!user) {
+  if (!user || (user.requirePassword && !req.session.idpPasswordVerified)) {
     delete req.session.idpIdentityId;
+    delete req.session.idpPasswordVerified;
     await saveSession(req);
+    return null;
   }
   return user;
 }
@@ -108,13 +115,18 @@ async function respondWithAssertion(req: Request, res: Response, user: UserWithA
   res.send(renderPostResponse({ action: built.action, samlResponse: built.samlResponse, relayState: built.relayState }));
 }
 
-async function renderLoginPage(req: Request, usersService: IdpUserStore, options?: { error?: string; notice?: string }): Promise<string> {
+async function renderLoginPage(
+  req: Request,
+  usersService: IdpUserStore,
+  options?: { error?: string; notice?: string; selectedUserId?: string },
+): Promise<string> {
   const request = req.session.idpRequest;
   const users = SAML_IDP_ENUMERATE_USERS
     ? (await usersService.getUsers()).map(user => ({
         id: user.id,
         name: user.name,
         username: user.username,
+        requirePassword: user.requirePassword,
         applications: (user.applications ?? []).map(application => application.name),
       }))
     : [];
@@ -128,10 +140,12 @@ async function renderLoginPage(req: Request, usersService: IdpUserStore, options
     target: request ? describeTarget(request.destination) : undefined,
     error: options?.error,
     notice: options?.notice,
+    selectedUserId: options?.selectedUserId,
   });
 }
 async function endIdentitySession(req: Request, res: Response): Promise<void> {
   delete req.session.idpIdentityId;
+  delete req.session.idpPasswordVerified;
   await saveSession(req);
 
   const relayState = req.query.RelayState;
@@ -196,11 +210,18 @@ export function registerIdpRoutes(app: express.Application, usersService: IdpUse
     wrap(async (req, res) => {
       const user = await validateIdpUser(req, usersService);
       if (!user) {
-        res.status(401).send(await renderLoginPage(req, usersService, { error: 'Fel användarnamn eller lösenord' }));
+        const form: Record<string, unknown> = req.body ?? {};
+        res.status(401).send(
+          await renderLoginPage(req, usersService, {
+            error: 'Fel användare eller lösenord. Försök igen.',
+            selectedUserId: typeof form.userid === 'string' ? form.userid : undefined,
+          }),
+        );
         return;
       }
 
       req.session.idpIdentityId = user.id;
+      req.session.idpPasswordVerified = user.requirePassword;
       if (req.session.idpRequest) {
         await respondWithAssertion(req, res, user);
         return;

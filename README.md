@@ -265,7 +265,17 @@ Eftersom allt nu ligger på `http://172.16.124.2` (port 80) är trafiken first-p
 Förutom att agera SAML Service Provider (logga in användare i appen) kan backend även agera fejk-**Identity Provider**: den utfärdar signerade SAML-assertions för användarna i Prisma-databasen och kan därmed ersätta den fristående `web-app-fake-sso-idp`. IdP-endpointerna ligger under `/api/saml/idp/*` (modul: `backend/src/saml-idp/`).
 
 Admininloggningen och IdP-flödet är separata. På IdP-testsidan väljer du en
-testidentitet som sparas i SAML-sessionen. Identiteten återanvänds automatiskt när
+testidentitet som sparas i SAML-sessionen. Varje testanvändare har inställningen
+`requirePassword` (standard: `false`). Slå på **Kräv lösenord vid inloggning** i
+adminformuläret för de användare som ska kräva lösenord. Då måste ett lösenord
+vara konfigurerat, och IdP-sidan visar ett lösenordsfält när personen väljs.
+Lösenordet är valfritt när kravet är avstängt. En testsession som skapats utan
+lösenord måste verifieras igen om kravet aktiveras för användaren.
+
+Backupformat version 2 bevarar lösenordskravet. Äldre version 1 och `users.js`
+kan fortfarande importeras; när inställningen saknas blir den `false`.
+
+Den valda testidentiteten återanvänds automatiskt när
 en ansluten testapplikation skickar en ny AuthnRequest och ligger kvar tills du
 uttryckligen väljer **Logga ut testidentitet**. Administration-länken i sidhuvudet
 leder till den separata admininloggningen och påverkar inte testsessionen.
@@ -282,7 +292,7 @@ Lägg till i `backend/.env.development.local` (se även `backend/.env.example.lo
 - `SAML_IDP_PRIVATE_KEY` — privat nyckel som IdP:n signerar assertions med. **Krävs.**
 - `SAML_IDP_ENTITY_ID` — IdP:ns entityID/Issuer, t.ex. `http://localhost:3001/api/saml/idp/metadata`. Används även för att bygga SSO-URL:en i metadata.
 - `SAML_SP_AUDIENCE` — Audience/SPNameQualifier i utfärdade assertions. Faller tillbaka till `SAML_ISSUER` om tom.
-- `SAML_IDP_ENUMERATE_USERS` — `true` visar en användarlista på inloggningssidan, `false` kräver användarnamn/lösenord.
+- `SAML_IDP_ENUMERATE_USERS` — `true` visar en användarlista på inloggningssidan, `false` visar manuell inloggning med användarnamn och lösenord vid behov. Lösenordskravet styrs per användare. Vid delat användarnamn måste lösenordet identifiera exakt en användare.
 - `SAML_IDP_PUBLIC_CERT` — (återanvänds) IdP:ns publika cert som motsvarar `SAML_IDP_PRIVATE_KEY`; det är detta cert som Service Providern måste lita på.
 - `SAML_IDP_BASE_PATH` — (valfritt) publik sub-path-prefix för IdP:n. T.ex. `/myidp` exponerar IdP:n på `<host>/myidp/api/saml/idp/*` (utöver standardvägen). Tom = inget prefix (standard). Se [Köra IdP:n under en sub-path](#köra-idpn-under-en-sub-path-tex-foobarcommyidp).
 - `ADMIN_URL` — fullständig URL till adminpanelen som visas i IdP-sidans header. Docker Compose härleder den från `BASE_URL`, `ADMIN_PORT` och `ADMIN_BASE_PATH`.
