@@ -14,6 +14,7 @@ describe('SAML AuthnRequest parsing', () => {
     await expect(
       parseRequest({ SAMLRequest: encode(`<?xml version="1.0" encoding="UTF-8"?>${open}Åäö${close}`), RelayState: relayState }),
     ).resolves.toEqual({
+      protocol: 'saml',
       destination: 'https://sp.test/acs?a=1&b=2',
       inResponseTo: '_request-1',
       relayState,

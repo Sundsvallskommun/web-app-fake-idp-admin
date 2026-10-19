@@ -11,6 +11,8 @@ const MAX_ENCODED_REQUEST_LENGTH = 1024 * 1024;
 const MAX_INFLATED_REQUEST_BYTES = 1024 * 1024;
 
 export interface ParsedAuthnRequest {
+  /** Discriminator for the shared `session.idpRequest` slot (see express-session.d.ts). */
+  protocol: 'saml';
   /** SP AssertionConsumerServiceURL — where the signed Response is POSTed back. */
   destination: string;
   /** The AuthnRequest ID, echoed back as the Response's InResponseTo. */
@@ -52,6 +54,7 @@ export async function parseRequest(source: { SAMLRequest?: string; RelayState?: 
   }
 
   return {
+    protocol: 'saml',
     destination: root.getAttribute('AssertionConsumerServiceURL') || '',
     inResponseTo: root.getAttribute('ID') || '',
     relayState: source.RelayState,

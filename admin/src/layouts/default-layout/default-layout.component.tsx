@@ -134,7 +134,7 @@ export default function DefaultLayout({ title, postTitle, headerSubtitle, childr
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="sm" asChild>
                     <a
-                      href={apiURL('/saml/idp/login')}
+                      href={apiURL('/idp/login')}
                       target="_blank"
                       rel="noreferrer"
                       aria-label={capitalize(t('layout:idp_session'))}

@@ -1,0 +1,15 @@
+# Files that are read INSIDE a Linux container must stay LF no matter what the
+# checkout platform does. This is not cosmetic: nginx's entrypoint runs `set -e`
+# and *sources* /docker-entrypoint.d/*.envsh, so a CRLF file turns the last line
+# into `export NGINX_RESOLVER<CR>` — an invalid variable name. The entrypoint
+# aborts, the proxy container never starts, and ADMIN_PORT is simply never bound,
+# which looks like "the admin UI is not exposed".
+*.sh                text eol=lf
+*.envsh             text eol=lf
+nginx.conf.template text eol=lf
+
+# Toolchain version files are parsed as a bare string. A trailing CR makes the
+# version read as "24\r", which fnm and several CI runners cannot resolve — the
+# same failure mode as the .envsh above, just quieter.
+.nvmrc              text eol=lf
+.node-version       text eol=lf

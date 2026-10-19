@@ -1,0 +1,25 @@
+{
+  "name": "OIDC-klient",
+  "name_zero": "OIDC-klienter",
+  "name_one": "OIDC-klient",
+  "name_other": "OIDC-klienter",
+  "name_many": "OIDC-klienter",
+  "properties": {
+    "clientId": "client_id",
+    "clientSecret": "client_secret",
+    "name": "namn",
+    "description": "beskrivning",
+    "redirectUris": {
+      "DEFAULT": "redirect-URI",
+      "DEFAULT_many": "redirect-URI:er"
+    },
+    "postLogoutRedirectUris": {
+      "DEFAULT": "post-logout-URI",
+      "DEFAULT_many": "post-logout-URI:er"
+    },
+    "isPublic": "publik klient (PKCE utan hemlighet)",
+    "requirePkce": "kräv PKCE",
+    "application": "ansluten applikation"
+  },
+  "remove_confirm": "OIDC-klienten {{name}} tas bort. Applikationer som är konfigurerade med dess client_id kan inte längre logga in."
+}

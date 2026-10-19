@@ -22,6 +22,13 @@ const validateEnv = () => {
     SAML_SP_AUDIENCE: str({ default: '' }),
     // Optional public sub-path for the IdP's browser-facing URLs (reverse-proxy setups).
     SAML_IDP_BASE_PATH: str({ default: '' }),
+    // OIDC role (this backend acting as a fake OpenID Provider). The issuer defaults
+    // to the SAML entityID's origin + the OIDC path, which is correct in every
+    // documented topology; set it only to pin `iss` to something else.
+    OIDC_ISSUER: str({ default: '' }),
+    // Back-channel base URL for the built-in test Relying Party. Defaults to
+    // loopback on this process's own port, which is right in every bundled setup.
+    OIDC_INTERNAL_URL: str({ default: '' }),
     // Local operator account for the admin panel. It is deliberately separate
     // from the fake identities stored in the database.
     ADMIN_USERNAME: str(),

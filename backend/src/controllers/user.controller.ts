@@ -5,10 +5,12 @@ import {
   AdminUserResponse,
   AssertionPreviewResponse,
   CitizenIdentifierResponse,
+  ClaimsPreviewResponse,
   ImportUsersResponse,
   UserApiResponse,
   UsersImportPreviewResponse,
 } from '@/responses/user.response';
+import { claimsPreviewForUser } from '@/oidc-idp/claims';
 import { assertionDataForUser } from '@/saml-idp/response-builder';
 import { CreateUserDto, ImportUsersDto, PreviewUsersImportDto, UpdateUserDto } from '@dtos/user.dto';
 import authMiddleware from '@middlewares/auth.middleware';
@@ -105,6 +107,18 @@ export class UserController {
     }
     response.setHeader('Cache-Control', 'no-store');
     return response.send({ data: assertionDataForUser(maskUser(user)), message: 'success' });
+  }
+
+  @Get('/users/:id/claims-preview')
+  @OpenAPI({ summary: 'Preview the OIDC claims this user would receive, with sensitive values masked' })
+  @ResponseSchema(ClaimsPreviewResponse)
+  async getClaimsPreview(@Param('id') id: string, @Res() response: any) {
+    const user = await this.users.getUser(id);
+    if (!user) {
+      throw new HttpException(404, 'User not found');
+    }
+    response.setHeader('Cache-Control', 'no-store');
+    return response.send({ data: claimsPreviewForUser(maskUser(user)), message: 'success' });
   }
 
   @Get('/users/:id')

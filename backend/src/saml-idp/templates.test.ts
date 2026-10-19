@@ -10,7 +10,7 @@ describe('Fake IdP pages', () => {
       action: '/api/saml/idp/authenticate',
       csrfToken,
       navigation,
-      target: { name: 'app.example.test', url: 'https://app.example.test/saml/callback' },
+      target: { name: 'app.example.test', url: 'https://app.example.test/saml/callback', protocolLabel: 'SAML-testinloggning' },
       users,
       enumerateUsers: true,
     });
@@ -22,6 +22,21 @@ describe('Fake IdP pages', () => {
     expect(html).toContain('test.person');
     expect(html).toContain('Logga in och fortsätt');
     expect(html).toContain('Administration');
+  });
+
+  it('labels the page with the protocol that started the login', () => {
+    const html = renderLogin({
+      action: '/api/saml/idp/authenticate',
+      csrfToken,
+      navigation,
+      target: { name: 'Testapplikationen', url: 'https://rp.example.test/callback', protocolLabel: 'OIDC-testinloggning' },
+      users,
+      enumerateUsers: true,
+    });
+
+    expect(html).toContain('OIDC-testinloggning');
+    expect(html).not.toContain('SAML-testinloggning');
+    expect(html).toContain('Testapplikationen');
   });
 
   it('renders the application filter and badges when identities have applications', () => {
